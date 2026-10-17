@@ -17,6 +17,8 @@ spec:
     spec:
       serviceAccountName: secure-notes
       automountServiceAccountToken: false
+      # No Docker-link env vars: a Service named redis would inject REDIS_PORT=tcp://… into every pod.
+      enableServiceLinks: false
       # Pod Security "restricted" and OpenShift restricted-v2 compatible:
       # no fixed UID here, so OpenShift can assign its own; the image's
       # numeric USER 1000 satisfies runAsNonRoot everywhere else.

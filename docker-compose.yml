@@ -38,7 +38,7 @@ services:
     volumes:
       - mock-data:/data
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:4566/health"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4566/health"] # not localhost: Alpine resolves it to ::1
       interval: 2s
       retries: 20
 

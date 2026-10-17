@@ -19,6 +19,8 @@ spec:
         app.kubernetes.io/name: redis
     spec:
       automountServiceAccountToken: false
+      # No Docker-link env vars: a Service named redis would inject REDIS_PORT=tcp://… into every pod.
+      enableServiceLinks: false
       # The image's redis user. The openshift overlay removes these three.
       securityContext:
         runAsNonRoot: true

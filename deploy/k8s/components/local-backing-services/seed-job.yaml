@@ -17,6 +17,8 @@ spec:
     spec:
       restartPolicy: OnFailure
       automountServiceAccountToken: false
+      # No Docker-link env vars: a Service named redis would inject REDIS_PORT=tcp://… into every pod.
+      enableServiceLinks: false
       securityContext:
         runAsNonRoot: true
         seccompProfile:

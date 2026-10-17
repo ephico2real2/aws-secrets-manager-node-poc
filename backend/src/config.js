@@ -7,7 +7,12 @@
 const env = process.env;
 
 const bool = (v, d = false) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(v));
-const num = (v, d) => (v === undefined || v === '' ? d : Number(v));
+// Non-numeric values fall back to the default: in Kubernetes a Service named
+// "redis" injects REDIS_PORT=tcp://10.96.x.x:6379 unless enableServiceLinks is off.
+const num = (v, d) => {
+  const n = Number(v);
+  return v === undefined || v === '' || !Number.isFinite(n) ? d : n;
+};
 
 export const config = Object.freeze({
   nodeEnv: env.NODE_ENV ?? 'development',
