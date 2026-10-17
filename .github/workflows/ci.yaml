@@ -31,6 +31,8 @@ jobs:
   checks:
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: write # publishes the resolved lockfile to ci-captures
     steps:
       - uses: actions/checkout@v5
 
@@ -82,11 +84,12 @@ jobs:
           cfn-lint infra/cloudformation.yaml > /tmp/cfn-lint.txt 2>&1 && { echo "cfn-lint: clean"; exit 0; }
           cat /tmp/cfn-lint.txt; grep -E '^[EW][0-9]' /tmp/cfn-lint.txt | head -10 | sed 's|^|::error title=cfn-lint::|'; exit 1
 
-      - name: Keep the lockfile this install resolved
-        uses: actions/upload-artifact@v4
-        with:
-          name: package-lock
-          path: backend/package-lock.json
+      - name: Publish the lockfile this install resolved (until one is committed)
+        if: hashFiles('backend/package-lock.json') != '' && github.event_name == 'push'
+        run: |
+          git ls-files --error-unmatch backend/package-lock.json >/dev/null 2>&1 && { echo "lockfile is committed"; exit 0; }
+          mkdir -p .tmp/lock && cp backend/package-lock.json .tmp/lock/
+          scripts/ci-publish.sh .tmp/lock "lockfile_run${{ github.run_id }}"
 
   build:
     needs: checks
@@ -322,4 +325,17 @@ jobs:
               docker push -q "$base/$name:$tag"
               echo "pushed $base/$name:$tag" | tee -a "$GITHUB_STEP_SUMMARY"
             done
+          done
+
+      - name: Can a cluster pull them without credentials?
+        run: |
+          docker logout ghcr.io
+          for name in app aws-mock; do
+            img="ghcr.io/${{ github.repository }}/$name:sha-${GITHUB_SHA::7}"
+            docker rmi -f "$img" >/dev/null 2>&1 || true
+            if docker pull -q "$img" >/dev/null 2>&1; then
+              echo "public: $img" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning title=GHCR package is private::$img cannot be pulled anonymously. Make the package public (Package settings → Change visibility) or give the cluster a pull secret."
+            fi
           done

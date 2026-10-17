@@ -25,11 +25,18 @@ root=$("$K" -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "
 
 echo "== Pod Security admission on the namespace"
 psa=$("$K" get ns "$NS" -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}')
-[ "$psa" = restricted ] && pass "enforce=restricted: the API server rejects non-compliant pods" || fail "PSA enforce label is '${psa:-unset}'"
+if [ "$psa" = restricted ]; then
+  pass "enforce=restricted: the API server rejects non-compliant pods"
+elif [ -z "$psa" ] && "$K" api-resources --api-group=security.openshift.io 2>/dev/null | grep -q securitycontextconstraints; then
+  echo "  info  no PSA enforce label: on OpenShift the restricted-v2 SCC enforces the same rules"
+else
+  fail "PSA enforce label is '${psa:-unset}'"
+fi
 
-echo "== Kubernetes Secrets in the namespace (names and keys only)"
-"$K" -n "$NS" get secrets -o go-template='{{range .items}}  {{.metadata.name}}: {{range $k, $v := .data}}{{$k}} {{end}}{{"\n"}}{{end}}'
-others=$("$K" -n "$NS" get secrets -o name | grep -v 'secret/local-bootstrap-' || true)
+echo "== Kubernetes Secrets in the namespace (Opaque ones; names and keys only)"
+# OpenShift adds its own dockercfg and token Secrets to every project; only Opaque ones hold app data.
+"$K" -n "$NS" get secrets -o go-template='{{range .items}}{{if eq .type "Opaque"}}  {{.metadata.name}}: {{range $k, $v := .data}}{{$k}} {{end}}{{"\n"}}{{end}}{{end}}'
+others=$("$K" -n "$NS" get secrets -o go-template='{{range .items}}{{if eq .type "Opaque"}}{{.metadata.name}}{{"\n"}}{{end}}{{end}}' | grep -v '^local-bootstrap-' | grep . || true)
 [ -z "$others" ] && pass "the only Secret is the one-time bootstrap; the app's credentials are not stored in Kubernetes" || fail "unexpected Secrets: $others"
 
 echo "== the bootstrap passwords were burned by the seed job"
