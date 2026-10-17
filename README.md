@@ -45,6 +45,13 @@ a one-shot `seed` job and the app. The seed job generates random passwords, stor
 in Secrets Manager, applies them to Postgres and Redis, then replaces the bootstrap
 passwords. After startup, the only copy of every credential is in Secrets Manager.
 
+**Agent mode:** the same stack with the app reading its secrets through a local agent
+on its own `localhost:2773`, as `SECRETS_MODE=agent` does on EC2:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.agent.yml up --build
+```
+
 > LocalStack's image now requires an account and auth token, so the project ships its
 > own zero-dependency mock. Point `AWS_MOCK_ENDPOINT` at LocalStack if you prefer it.
 
@@ -78,6 +85,20 @@ KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/openshift
 oc -n secure-notes get route secure-notes        # open https://<that host>
 ```
 
+**A cluster that can't reach ghcr.io or Docker Hub:** copy the four images into a
+registry it can reach, then deploy the overlay the script generates (it checks that
+every image comes from your registry):
+
+```bash
+skopeo login registry.example.com             # or podman/oc registry login
+scripts/mirror-images.sh registry.example.com/team/secure-notes
+KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/mirror
+```
+
+It uses `skopeo` (or `oc image mirror` with `MIRROR_TOOL=oc`); `BASE_OVERLAY=kind`
+mirrors for the kind overlay instead. A private registry also needs a pull secret
+linked to the `secure-notes` and `default` service accounts.
+
 **EKS or ROSA, real AWS:** fill in the placeholders in `deploy/k8s/overlays/aws/`,
 create the IAM role for IRSA (`infra/irsa-trust-policy.example.json`) and the `rds-ca`
 ConfigMap, then `kubectl apply -k deploy/k8s/overlays/aws`. The IRSA role gets the same
@@ -104,11 +125,18 @@ with TLS and an RBAC user, the least-privilege instance role, and an IMDSv2-only
 instance with no inbound ports, running the app under a hardened systemd unit.
 Pass `SecretsMode=agent` to use the AWS Workload Credentials Provider instead of the SDK.
 
+The Redis password rotates too: a small function in the stack
+([`infra/rotation/elasticache-user-rotation.js`](infra/rotation/elasticache-user-rotation.js),
+unit-tested and copied into the template by `scripts/sync-rotation-lambda.js`) adds a
+new password next to the old one (ElastiCache users accept two), moves `AWSCURRENT`,
+then retires the old password, every `RedisRotationDays` (30 by default). The app
+re-reads the secret when Redis rejects the old password, so nothing restarts.
+
 ### Part C from GitHub Actions (manual)
 
 [`.github/workflows/aws.yaml`](.github/workflows/aws.yaml) runs Part C end to end on demand:
 deploy the stack, check the instance through SSM Run Command (no secrets in the
-config or the process environment, IMDSv1 rejected), rotate the RDS-managed secret,
+config or the process environment, IMDSv1 rejected), rotate the RDS-managed and Redis secrets,
 photograph the real dashboard through an SSM port forward, list who read the secrets
 from CloudTrail, then tear everything down (snapshot, leftover secret and artifacts
 included) unless you ask to keep it.
@@ -130,17 +158,19 @@ but cannot read any secret. One-time setup:
 [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml):
 
 ```
-checks ─► build ─┬─► compose ─┐
-                 └─► kind ────┴─► images (main only)
+checks ─► build ─┬─► compose (sdk, agent) ─┐
+         (scan,  ├─► kind ─────────────────┼─► images (main only: push, sign, attest)
+          SBOM)  └─► mirror ───────────────┘
 ```
 
 | Job | What it proves |
 | --- | --- |
-| `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (the OpenShift Route is skipped: it has no public schema); `cfn-lint` on both CloudFormation templates; actionlint on every workflow. |
-| `build` | `docker compose build`, once; the images are saved and handed to every later job. |
-| `compose` | Path A on the runner: the dashboard walk, the bootstrap passwords burned, the end-to-end smoke test. |
+| `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (the OpenShift Route is skipped: it has no public schema); `cfn-lint` on both CloudFormation templates; actionlint on every workflow; the Redis rotation function's tests, and that the copy in the template matches it. |
+| `build` | `docker compose build`, once; a CycloneDX SBOM per image (syft) and a vulnerability scan (grype) that fails on any CRITICAL vulnerability with a fix; the images are saved and handed to every later job. |
+| `compose (sdk)`, `compose (agent)` | Path A on the runner, once per secrets mode: the dashboard walk, the bootstrap passwords burned, the end-to-end smoke test. In agent mode also: the agent served the app's fetches, its SSRF token is visible only to the agent and the app, and it rejects a request without the token. |
 | `kind` | Path B under Pod Security `restricted`: who each container runs as, that Kubernetes holds no copy of the app's credentials, the bootstrap burned, SCRAM-only password changes in the Postgres log, and the smoke test. |
-| `images` | On `main`, pushes the exact images that passed to GHCR. |
+| `mirror` | `scripts/mirror-images.sh` copies all four images into a throwaway registry; the generated overlay pulls only from it and the copies match the originals. |
+| `images` | On `main`, pushes the exact images that passed to GHCR, signs each digest with cosign (keyless, this workflow's GitHub identity) and attaches its SBOM as a signed attestation, then verifies both without logging in. |
 | `aws (Part C)` | Separate, manual workflow (above): Part C on real AWS, then teardown. Linted on every push. |
 
 The dashboard walk (`scripts/capture/`, adapted from
@@ -169,6 +199,19 @@ run's summary page.
 | **Network** | Security groups; NetworkPolicies | No inbound to the server; in Kubernetes, default-deny with the backing services reachable only from the app. |
 | **Small supply chain** | `backend/package.json` | Four runtime dependencies; HTTP, logging and headers use Node built-ins. |
 
+**Check an image yourself** before you run it:
+
+```bash
+cosign verify ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app:latest \
+  --certificate-identity https://github.com/ephico2real2/aws-secrets-manager-node-poc/.github/workflows/ci.yaml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com
+cosign verify-attestation --type cyclonedx <same arguments>      # the signed SBOM
+```
+
+A cluster can enforce the same rule at admission (OpenShift's sigstore image policies,
+or Kyverno / policy-controller on other clusters). The SBOMs and scan reports of every
+build are also in the run's `…build-supply-chain` folder on `ci-captures`.
+
 ## SDK mode vs Workload Credentials Provider mode
 
 `SECRETS_MODE=sdk` (default): the app calls `GetSecretValue` with the AWS SDK v3 and
@@ -177,6 +220,7 @@ Provider (formerly the Secrets Manager Agent) on `http://localhost:2773` with th
 token from `/var/run/awssmatoken`, and forces `refreshNow=true` after an auth failure,
 because the agent does not invalidate its cache on rotation. AWS notes that anyone on
 the host with the token can read the agent's cache, so `sdk` is the default.
+CI runs Path A in both modes (`docker-compose.agent.yml`).
 
 ## Project layout
 
@@ -188,7 +232,8 @@ frontend/       dashboard (vanilla JS, strict CSP, textContent only)
 dev/            Secrets Manager + STS + agent mock (dev/CI only), Redis entrypoint
 deploy/k8s/     Kustomize base, component and overlays (kind, OpenShift, AWS)
 docs/           GUIDE.md: the step-by-step guide for all three paths
-infra/          CloudFormation (app stack + GitHub OIDC bootstrap), systemd unit, example IAM and IRSA policies
+infra/          CloudFormation (app stack + GitHub OIDC bootstrap), rotation/ (Redis rotation function),
+                systemd unit, example IAM and IRSA policies
 scripts/        the same scripts on a laptop and in CI; capture/ = the dashboard walk
 .github/        ci.yaml and the browser-walk action
 ```
@@ -196,9 +241,10 @@ scripts/        the same scripts on a laptop and in CI; capture/ = the dashboard
 ## Production checklist
 
 - [ ] `NODE_ENV=production` (the image default): enforces the startup guards; demo routes are not registered.
-- [ ] Rotation on: RDS managed rotation for the DB secret; Secrets Manager's ElastiCache rotation function for the Redis user.
+- [x] Rotation on: RDS managed rotation for the DB secret; the stack's rotation function for the Redis user.
 - [ ] A dedicated least-privilege DB role for the app instead of the RDS master user.
 - [ ] CloudTrail plus an alarm on `GetSecretValue` from any principal other than the app role.
 - [ ] Resource policies on the secrets allowing only the app role and admins.
 - [ ] No `--inspect`, no shell for the service user, Session Manager logging on.
 - [ ] The committed `package-lock.json`, installed with `npm ci`.
+- [ ] Only signed images admitted: verify the cosign signature at the cluster (see CI above).
