@@ -1,0 +1,6 @@
+NAME                      IMAGE                              COMMAND                  SERVICE    CREATED          STATUS                      PORTS
+secure-notes-app-1        secure-notes-app:dev               "docker-entrypoint.s…"   app        55 seconds ago   Up 51 seconds               127.0.0.1:3000->3000/tcp
+secure-notes-aws-mock-1   secure-notes-aws-mock:dev          "docker-entrypoint.s…"   aws-mock   55 seconds ago   Up 54 seconds (healthy)     4566/tcp
+secure-notes-postgres-1   docker.io/library/postgres:16      "docker-entrypoint.s…"   postgres   55 seconds ago   Up 54 seconds (healthy)     5432/tcp
+secure-notes-redis-1      docker.io/library/redis:7-alpine   "/bin/sh /dev-script…"   redis      55 seconds ago   Up 54 seconds (healthy)     6379/tcp
+secure-notes-seed-1       secure-notes-app:dev               "docker-entrypoint.s…"   seed       55 seconds ago   Exited (0) 51 seconds ago   
