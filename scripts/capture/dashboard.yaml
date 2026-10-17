@@ -10,7 +10,7 @@ pages:
     fullPage: true
     before: 3000
     expect:
-      text: [Secure Notes, Secrets in memory, Postgres credential, Redis credential]
+      text: [Secure Notes, Secrets in memory, Postgres credential, Redis credential, "${PLATFORM_LABEL}"]
       absent: [Cannot reach the API]
 
   # 2. Rotate the database password, drop the app's connections, and watch it
@@ -23,7 +23,7 @@ pages:
       - waitForText: finishSecret
       - click: Drop connections
       - waitForText: Reconnected to Postgres with the rotated credential
-      - wait: 2500
+      - wait: 4000 # let the "Dropped …" toast fade before the shot
     expect:
       text: [createSecret, setSecret, testSecret, finishSecret, Reconnected to Postgres with the rotated credential]
 
@@ -36,7 +36,7 @@ pages:
       - waitForText: revokeOld
       - click: Drop connections
       - waitForText: Reconnected to Redis with the rotated credential
-      - wait: 2500
+      - wait: 4000
     expect:
       text: [revokeOld, Reconnected to Redis with the rotated credential]
 

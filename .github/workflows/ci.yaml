@@ -148,7 +148,7 @@ jobs:
         uses: ./.github/actions/browser-walk
         with:
           label: compose
-          env-json: '{"BASE":"http://localhost:3000"}'
+          env-json: '{"BASE":"http://localhost:3000","PLATFORM_LABEL":"dummy keys, for the mock only"}'
 
       - name: Check — bootstrap burned, end-to-end smoke test
         run: |
@@ -193,8 +193,10 @@ jobs:
         include:
           - name: kind # plain Kubernetes, Pod Security "restricted" enforced
             overlay: deploy/k8s/overlays/kind
+            platform_label: no SA token · restricted PSA
           - name: openshift-sim # the openshift overlay, every pod as an arbitrary UID with GID 0
             overlay: deploy/k8s/ci/openshift-sim
+            platform_label: arbitrary UID · restricted-v2
     name: kind (${{ matrix.name }})
     steps:
       - uses: actions/checkout@v5
@@ -246,7 +248,7 @@ jobs:
         uses: ./.github/actions/browser-walk
         with:
           label: ${{ matrix.name }}
-          env-json: '{"BASE":"http://localhost:3000"}'
+          env-json: '{"BASE":"http://localhost:3000","PLATFORM_LABEL":"${{ matrix.platform_label }}"}'
 
       - name: Check — identities, Secrets, burned bootstrap, SCRAM-only logs, smoke test
         run: |

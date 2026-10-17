@@ -27,8 +27,8 @@ echo "== Pod Security admission on the namespace"
 psa=$("$K" get ns "$NS" -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}')
 [ "$psa" = restricted ] && pass "enforce=restricted: the API server rejects non-compliant pods" || fail "PSA enforce label is '${psa:-unset}'"
 
-echo "== Kubernetes Secrets in the namespace"
-"$K" -n "$NS" get secrets -o custom-columns='NAME:.metadata.name,KEYS:.data' --no-headers | sed 's/^/  /'
+echo "== Kubernetes Secrets in the namespace (names and keys only)"
+"$K" -n "$NS" get secrets -o go-template='{{range .items}}  {{.metadata.name}}: {{range $k, $v := .data}}{{$k}} {{end}}{{"\n"}}{{end}}'
 others=$("$K" -n "$NS" get secrets -o name | grep -v 'secret/local-bootstrap-' || true)
 [ -z "$others" ] && pass "the only Secret is the one-time bootstrap; the app's credentials are not stored in Kubernetes" || fail "unexpected Secrets: $others"
 

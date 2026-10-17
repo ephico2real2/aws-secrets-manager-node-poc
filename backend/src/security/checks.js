@@ -100,7 +100,10 @@ export async function runSecurityChecks({ config, redactor, provider }) {
   try {
     const limits = await readFile('/proc/self/limits', 'utf8');
     const soft = limits.split('\n').find((l) => l.startsWith('Max core file size'))?.split(/\s{2,}/)[1];
-    add('core-dumps', 'Core dumps disabled', soft === '0' ? 'pass' : 'warn', soft === '0' ? 'Core file size limit is 0.' : `Core file limit is "${soft}". A crash dump would contain decrypted secrets; set LimitCORE=0.`);
+    const advice = env.KUBERNETES_SERVICE_HOST
+      ? 'Kubernetes has no per-pod setting for this: set it in the container runtime\'s default ulimits on the nodes.'
+      : 'Set LimitCORE=0 (systemd) or ulimits core=0 (Docker).';
+    add('core-dumps', 'Core dumps disabled', soft === '0' ? 'pass' : 'warn', soft === '0' ? 'Core file size limit is 0.' : `Core file limit is "${soft}". A crash dump would contain decrypted secrets. ${advice}`);
   } catch {
     add('core-dumps', 'Core dumps disabled', 'skip', 'Not on Linux.');
   }

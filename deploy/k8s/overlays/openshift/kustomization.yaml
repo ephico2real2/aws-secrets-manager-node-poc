@@ -16,6 +16,12 @@ resources:
 components:
   - ../../components/local-backing-services
 
+configMapGenerator:
+  - name: secure-notes-config
+    behavior: merge
+    literals:
+      - APP_PLATFORM=openshift
+
 images:
   - name: secure-notes-app
     newName: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app

@@ -14,8 +14,18 @@ const num = (v, d) => {
   return v === undefined || v === '' || !Number.isFinite(n) ? d : n;
 };
 
+// Where the app runs, for labels and advice only (never for security decisions).
+// APP_PLATFORM overrides; the openshift overlay sets it.
+function detectPlatform() {
+  if (env.APP_PLATFORM) return env.APP_PLATFORM;
+  if (env.KUBERNETES_SERVICE_HOST) return 'kubernetes';
+  if (env.AWS_MOCK_ENDPOINT) return 'compose';
+  return 'ec2';
+}
+
 export const config = Object.freeze({
   nodeEnv: env.NODE_ENV ?? 'development',
+  platform: detectPlatform(),
   port: num(env.PORT, 3000),
   // On EC2 the app listens on loopback only; you reach it through an SSM port
   // forward or a reverse proxy. Docker needs 0.0.0.0 inside the container.

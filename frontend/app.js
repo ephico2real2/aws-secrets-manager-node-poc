@@ -64,6 +64,14 @@ async function loadConfig() {
     cfg.usingLocalMock ? el('span', { class: 'pill pill-info' }, 'local mock') : el('span', { class: 'pill' }, 'AWS'),
     cfg.demoMode ? el('span', { class: 'pill pill-warn' }, 'demo mode') : null,
   );
+  const where = {
+    compose: ['Docker Compose', 'container · dummy keys, for the mock only'],
+    kubernetes: ['Kubernetes', 'pod · no SA token · restricted PSA'],
+    openshift: ['OpenShift', 'pod · arbitrary UID · restricted-v2'],
+    ec2: ['EC2', 'EC2 instance role · IMDSv2'],
+  }[cfg.platform] ?? ['', 'IAM role, no keys'];
+  $('eyebrow').textContent = `AWS Secrets Manager · Node.js${where[0] ? ` on ${where[0]}` : ''}`;
+  $('flow-app').textContent = where[1];
   $('flow-cache').textContent = cfg.secretsMode === 'agent' ? 'agent cache + short app cache' : 'TTL + refresh on auth failure';
   $('flow-channel').textContent = cfg.usingLocalMock
     ? 'local mock (HTTP)'

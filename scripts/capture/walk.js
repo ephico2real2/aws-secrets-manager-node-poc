@@ -51,7 +51,11 @@ function check(page, text) {
       }
       if (page.screenshot !== false) await p.screenshot({ path: `${S}/${page.name}.png`, fullPage: !!page.fullPage });
       const text = await p.evaluate(() => document.body.innerText);
-      const line = text.split('\n').filter((l) => l.trim()).slice(0, 8).join(' | ');
+      // Evidence: the expected strings as found on the page, else the page's first lines.
+      const wanted = (page.expect && page.expect.text) || [];
+      const line = wanted.length
+        ? `found ${wanted.filter((w) => text.includes(w)).map((w) => JSON.stringify(w)).join(', ')}`
+        : text.split('\n').filter((l) => l.trim()).slice(0, 6).join(' | ');
       const why = check(page, text);
       if (why.length) {
         failures++;

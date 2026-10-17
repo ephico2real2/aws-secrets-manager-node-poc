@@ -11,7 +11,7 @@
   <header class="top">
     <div class="wrap top-inner">
       <div>
-        <p class="eyebrow">AWS Secrets Manager · Node.js on EC2</p>
+        <p class="eyebrow" id="eyebrow">AWS Secrets Manager · Node.js</p>
         <h1>Secure Notes</h1>
         <p class="lede">A small notes app whose Postgres and Redis credentials are never on disk or in the environment.
           Watch them load, rotate and recover, and try to leak them.</p>
@@ -24,7 +24,7 @@
     <section class="flow" aria-label="How credentials flow">
       <ol class="flow-chain">
         <li class="node"><span class="node-title">Browser</span><span class="node-sub">never sees a credential</span></li>
-        <li class="node node-app"><span class="node-title">Node app</span><span class="node-sub">EC2 instance role · IMDSv2</span></li>
+        <li class="node node-app"><span class="node-title">Node app</span><span class="node-sub" id="flow-app">IAM role, no keys</span></li>
         <li class="node node-cache"><span class="node-title">In-memory cache</span><span class="node-sub" id="flow-cache">TTL + refresh on auth failure</span></li>
         <li class="node node-sm"><span class="node-title">Secrets Manager</span><span class="node-sub" id="flow-channel">via VPC endpoint · KMS</span></li>
       </ol>

@@ -25,6 +25,7 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
 
   router.get('/api/config', async () => ({
     secretsMode: provider.mode,
+    platform: config.platform,
     region: config.region,
     environment: config.nodeEnv,
     usingLocalMock: Boolean(config.awsEndpoint),
