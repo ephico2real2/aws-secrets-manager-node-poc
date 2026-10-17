@@ -122,7 +122,10 @@ jobs:
           set -o pipefail
           mkdir -p output; rc=0; scripts/scan-images.sh output/supply-chain 2>&1 | tee output/scan.log || rc=$?
           { echo "## Images — SBOM and vulnerability scan"; echo; cat output/supply-chain/summary.md; } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
-          if [ "$rc" != 0 ]; then grep -h -i critical output/supply-chain/grype-*-gate.txt | head -10 | sed 's|^|::error title=fixable CRITICAL vulnerability::|'; fi
+          if [ "$rc" != 0 ]; then
+            grep -h -i critical output/supply-chain/grype-*-gate.txt 2>/dev/null | head -10 | sed 's|^|::error title=fixable CRITICAL vulnerability::|' || true
+            tail -n 3 output/scan.log | sed 's|^|::error title=scan-images.sh::|'
+          fi
           exit $rc
 
       - name: Publish the SBOMs and scan reports

@@ -21,8 +21,11 @@ install_tool() {
   if [ -x "$BIN/$name" ] && "$BIN/$name" version 2>/dev/null | grep -q "$v"; then return; fi
   local base="https://github.com/anchore/$name/releases/download/v$v" tgz="${name}_${v}_linux_amd64.tar.gz" tmp
   tmp=$(mktemp -d)
-  curl -fsSL -o "$tmp/$tgz" "$base/$tgz"
-  curl -fsSL -o "$tmp/checksums.txt" "$base/${name}_${v}_checksums.txt"
+  local url
+  for url in "$base/$tgz" "$base/${name}_${v}_checksums.txt"; do
+    curl -fsSL -o "$tmp/${url##*/}" "$url" || { echo "download failed: $url" >&2; exit 1; }
+  done
+  mv "$tmp/${name}_${v}_checksums.txt" "$tmp/checksums.txt"
   (cd "$tmp" && grep " $tgz\$" checksums.txt | sha256sum -c --quiet -)
   tar -xzf "$tmp/$tgz" -C "$BIN" "$name"
   rm -rf "$tmp"
