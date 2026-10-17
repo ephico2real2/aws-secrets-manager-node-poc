@@ -10,3 +10,4 @@ captures/
 .tmp/
 images.tar.gz
 image-ids.txt
+deploy/k8s/overlays/mirror/

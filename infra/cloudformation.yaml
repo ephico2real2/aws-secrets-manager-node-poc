@@ -25,6 +25,12 @@ Parameters:
     AllowedValues: [sdk, agent]
     Default: sdk
     Description: sdk = AWS SDK in the app; agent = AWS Workload Credentials Provider on localhost:2773.
+  RedisRotationDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 365
+    Description: Days between automatic rotations of the Redis (ElastiCache user) password.
   AwcpVersion:
     Type: String
     Default: 3.1.1
@@ -297,6 +303,165 @@ Resources:
     Properties:
       Roles: [!Ref AppRole]
 
+  # ------------------------------------------------ Redis password rotation --
+  # RDS rotates the database password itself. For the Redis user, Secrets
+  # Manager calls this function on a schedule: it adds a new password next to
+  # the old one (ElastiCache users accept two), moves AWSCURRENT, then retires
+  # the old password. The app re-reads the secret on WRONGPASS, so no restart.
+  # It only talks to the Secrets Manager and ElastiCache APIs, never to Redis,
+  # so it needs no VPC access.
+  RedisRotationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: lambda.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: rotate-redis-user
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: ThisSecretOnly
+                Effect: Allow
+                Action:
+                  - secretsmanager:DescribeSecret
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:PutSecretValue
+                  - secretsmanager:UpdateSecretVersionStage
+                Resource: !Ref RedisAppSecret
+              - Sid: NewPasswords
+                Effect: Allow
+                Action: secretsmanager:GetRandomPassword
+                Resource: '*'
+              - Sid: ThisUserOnly
+                Effect: Allow
+                Action: [elasticache:DescribeUsers, elasticache:ModifyUser]
+                Resource: !GetAtt CacheAppUser.Arn
+              - Sid: KeyViaSecretsManagerOnly
+                Effect: Allow
+                Action: [kms:Decrypt, kms:GenerateDataKey]
+                Resource: !GetAtt SecretsKey.Arn
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub secretsmanager.${AWS::Region}.amazonaws.com
+
+  RedisRotationLogs:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub /aws/lambda/${AWS::StackName}-redis-rotation
+      RetentionInDays: 30
+
+  RedisRotationFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub ${AWS::StackName}-redis-rotation
+      Description: Rotates the ElastiCache user password stored in the Redis secret
+      Runtime: nodejs22.x
+      Handler: index.handler
+      Role: !GetAtt RedisRotationRole.Arn
+      Timeout: 900 # each ElastiCache user change takes a few minutes to apply
+      MemorySize: 256
+      LoggingConfig:
+        LogGroup: !Ref RedisRotationLogs
+      Environment:
+        Variables:
+          USER_ID: !Ref CacheAppUser
+      Code:
+        ZipFile: | # synced from infra/rotation/elasticache-user-rotation.js
+          // Secrets Manager rotation for an ElastiCache RBAC user (inlined into
+          // infra/cloudformation.yaml by scripts/sync-rotation-lambda.js; edit HERE).
+          // ElastiCache users accept two passwords, so there is no moment when the app's
+          // password stops working before it can fetch the new one.
+          'use strict';
+          const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+          const clients = () => {
+            if (globalThis.__rotationClients) return globalThis.__rotationClients; // tests
+            const { SecretsManager } = require('@aws-sdk/client-secrets-manager');
+            const { ElastiCache } = require('@aws-sdk/client-elasticache');
+            return { sm: new SecretsManager({}), ec: new ElastiCache({}) };
+          };
+          const read = async (sm, id, stage, token) =>
+            JSON.parse((await sm.getSecretValue({ SecretId: id, VersionStage: stage, VersionId: token })).SecretString);
+
+          async function settle(ec, userId) {
+            const wait = Number(process.env.WAIT_MS || 10000);
+            for (let i = 0; i < 60; i++) {
+              const u = (await ec.describeUsers({ UserId: userId })).Users[0];
+              if (u.Status === 'active') return u;
+              await sleep(wait);
+            }
+            throw new Error(`user ${userId} still modifying`);
+          }
+          const setPasswords = async (ec, userId, passwords) => {
+            await settle(ec, userId);
+            await ec.modifyUser({ UserId: userId, AuthenticationMode: { Type: 'password', Passwords: passwords } });
+            return settle(ec, userId);
+          };
+
+          exports.handler = async ({ SecretId: id, ClientRequestToken: token, Step: step }) => {
+            const { sm, ec } = clients();
+            const userId = process.env.USER_ID;
+            const meta = await sm.describeSecret({ SecretId: id });
+            if (!meta.RotationEnabled) throw new Error('rotation is not enabled');
+            const stages = (meta.VersionIdsToStages || {})[token];
+            if (!stages) throw new Error('unknown version');
+            if (stages.includes('AWSCURRENT')) return; // already done
+            if (!stages.includes('AWSPENDING')) throw new Error('version is not AWSPENDING');
+            const current = await read(sm, id, 'AWSCURRENT');
+
+            if (step === 'createSecret') {
+              try {
+                await read(sm, id, 'AWSPENDING', token);
+              } catch (e) {
+                if (e.name !== 'ResourceNotFoundException') throw e;
+                const { RandomPassword } = await sm.getRandomPassword({ PasswordLength: 40, ExcludePunctuation: true });
+                await sm.putSecretValue({ SecretId: id, ClientRequestToken: token,
+                  SecretString: JSON.stringify({ ...current, password: RandomPassword }), VersionStages: ['AWSPENDING'] });
+              }
+            } else if (step === 'setSecret') {
+              // Both passwords valid while the app catches up.
+              const pending = await read(sm, id, 'AWSPENDING', token);
+              await setPasswords(ec, userId, [current.password, pending.password]);
+            } else if (step === 'testSecret') {
+              const u = await settle(ec, userId);
+              if (u.Authentication.Type !== 'password' || u.Authentication.PasswordCount < 2) throw new Error('new password not set');
+            } else if (step === 'finishSecret') {
+              const pending = await read(sm, id, 'AWSPENDING', token);
+              const old = Object.keys(meta.VersionIdsToStages).find((v) => meta.VersionIdsToStages[v].includes('AWSCURRENT'));
+              await sm.updateSecretVersionStage({ SecretId: id, VersionStage: 'AWSCURRENT', MoveToVersionId: token, RemoveFromVersionId: old });
+              // Then retire the old password. A client still using it gets WRONGPASS on
+              // its next login and re-reads the secret; open connections are unaffected.
+              await setPasswords(ec, userId, [pending.password]);
+            } else {
+              throw new Error(`unknown step ${step}`);
+            }
+          };
+
+  RedisRotationPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RedisRotationFunction
+      Action: lambda:InvokeFunction
+      Principal: secretsmanager.amazonaws.com
+      SourceArn: !Ref RedisAppSecret
+      SourceAccount: !Ref AWS::AccountId
+
+  RedisSecretRotation:
+    Type: AWS::SecretsManager::RotationSchedule
+    # The user must exist in the running cache before the first rotation.
+    DependsOn: [Cache, RedisRotationPermission]
+    Properties:
+      SecretId: !Ref RedisAppSecret
+      RotationLambdaARN: !GetAtt RedisRotationFunction.Arn
+      RotateImmediatelyOnUpdate: false # not during the deploy; the first rotation is on schedule (or on demand)
+      RotationRules:
+        ScheduleExpression: !Sub rate(${RedisRotationDays} days)
+
   # ------------------------------------------------------------ instance ----
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -405,6 +570,7 @@ Outputs:
     Description: RDS-managed secret (rotated by RDS)
     Value: !GetAtt Database.MasterUserSecret.SecretArn
   RedisSecretArn:
+    Description: Redis user secret (rotated by RedisRotationFunction)
     Value: !Ref RedisAppSecret
   KmsKeyArn:
     Value: !GetAtt SecretsKey.Arn

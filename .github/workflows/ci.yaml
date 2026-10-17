@@ -1,12 +1,18 @@
 # CI: every way to run this app, proven on a runner, with the evidence on the run page.
 #
-#   checks ─► build ─┬─► compose ─┐
-#                    └─► kind ────┴─► images (main only)
+#   checks ─► build ─┬─► compose (sdk, agent) ─┐
+#   (scan, SBOM)     ├─► kind ─────────────────┼─► images (main only: push, sign, attest)
+#                    └─► mirror ───────────────┘
 #
 # The images are built ONCE, by `docker compose build` (the same command a
 # person runs), saved, and loaded unchanged into every later job: Docker
 # Compose runs them, kind runs them, and on main the exact images that passed
 # are pushed to GHCR. Nothing is rebuilt between the test and the publish.
+#
+# Supply chain: the build job writes a CycloneDX SBOM per image (syft) and
+# fails on any CRITICAL vulnerability that has a fix (grype). On main, the
+# images job signs what it pushes with cosign (keyless, GitHub OIDC) and
+# attaches the SBOM as a signed attestation, then verifies both anonymously.
 #
 # Captures: like ephico2real2/cilium-implementation-poc, a Playwright walk
 # photographs the dashboard and measures what each page must show; the PNGs
@@ -48,9 +54,12 @@ jobs:
           if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
           npm ls --depth=0
 
-      - name: Unit tests (secrets layer)
+      - name: Unit tests (secrets layer, Redis rotation function)
         working-directory: backend
         run: npm test
+
+      - name: The Redis rotation code inlined in the CloudFormation template matches its tested source
+        run: node scripts/sync-rotation-lambda.js --check
 
       - name: Every JavaScript file parses
         run: git ls-files '*.js' | xargs -n1 node --check
@@ -99,12 +108,26 @@ jobs:
   build:
     needs: checks
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 20
+    permissions:
+      contents: write # publishes the scan reports to ci-captures
     steps:
       - uses: actions/checkout@v5
 
       - name: Build with Docker Compose — the one place images are built
         run: scripts/images-build.sh
+
+      - name: SBOM and vulnerability scan (syft + grype) — fails on a fixable CRITICAL
+        run: |
+          set -o pipefail
+          mkdir -p output; rc=0; scripts/scan-images.sh output/supply-chain 2>&1 | tee output/scan.log || rc=$?
+          { echo "## Images — SBOM and vulnerability scan"; echo; cat output/supply-chain/summary.md; } >> "$GITHUB_STEP_SUMMARY" 2>/dev/null || true
+          if [ "$rc" != 0 ]; then grep -h -i critical output/supply-chain/grype-*-gate.txt | head -10 | sed 's|^|::error title=fixable CRITICAL vulnerability::|'; fi
+          exit $rc
+
+      - name: Publish the SBOMs and scan reports
+        if: always()
+        run: scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_build-supply-chain"
 
       - name: Save the images for every later job
         run: |
@@ -119,6 +142,7 @@ jobs:
           path: |
             images.tar.gz
             image-ids.txt
+            output/supply-chain/sbom-*.cdx.json
           retention-days: 3
 
   compose:
@@ -127,6 +151,15 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write # the ci-captures branch
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [sdk, agent]
+    name: compose (${{ matrix.mode }})
+    env:
+      # agent: the app reads its secrets through an agent on its own localhost
+      # (docker-compose.agent.yml), as SECRETS_MODE=agent does on EC2.
+      COMPOSE_FILE: ${{ matrix.mode == 'agent' && 'docker-compose.yml:docker-compose.agent.yml' || 'docker-compose.yml' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -155,7 +188,7 @@ jobs:
       - name: Walk the dashboard — captures
         uses: ./.github/actions/browser-walk
         with:
-          label: compose
+          label: compose-${{ matrix.mode }}
           env-json: '{"BASE":"http://localhost:3000","PLATFORM_LABEL":"dummy keys, for the mock only"}'
 
       - name: Check — bootstrap burned, end-to-end smoke test
@@ -163,7 +196,7 @@ jobs:
           set -o pipefail
           mkdir -p output
           scripts/compose-check.sh | tee output/compose-check.txt
-          { echo "## Docker Compose — check"; echo; echo '```'; cat output/compose-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          { echo "## Docker Compose (${{ matrix.mode }}) — check"; echo; echo '```'; cat output/compose-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Logs
         if: always()
@@ -174,12 +207,12 @@ jobs:
 
       - name: Publish the logs next to the captures
         if: always()
-        run: scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_compose-logs"
+        run: scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_compose-${{ matrix.mode }}-logs"
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: compose
+          name: compose-${{ matrix.mode }}
           path: |
             output/
             captures/
@@ -282,21 +315,77 @@ jobs:
         if: always()
         run: kind delete cluster --name secure-notes || true
 
-  images:
-    # Publish exactly the images that just passed every job — no rebuild.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [compose, kind]
+  mirror:
+    # scripts/mirror-images.sh, for clusters that cannot pull from ghcr.io or
+    # Docker Hub: copy every image into another registry (here a throwaway one
+    # on the runner) and check the generated overlay pulls only from it.
+    needs: build
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: write
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
       - uses: actions/download-artifact@v4
         with:
           name: images
+
+      - name: Load the images the build job made, and the two third-party ones
+        run: |
+          set -euo pipefail
+          . scripts/versions.env
+          gunzip -c images.tar.gz | docker load
+          docker pull -q "$POSTGRES_IMAGE" && docker pull -q "$REDIS_IMAGE"
+          command -v skopeo || { sudo apt-get update -qq && sudo apt-get install -y -qq skopeo; }
+          skopeo --version
+
+      - name: A registry to mirror into
+        run: docker run -d --name mirror-registry -p 127.0.0.1:5001:5000 docker.io/library/registry:2 && sleep 2
+
+      - name: Mirror everything and generate the overlay
+        env:
+          DEST_TLS_VERIFY: "false" # the throwaway registry has no certificate
+        run: |
+          set -euo pipefail
+          . scripts/versions.env
+          SRC_APP="docker-daemon:$APP_IMAGE" SRC_MOCK="docker-daemon:$MOCK_IMAGE" \
+          SRC_POSTGRES="docker-daemon:$POSTGRES_IMAGE" SRC_REDIS="docker-daemon:$REDIS_IMAGE" \
+            scripts/mirror-images.sh localhost:5001/secure-notes | tee mirror.txt
+          { echo "## Image mirror"; echo; echo '```'; cat mirror.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check — the copies are in the registry and are the same images
+        run: |
+          set -euo pipefail
+          . scripts/versions.env
+          for pair in "$APP_IMAGE|secure-notes-app:latest" "$MOCK_IMAGE|secure-notes-aws-mock:latest" \
+                      "$POSTGRES_IMAGE|postgres:${POSTGRES_IMAGE##*:}" "$REDIS_IMAGE|redis:${REDIS_IMAGE##*:}"; do
+            src="${pair%%|*}" dst="localhost:5001/secure-notes/${pair##*|}"
+            want=$(docker image inspect --format '{{.Created}}' "$src")
+            got=$(skopeo inspect --tls-verify=false --format '{{.Created}}' "docker://$dst")
+            # same creation time = the same image config, just recompressed
+            [ "$(date -d "$want" +%s)" = "$(date -d "$got" +%s)" ] || { echo "::error title=mirror mismatch::$dst"; exit 1; }
+            echo "  ok    $dst"
+          done
+
+  images:
+    # Publish exactly the images that just passed every job — no rebuild.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [compose, kind, mirror]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+      id-token: write # keyless cosign signing with the workflow's GitHub identity
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: images
+
+      - uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: v3.1.3 # = COSIGN_VERSION in scripts/versions.env
 
       - name: Push the tested images to GHCR
         env:
@@ -314,11 +403,33 @@ jobs:
               docker push -q "$base/$name:$tag"
               echo "pushed $base/$name:$tag" | tee -a "$GITHUB_STEP_SUMMARY"
             done
+            # Sign the digest, never a tag: a tag can be moved, a digest cannot.
+            ref=$(docker inspect --format '{{index .RepoDigests 0}}' "$base/$name:latest")
+            echo "$name=$ref" >> digests.env
           done
+
+      - name: Sign the pushed images and attach their SBOMs (cosign, keyless)
+        run: |
+          set -euo pipefail
+          while IFS== read -r name ref; do
+            cosign sign --yes "$ref"
+            cosign attest --yes --type cyclonedx --predicate "output/supply-chain/sbom-$name.cdx.json" "$ref"
+            echo "signed + SBOM attested: $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+          done < digests.env
 
       - name: Can a cluster pull them without credentials?
         run: |
           docker logout ghcr.io
+          # Anyone can check the signature and the SBOM: only this workflow, on main, could have made them.
+          id="https://github.com/${{ github.repository }}/.github/workflows/ci.yaml@${{ github.ref }}"
+          while IFS== read -r name ref; do
+            if cosign verify --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" > /dev/null \
+               && cosign verify-attestation --type cyclonedx --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" > /dev/null; then
+              echo "verified signature + SBOM attestation: $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::error title=cosign verify failed::$ref"; exit 1
+            fi
+          done < digests.env
           for name in app aws-mock; do
             img="ghcr.io/${{ github.repository }}/$name:sha-${GITHUB_SHA::7}"
             docker rmi -f "$img" >/dev/null 2>&1 || true

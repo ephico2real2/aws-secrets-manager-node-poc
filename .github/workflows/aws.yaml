@@ -143,7 +143,7 @@ jobs:
             exit 1
           fi
           out() { aws cloudformation describe-stacks --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
-          { echo "INSTANCE=$(out InstanceId)"; echo "DB_SECRET=$(out DbSecretArn)"; } >> "$GITHUB_ENV"
+          { echo "INSTANCE=$(out InstanceId)"; echo "DB_SECRET=$(out DbSecretArn)"; echo "REDIS_SECRET=$(out RedisSecretArn)"; } >> "$GITHUB_ENV"
 
       - name: Wait for the instance to register with Session Manager
         run: |
@@ -196,6 +196,31 @@ jobs:
             sleep 10
           done
           echo "::error::rotation did not complete within 10 minutes"; exit 1
+
+      - name: Rotate the Redis secret (the stack's rotation function) and check the app follows
+        if: inputs.rotate
+        run: |
+          set -euo pipefail
+          current() { aws secretsmanager describe-secret --secret-id "$REDIS_SECRET" \
+            --query 'VersionIdsToStages' --output json | jq -r 'to_entries[] | select(.value | index("AWSCURRENT")) | .key'; }
+          before=$(current); echo "AWSCURRENT before: $before"
+          aws secretsmanager rotate-secret --secret-id "$REDIS_SECRET" >/dev/null
+          # Two ElastiCache user changes (add the new password, retire the old), a few minutes each.
+          for i in $(seq 1 90); do
+            now=$(current)
+            if [ -n "$now" ] && [ "$now" != "$before" ]; then echo "AWSCURRENT after: $now"; break; fi
+            [ "$i" = 90 ] && { echo "::error::Redis rotation did not complete within 15 minutes (see the $STACK-redis-rotation function's log)"; exit 1; }
+            sleep 10
+          done
+          user="$STACK-app"
+          for _ in $(seq 1 60); do
+            read -r st n < <(aws elasticache describe-users --user-id "$user" --query 'Users[0].[Status,Authentication.PasswordCount]' --output text)
+            [ "$st" = active ] && [ "$n" = 1 ] && { echo "ElastiCache user $user: active, old password retired"; break; }
+            sleep 10
+          done
+          # The app re-reads the secret and keeps serving; its Redis client logs in with the new password on its next connection.
+          scripts/aws-ssm-run.sh "$INSTANCE" 'curl -fsS -X POST -H "Content-Type: application/json" -d "{}" http://localhost:3000/api/secrets/redis/refresh; echo; curl -fsS http://localhost:3000/api/health' | tee -a output/aws-evidence.txt
+          grep -q '"status":"ok"' output/aws-evidence.txt || { echo "::error::the app is unhealthy after the Redis rotation"; exit 1; }
 
       - name: Port-forward through Session Manager for the browser
         run: |

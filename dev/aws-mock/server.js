@@ -17,6 +17,9 @@
 // Zero dependencies. Env:
 //   PORT=4566  HOST=0.0.0.0  MOCK_STATE_FILE=/data/state.json
 //   MOCK_AGENT_PORT=2773  MOCK_AGENT_TOKEN_FILE=./awssmatoken  MOCK_AGENT_TTL_SECONDS=300
+//   MOCK_AGENT_UPSTREAM=http://aws-mock:4566  run ONLY the agent, as a sidecar next
+//     to the app, fetching from another mock over HTTP the way the real agent
+//     calls Secrets Manager (docker-compose.agent.yml)
 
 import http from 'node:http';
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
@@ -236,7 +239,21 @@ const api = http.createServer(async (req, res) => {
   }
 });
 
-api.listen(PORT, HOST, () => console.log(`[aws-mock] Secrets Manager + STS mock on http://${HOST}:${PORT}`));
+const UPSTREAM = process.env.MOCK_AGENT_UPSTREAM;
+if (!UPSTREAM) api.listen(PORT, HOST, () => console.log(`[aws-mock] Secrets Manager + STS mock on http://${HOST}:${PORT}`));
+
+/** GetSecretValue, from this process's store or, as a sidecar, from the upstream mock. */
+async function getSecretValue(input) {
+  if (!UPSTREAM) return ops.GetSecretValue(input);
+  const res = await fetch(UPSTREAM, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': 'secretsmanager.GetSecretValue' },
+    body: JSON.stringify(input),
+  });
+  const out = await res.json();
+  if (!res.ok) throw new AwsError(out.__type ?? 'InternalServiceError', out.message ?? `upstream ${res.status}`, res.status);
+  return out;
+}
 
 // ------------------------------- Workload Credentials Provider emulation ----
 if (process.env.MOCK_AGENT_PORT) {
@@ -247,7 +264,7 @@ if (process.env.MOCK_AGENT_PORT) {
   const ttlMs = Number(process.env.MOCK_AGENT_TTL_SECONDS ?? 300) * 1000;
   const cache = new Map();
 
-  const agent = http.createServer((req, res) => {
+  const agent = http.createServer(async (req, res) => {
     const json = (status, obj) => {
       res.writeHead(status, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(obj));
@@ -266,7 +283,7 @@ if (process.env.MOCK_AGENT_PORT) {
     const refreshNow = url.searchParams.get('refreshNow') === 'true';
     try {
       if (!hit || refreshNow || Date.now() - hit.at > ttlMs) {
-        cache.set(key, { at: Date.now(), value: ops.GetSecretValue({ SecretId: secretId, VersionStage: versionStage }) });
+        cache.set(key, { at: Date.now(), value: await getSecretValue({ SecretId: secretId, VersionStage: versionStage }) });
         console.log(`[aws-mock agent] fetched ${secretId}${refreshNow ? ' (refreshNow)' : ''}`);
       }
       json(200, cache.get(key).value);
