@@ -58,6 +58,12 @@ else
   fail "no SCRAM-only ALTER ROLE lines found"
 fi
 
+if "$K" get crd routes.route.openshift.io >/dev/null 2>&1; then
+  echo "== OpenShift Route (accepted by the API server against OpenShift's Route schema)"
+  "$K" -n "$NS" get route secure-notes -o custom-columns='NAME:.metadata.name,SERVICE:.spec.to.name,PORT:.spec.port.targetPort,TLS:.spec.tls.termination,INSECURE:.spec.tls.insecureEdgeTerminationPolicy' 2>&1 | sed 's/^/  /'
+  "$K" -n "$NS" get route secure-notes >/dev/null 2>&1 && pass "Route secure-notes exists" || fail "Route secure-notes missing"
+fi
+
 echo "== NetworkPolicies"
 "$K" -n "$NS" get networkpolicy --no-headers | awk '{print "  " $1}'
 

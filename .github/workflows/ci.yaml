@@ -65,7 +65,9 @@ jobs:
             echo "== $o"
             # failures become annotations, which are readable on the run page and through the API
             if ! out=$(kubectl kustomize "$o" 2>&1); then echo "$out" | head -5 | sed "s|^|::error title=kustomize $o::|"; rc=1; continue; fi
-            if ! res=$(echo "$out" | /tmp/kubeconform -strict -summary \
+            # The Route has no public JSON schema: the openshift-sim job applies it to a real
+            # API server with OpenShift's own CRD installed (deploy/k8s/ci/crds) instead.
+            if ! res=$(echo "$out" | /tmp/kubeconform -strict -summary -skip Route \
                 -schema-location default \
                 -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' 2>&1); then
               echo "$res" | grep -v '^Summary' | head -8 | sed "s|^|::error title=kubeconform $o::|"; rc=1
@@ -221,6 +223,12 @@ jobs:
 
       - name: Load the SAME images into kind (no rebuild)
         run: SKIP_BUILD=1 scripts/images-build.sh
+
+      - name: OpenShift's Route CRD, so the Route is validated by a real API server
+        if: matrix.name == 'openshift-sim'
+        run: |
+          kubectl apply -f deploy/k8s/ci/crds/route.openshift.io_routes.yaml
+          kubectl wait --for=condition=Established crd/routes.route.openshift.io --timeout=60s
 
       - name: Deploy ${{ matrix.overlay }}
         run: scripts/k8s-deploy.sh "${{ matrix.overlay }}"
