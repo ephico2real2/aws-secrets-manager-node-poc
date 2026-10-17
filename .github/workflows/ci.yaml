@@ -58,6 +58,11 @@ jobs:
       - name: Shellcheck
         run: shellcheck -S warning scripts/*.sh dev/*.sh
 
+      - name: Workflows lint clean (actionlint, including aws.yaml, which only runs by hand)
+        run: |
+          curl -fsSL https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz | tar -xz -C /tmp actionlint
+          /tmp/actionlint -color
+
       - name: Kubernetes manifests render and match their schemas
         run: |
           set -euo pipefail
@@ -78,10 +83,10 @@ jobs:
           done
           exit $rc
 
-      - name: CloudFormation template lints clean
+      - name: CloudFormation templates lint clean
         run: |
           pipx install cfn-lint >/dev/null
-          cfn-lint infra/cloudformation.yaml > /tmp/cfn-lint.txt 2>&1 && { echo "cfn-lint: clean"; exit 0; }
+          cfn-lint infra/cloudformation.yaml infra/github-actions-bootstrap.yaml > /tmp/cfn-lint.txt 2>&1 && { echo "cfn-lint: clean"; exit 0; }
           cat /tmp/cfn-lint.txt; grep -E '^[EW][0-9]' /tmp/cfn-lint.txt | head -10 | sed 's|^|::error title=cfn-lint::|'; exit 1
 
       - name: Publish the lockfile this install resolved (until one is committed)

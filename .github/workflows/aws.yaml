@@ -1,0 +1,260 @@
+# Part C on real AWS: deploy the CloudFormation stack, prove it, photograph
+# it, and (by default) tear it all down. Manual only — it never runs on push,
+# because it needs an AWS account and costs money while the stack is up.
+#
+# No AWS keys are stored in GitHub. The job runs in the "aws" environment and
+# assumes an IAM role through GitHub's OIDC token; only this repository's
+# "aws" environment can assume it (infra/github-actions-bootstrap.yaml).
+# That role can deploy and rotate, but it cannot READ any secret: the run
+# proves rotation without ever seeing a password.
+#
+# One-time setup (see the guide, C11):
+#   1. deploy infra/github-actions-bootstrap.yaml once, as an admin
+#   2. create the GitHub environment "aws" (add yourself as a required reviewer)
+#   3. set these environment variables from its outputs and your network:
+#      AWS_REGION, AWS_DEPLOY_ROLE_ARN, AWS_CFN_EXEC_ROLE_ARN, AWS_ARTIFACT_BUCKET,
+#      AWS_VPC_ID, AWS_APP_SUBNET_ID, AWS_DATA_SUBNET_IDS (comma-separated, 2+ AZs)
+#   optional: AWS_EXISTING_SM_ENDPOINT_ID (vpce-…) if the VPC already has one
+name: aws (Part C)
+
+on:
+  workflow_dispatch:
+    inputs:
+      stack_name:
+        description: Stack name (lowercase, starts with the bootstrap's prefix)
+        default: secure-notes-ci
+      secrets_mode:
+        description: How the app reads secrets
+        type: choice
+        options: [sdk, agent]
+        default: sdk
+      rotate:
+        description: Rotate the RDS-managed secret and prove the app picks it up
+        type: boolean
+        default: true
+      keep_stack:
+        description: Keep the stack running afterwards (it costs money until you delete it)
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write # the OIDC token the AWS role trusts
+  contents: write # the ci-captures branch
+
+concurrency:
+  group: aws-${{ inputs.stack_name }}
+  cancel-in-progress: false # never cancel a deploy or a teardown halfway
+
+jobs:
+  deploy-verify-teardown:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    environment: aws
+    env:
+      STACK: ${{ inputs.stack_name }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      BUCKET: ${{ vars.AWS_ARTIFACT_BUCKET }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Preflight — the environment is configured
+        run: |
+          missing=()
+          for v in AWS_REGION AWS_DEPLOY_ROLE_ARN AWS_CFN_EXEC_ROLE_ARN AWS_ARTIFACT_BUCKET AWS_VPC_ID AWS_APP_SUBNET_ID AWS_DATA_SUBNET_IDS; do
+            [ -n "${!v}" ] || missing+=("$v")
+          done
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error title=AWS environment not configured::Set these variables on the GitHub environment 'aws': ${missing[*]}. See the guide, step C11, and infra/github-actions-bootstrap.yaml."
+            exit 1
+          fi
+          [[ "$STACK" =~ ^[a-z][a-z0-9-]{0,19}$ ]] || { echo "::error::stack name must be lowercase letters, digits and hyphens, at most 20 characters"; exit 1; }
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          AWS_CFN_EXEC_ROLE_ARN: ${{ vars.AWS_CFN_EXEC_ROLE_ARN }}
+          AWS_ARTIFACT_BUCKET: ${{ vars.AWS_ARTIFACT_BUCKET }}
+          AWS_VPC_ID: ${{ vars.AWS_VPC_ID }}
+          AWS_APP_SUBNET_ID: ${{ vars.AWS_APP_SUBNET_ID }}
+          AWS_DATA_SUBNET_IDS: ${{ vars.AWS_DATA_SUBNET_IDS }}
+
+      - name: AWS credentials from GitHub's OIDC token (no stored keys)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: secure-notes-${{ github.run_id }}
+          role-duration-seconds: 7200
+
+      - name: Who we are
+        run: aws sts get-caller-identity --query Arn --output text
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: The template lints clean
+        run: |
+          pipx install cfn-lint >/dev/null
+          cfn-lint infra/cloudformation.yaml
+
+      - name: Clear leftovers from an earlier run of this stack name
+        run: |
+          status=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo NONE)
+          echo "existing stack: $status"
+          if [ "$status" = ROLLBACK_COMPLETE ] || [ "$status" = DELETE_FAILED ]; then
+            aws cloudformation delete-stack --stack-name "$STACK"
+            aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+          fi
+          if [ "$status" = NONE ] || [ "$status" = ROLLBACK_COMPLETE ]; then
+            # A deleted stack leaves its Redis secret in its recovery window; the same name would collide.
+            if aws secretsmanager delete-secret --secret-id "$STACK/redis" --force-delete-without-recovery >/dev/null 2>&1; then
+              echo "removed a leftover $STACK/redis secret"
+            fi
+          fi
+
+      - name: Package the app and upload it
+        run: |
+          ./scripts/package.sh "$BUCKET" "secure-notes/$STACK/app-${GITHUB_SHA::7}.zip"
+          echo "KEY=secure-notes/$STACK/app-${GITHUB_SHA::7}.zip" >> "$GITHUB_ENV"
+
+      - name: Deploy the stack (about 25 to 40 minutes)
+        run: |
+          set -o pipefail
+          extra=()
+          if [ -n "${{ vars.AWS_EXISTING_SM_ENDPOINT_ID }}" ]; then
+            extra=(CreateSecretsManagerEndpoint=false "ExistingSecretsManagerEndpointId=${{ vars.AWS_EXISTING_SM_ENDPOINT_ID }}")
+          fi
+          if ! aws cloudformation deploy \
+              --stack-name "$STACK" \
+              --template-file infra/cloudformation.yaml \
+              --role-arn "${{ vars.AWS_CFN_EXEC_ROLE_ARN }}" \
+              --capabilities CAPABILITY_IAM \
+              --no-fail-on-empty-changeset \
+              --parameter-overrides \
+                VpcId="${{ vars.AWS_VPC_ID }}" \
+                AppSubnetId="${{ vars.AWS_APP_SUBNET_ID }}" \
+                DataSubnetIds="${{ vars.AWS_DATA_SUBNET_IDS }}" \
+                AppArtifactBucket="$BUCKET" \
+                AppArtifactKey="$KEY" \
+                SecretsMode="${{ inputs.secrets_mode }}" \
+                "${extra[@]}"; then
+            aws cloudformation describe-stack-events --stack-name "$STACK" \
+              --query "StackEvents[?contains(ResourceStatus,'FAILED')].[LogicalResourceId,ResourceStatusReason]" --output text \
+              | head -10 | sed 's/^/::error title=CloudFormation::/'
+            exit 1
+          fi
+          out() { aws cloudformation describe-stacks --stack-name "$STACK" --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+          { echo "INSTANCE=$(out InstanceId)"; echo "DB_SECRET=$(out DbSecretArn)"; } >> "$GITHUB_ENV"
+
+      - name: Wait for the instance to register with Session Manager
+        run: |
+          for _ in $(seq 1 60); do
+            s=$(aws ssm describe-instance-information --filters "Key=InstanceIds,Values=$INSTANCE" \
+                  --query 'InstanceInformationList[0].PingStatus' --output text 2>/dev/null)
+            [ "$s" = Online ] && { echo "SSM agent online"; exit 0; }
+            sleep 10
+          done
+          echo "::error::instance $INSTANCE never came online in Session Manager (does its subnet have outbound internet?)"; exit 1
+
+      - name: Wait for the app (the install script runs for a few minutes after boot)
+        run: |
+          for _ in $(seq 1 40); do
+            if scripts/aws-ssm-run.sh "$INSTANCE" 'curl -fsS --max-time 5 http://localhost:3000/api/health' 2>/dev/null | grep -q '"status":"ok"'; then
+              echo "app healthy"; exit 0
+            fi
+            sleep 15
+          done
+          scripts/aws-ssm-run.sh "$INSTANCE" 'tail -n 60 /var/log/cloud-init-output.log; systemctl status secure-notes --no-pager; journalctl -u secure-notes -n 40 --no-pager' || true
+          exit 1
+
+      - name: Evidence on the instance (C7, automated)
+        run: |
+          mkdir -p output
+          # shellcheck disable=SC2016 # the snippet's variables expand on the instance, not here
+          scripts/aws-ssm-run.sh "$INSTANCE" '
+            echo "== /etc/secure-notes/app.env (IDs and hostnames only)"; cat /etc/secure-notes/app.env
+            echo; echo "== variable NAMES in the running process"
+            PID=$(systemctl show -p MainPID --value secure-notes); tr "\0" "\n" < /proc/$PID/environ | cut -d= -f1 | sort | tr "\n" " "; echo
+            echo; echo "== credential-like variables (expect none)"; tr "\0" "\n" < /proc/$PID/environ | cut -d= -f1 | grep -Ei "PASSWORD|PGPASS|DATABASE_URL|REDIS_URL|AWS_ACCESS_KEY_ID" || echo none
+            echo; echo "== AWS credential files (expect none)"; ls -a /opt/secure-notes /root 2>/dev/null | grep -i "^\.aws$" || echo none
+            echo; echo "== IMDSv1 request (expect 401)"; curl -s -o /dev/null -w "%{http_code}\n" http://169.254.169.254/latest/meta-data/
+            echo; echo "== service"; systemctl is-active secure-notes; systemctl show secure-notes -p User -p LimitCORE -p NoNewPrivileges -p ProtectSystem
+          ' | tee output/aws-evidence.txt
+          [ "$(grep -c '^none$' output/aws-evidence.txt)" -ge 2 ] || { echo "::error::a credential-like variable or an AWS credentials file was found"; exit 1; }
+          grep -q '^401$' output/aws-evidence.txt || { echo "::error::IMDSv1 was not rejected"; exit 1; }
+          { echo "## Evidence on the instance"; echo; echo '```'; cat output/aws-evidence.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Rotate the RDS-managed secret and wait for the new version
+        if: inputs.rotate
+        run: |
+          current() { aws secretsmanager describe-secret --secret-id "$DB_SECRET" \
+            --query 'VersionIdsToStages' --output json | jq -r 'to_entries[] | select(.value | index("AWSCURRENT")) | .key'; }
+          before=$(current); echo "AWSCURRENT before: $before"
+          aws secretsmanager rotate-secret --secret-id "$DB_SECRET" >/dev/null
+          for _ in $(seq 1 60); do
+            now=$(current)
+            [ -n "$now" ] && [ "$now" != "$before" ] && { echo "AWSCURRENT after: $now"; exit 0; }
+            sleep 10
+          done
+          echo "::error::rotation did not complete within 10 minutes"; exit 1
+
+      - name: Port-forward through Session Manager for the browser
+        run: |
+          curl -fsSLo /tmp/smp.deb https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb
+          sudo dpkg -i /tmp/smp.deb >/dev/null
+          nohup aws ssm start-session --target "$INSTANCE" --document-name AWS-StartPortForwardingSession \
+            --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}' > /tmp/ssm-forward.log 2>&1 &
+          for _ in $(seq 1 30); do
+            curl -fsS --max-time 3 http://localhost:3000/api/health | grep -q '"status":"ok"' && { echo "forwarded"; exit 0; }
+            sleep 2
+          done
+          cat /tmp/ssm-forward.log; exit 1
+
+      - name: Walk the real dashboard — captures
+        uses: ./.github/actions/browser-walk
+        with:
+          spec: scripts/capture/aws.yaml
+          label: ${{ inputs.secrets_mode }}
+          env-json: '{"BASE":"http://localhost:3000"}'
+
+      - name: Who read the secrets (CloudTrail)
+        if: always() && env.INSTANCE != ''
+        run: |
+          mkdir -p output
+          aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=GetSecretValue \
+            --max-results 20 --query 'Events[].[EventTime,Username]' --output text | tee output/cloudtrail-getsecretvalue.txt
+          echo "(CloudTrail can take up to 15 minutes to show events.)" >> output/cloudtrail-getsecretvalue.txt
+
+      - name: Publish the logs next to the captures
+        if: always()
+        run: scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_aws_run${{ github.run_id }}-${{ github.run_attempt }}_${STACK}-logs"
+
+      - name: Tear down (unless keep_stack)
+        if: always() && !inputs.keep_stack
+        run: |
+          set -u
+          pkill -f "start-session --target" || true
+          status=$(aws cloudformation describe-stacks --stack-name "$STACK" --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo NONE)
+          [ "$status" = NONE ] && { echo "no stack to delete"; exit 0; }
+          db=$(aws cloudformation describe-stack-resource --stack-name "$STACK" --logical-resource-id Database \
+                 --query StackResourceDetail.PhysicalResourceId --output text 2>/dev/null || true)
+          aws cloudformation delete-stack --stack-name "$STACK"
+          aws cloudformation wait stack-delete-complete --stack-name "$STACK"
+          echo "stack deleted"
+          if [ -n "$db" ] && [ "$db" != None ]; then
+            for s in $(aws rds describe-db-snapshots --db-instance-identifier "$db" --snapshot-type manual \
+                         --query 'DBSnapshots[].DBSnapshotIdentifier' --output text); do
+              aws rds delete-db-snapshot --db-snapshot-identifier "$s" >/dev/null && echo "deleted final snapshot $s"
+            done
+          fi
+          aws secretsmanager delete-secret --secret-id "$STACK/redis" --force-delete-without-recovery >/dev/null 2>&1 || true
+          aws s3 rm "s3://$BUCKET/secure-notes/$STACK/" --recursive --quiet || true
+          echo "## Torn down: $STACK, its final snapshot, its Redis secret and its artifacts" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Still running
+        if: always() && inputs.keep_stack
+        run: |
+          {
+            echo "## The stack \`$STACK\` is still running (keep_stack) and costs money until you delete it"
+            echo; echo "Open it: \`aws ssm start-session --target $INSTANCE --document-name AWS-StartPortForwardingSession --parameters '{\"portNumber\":[\"3000\"],\"localPortNumber\":[\"3000\"]}'\`"
+            echo; echo "Delete it: run this workflow again with keep_stack off, or follow the guide's C10."
+          } >> "$GITHUB_STEP_SUMMARY"

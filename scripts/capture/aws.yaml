@@ -1,0 +1,45 @@
+# The dashboard of the REAL deployment (Part C), walked through an SSM port
+# forward by .github/workflows/aws.yaml. Production mode: no rotation lab, no
+# leak test, no log panel. What it proves instead comes from AWS itself:
+# the instance role, IMDSv2, TLS, and a real RDS-managed rotation picked up
+# without a restart. ${BASE} = the forwarded port.
+viewport: {width: 1280, height: 900}
+
+pages:
+  # 1. The app on EC2, production mode: demo panels must be absent.
+  - name: 01-dashboard
+    url: ${BASE}/
+    fullPage: true
+    before: 4000
+    expect:
+      text: [Secure Notes, EC2 instance role · IMDSv2, Postgres credential, Redis credential]
+      absent: [Rotation lab, Try to leak it, Application log, local mock]
+
+  # 2. Security posture, measured on the instance by the app itself.
+  - name: 02-security-posture
+    url: ${BASE}/
+    fullPage: true
+    before: 6000
+    expect:
+      text:
+        - No keys in the environment.
+        - Instance metadata rejected a token-less (IMDSv1) request
+        - ":assumed-role/"
+        - Encrypted and the server certificate is verified.
+        - ElastiCache in-transit encryption is on.
+        - AWS SDK over HTTPS
+
+  # 3. After the workflow rotated the RDS-managed secret: refresh the cache,
+  #    see the new version, and write a note with the rotated password.
+  - name: 03-after-rds-rotation
+    url: ${BASE}/
+    fullPage: true
+    actions:
+      - click: Refresh now
+      - waitForText: Picked up new version
+      - fill: ["#note-input", "Written after a real RDS-managed rotation"]
+      - click: Add
+      - waitForText: Written after a real RDS-managed rotation
+      - wait: 2000
+    expect:
+      text: [Picked up new version, Written after a real RDS-managed rotation]

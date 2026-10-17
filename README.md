@@ -102,6 +102,27 @@ with TLS and an RBAC user, the least-privilege instance role, and an IMDSv2-only
 instance with no inbound ports, running the app under a hardened systemd unit.
 Pass `SecretsMode=agent` to use the AWS Workload Credentials Provider instead of the SDK.
 
+### Part C from GitHub Actions (manual)
+
+[`.github/workflows/aws.yaml`](.github/workflows/aws.yaml) runs Part C end to end on demand:
+deploy the stack, check the instance through SSM Run Command (no secrets in the
+config or the process environment, IMDSv1 rejected), rotate the RDS-managed secret,
+photograph the real dashboard through an SSM port forward, list who read the secrets
+from CloudTrail, then tear everything down (snapshot, leftover secret and artifacts
+included) unless you ask to keep it.
+
+It never runs on push and stores no AWS keys: the job runs in the GitHub environment
+`aws` and assumes a role through GitHub's OIDC token. That role can deploy and rotate,
+but cannot read any secret. One-time setup:
+
+1. As an admin, deploy the bootstrap stack:
+   `aws cloudformation deploy --stack-name secure-notes-github --template-file infra/github-actions-bootstrap.yaml --capabilities CAPABILITY_NAMED_IAM`
+2. In the repository settings, create the environment `aws` and add yourself as a required reviewer.
+3. On that environment, set `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `AWS_CFN_EXEC_ROLE_ARN`,
+   `AWS_ARTIFACT_BUCKET` (the bootstrap stack's outputs), `AWS_VPC_ID`, `AWS_APP_SUBNET_ID`
+   and `AWS_DATA_SUBNET_IDS` (comma-separated, two or more AZs).
+4. Actions → **aws (Part C)** → Run workflow.
+
 ## CI: what every push proves
 
 [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml):
@@ -119,6 +140,7 @@ checks ─► build ─┬─► compose ─────────────
 | `kind (kind)` | Path B under Pod Security `restricted`: who each container runs as, that Kubernetes holds no copy of the app's credentials, the bootstrap burned, SCRAM-only password changes in the Postgres log, and the smoke test. |
 | `kind (openshift-sim)` | The OpenShift overlay with every pod as UID 1000680000 / GID 0, so an image that only works as its built-in user fails here, not on your cluster. |
 | `images` | On `main`, pushes the exact images that passed to GHCR. |
+| `aws (Part C)` | Separate, manual workflow (above): Part C on real AWS, then teardown. Linted on every push. |
 
 The dashboard walk (`scripts/capture/`, adapted from
 [cilium-implementation-poc](https://github.com/ephico2real2/cilium-implementation-poc))
@@ -164,7 +186,7 @@ backend/        Node.js app: src/secrets (provider, fetchers, SecretValue, redac
 frontend/       dashboard (vanilla JS, strict CSP, textContent only)
 dev/            Secrets Manager + STS + agent mock (dev/CI only), Redis entrypoint
 deploy/k8s/     Kustomize base, component and overlays (kind, OpenShift, AWS)
-infra/          CloudFormation, systemd unit, example IAM and IRSA policies
+infra/          CloudFormation (app stack + GitHub OIDC bootstrap), systemd unit, example IAM and IRSA policies
 scripts/        the same scripts on a laptop and in CI; capture/ = the dashboard walk
 .github/        ci.yaml and the browser-walk action
 ```

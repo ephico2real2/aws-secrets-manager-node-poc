@@ -1,0 +1,215 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  One-time setup so .github/workflows/aws.yaml can deploy Part C with NO
+  stored AWS keys: GitHub's OIDC identity provider, a deploy role that only
+  this repository's "aws" environment can assume, a CloudFormation
+  execution role, and the private artifact bucket.
+
+  Deploy once from your laptop (as an admin):
+    aws cloudformation deploy --stack-name secure-notes-github \
+      --template-file infra/github-actions-bootstrap.yaml \
+      --capabilities CAPABILITY_NAMED_IAM
+
+Parameters:
+  GitHubOwner:
+    Type: String
+    Default: ephico2real2
+  GitHubRepo:
+    Type: String
+    Default: aws-secrets-manager-node-poc
+  GitHubEnvironment:
+    Type: String
+    Default: aws
+    Description: Only workflow jobs running in this GitHub environment can assume the deploy role.
+  StackPrefix:
+    Type: String
+    Default: secure-notes
+    AllowedPattern: '[a-z][a-z0-9-]*'
+    Description: The deploy role may only touch stacks, secrets and instances whose names start with this.
+  CreateOidcProvider:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: Set to false if the account already has the token.actions.githubusercontent.com provider.
+
+Conditions:
+  MakeProvider: !Equals [!Ref CreateOidcProvider, 'true']
+
+Resources:
+  GitHubOidcProvider:
+    Condition: MakeProvider
+    Type: AWS::IAM::OIDCProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  ArtifactBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-old-builds
+            Status: Enabled
+            ExpirationInDays: 30
+
+  ArtifactBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref ArtifactBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: TlsOnly
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !GetAtt ArtifactBucket.Arn
+              - !Sub '${ArtifactBucket.Arn}/*'
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  # CloudFormation itself uses this role to create the stack's resources (IAM
+  # roles, KMS, VPC endpoint, RDS, ElastiCache, EC2). Only the CloudFormation
+  # service can assume it, so the GitHub role never holds these powers itself.
+  CfnExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${StackPrefix}-cfn-execution'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: cloudformation.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${StackPrefix}-github-deploy'
+      MaxSessionDuration: 7200
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                # This repository, and only jobs that run in the protected environment.
+                token.actions.githubusercontent.com:sub: !Sub 'repo:${GitHubOwner}/${GitHubRepo}:environment:${GitHubEnvironment}'
+      Policies:
+        - PolicyName: deploy-secure-notes
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Sid: StacksWithOurPrefix
+                Effect: Allow
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:DescribeChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteChangeSet
+                  - cloudformation:DescribeStacks
+                  - cloudformation:DescribeStackEvents
+                  - cloudformation:DescribeStackResource
+                  - cloudformation:DescribeStackResources
+                  - cloudformation:DeleteStack
+                  - cloudformation:GetTemplate
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${StackPrefix}*/*
+              - Sid: CloudFormationReadOnly
+                Effect: Allow
+                Action:
+                  - cloudformation:ValidateTemplate
+                  - cloudformation:GetTemplateSummary
+                Resource: '*'
+              - Sid: HandTheExecutionRoleToCloudFormationOnly
+                Effect: Allow
+                Action: iam:PassRole
+                Resource: !GetAtt CfnExecutionRole.Arn
+                Condition:
+                  StringEquals:
+                    iam:PassedToService: cloudformation.amazonaws.com
+              - Sid: Artifacts
+                Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject]
+                Resource: !Sub '${ArtifactBucket.Arn}/*'
+              - Sid: ArtifactsList
+                Effect: Allow
+                Action: s3:ListBucket
+                Resource: !GetAtt ArtifactBucket.Arn
+              # Session Manager: port forwarding for the screenshots, and Run
+              # Command for the evidence, only on instances our stacks created.
+              - Sid: SsmOnOurInstances
+                Effect: Allow
+                Action: [ssm:StartSession, ssm:SendCommand]
+                Resource: !Sub arn:${AWS::Partition}:ec2:*:${AWS::AccountId}:instance/*
+                Condition:
+                  StringLike:
+                    aws:ResourceTag/aws:cloudformation:stack-name: !Sub '${StackPrefix}*'
+              - Sid: SsmDocuments
+                Effect: Allow
+                Action: [ssm:StartSession, ssm:SendCommand]
+                Resource:
+                  - !Sub arn:${AWS::Partition}:ssm:*::document/AWS-StartPortForwardingSession
+                  - !Sub arn:${AWS::Partition}:ssm:*::document/AWS-RunShellScript
+              - Sid: SsmOwnSessions
+                Effect: Allow
+                Action: [ssm:TerminateSession, ssm:ResumeSession]
+                Resource: !Sub 'arn:${AWS::Partition}:ssm:*:${AWS::AccountId}:session/${!aws:userid}-*'
+              - Sid: SsmRead
+                Effect: Allow
+                Action: [ssm:GetCommandInvocation, ssm:ListCommandInvocations, ssm:DescribeInstanceInformation]
+                Resource: '*'
+              # Rotate and describe secrets, never read them: the workflow
+              # proves rotation without ever seeing a password.
+              - Sid: RotateNotRead
+                Effect: Allow
+                Action: [secretsmanager:RotateSecret, secretsmanager:DescribeSecret]
+                Resource:
+                  - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:rds!*
+                  - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:${StackPrefix}*
+              - Sid: CleanUpLeftoverSecrets
+                Effect: Allow
+                Action: secretsmanager:DeleteSecret
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:${StackPrefix}*
+              - Sid: ReadOnlyLookups
+                Effect: Allow
+                Action:
+                  - ec2:DescribeVpcs
+                  - ec2:DescribeSubnets
+                  - ec2:DescribeVpcEndpoints
+                  - ec2:DescribeInstances
+                  - rds:DescribeDBInstances
+                  - rds:DescribeDBSnapshots
+                  - cloudtrail:LookupEvents
+                Resource: '*'
+              - Sid: DeleteFinalSnapshots
+                Effect: Allow
+                Action: rds:DeleteDBSnapshot
+                Resource: !Sub arn:${AWS::Partition}:rds:*:${AWS::AccountId}:snapshot:*
+
+Outputs:
+  DeployRoleArn:
+    Description: GitHub environment variable AWS_DEPLOY_ROLE_ARN
+    Value: !GetAtt GitHubDeployRole.Arn
+  CfnExecutionRoleArn:
+    Description: GitHub environment variable AWS_CFN_EXEC_ROLE_ARN
+    Value: !GetAtt CfnExecutionRole.Arn
+  ArtifactBucket:
+    Description: GitHub environment variable AWS_ARTIFACT_BUCKET
+    Value: !Ref ArtifactBucket
