@@ -2,7 +2,6 @@
 # Deploy an overlay and wait until the app is serving.
 #
 #   scripts/k8s-deploy.sh deploy/k8s/overlays/kind
-#   scripts/k8s-deploy.sh deploy/k8s/ci/openshift-sim
 #   KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/openshift
 set -euo pipefail
 cd "$(dirname "$0")/.."

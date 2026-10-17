@@ -16,7 +16,10 @@ The same app, built into the same images, runs three ways:
 | **B. Kubernetes / OpenShift** | kind, OpenShift Local, a dev cluster — or EKS/ROSA with real AWS | Mock in the cluster, or real Secrets Manager via IRSA | Only for EKS/ROSA | [B](#b-run-on-kubernetes-or-openshift) |
 | **C. AWS on EC2** | An EC2 instance built by CloudFormation | Real Secrets Manager via the instance role | Yes | [C](#c-deploy-to-aws-on-ec2) |
 
-Every push runs paths A and B on a GitHub runner and publishes screenshots of the
+**New to this?** Follow the step-by-step guide in [`docs/GUIDE.md`](docs/GUIDE.md): every
+command, what you should see after it, and troubleshooting, written for a first deployment.
+
+Every push runs path A and path B on kind on a GitHub runner and publishes screenshots of the
 dashboard to the [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 branch — see [CI](#ci-what-every-push-proves).
 
@@ -56,7 +59,6 @@ Kustomize, in `deploy/k8s/`:
 | `overlays/kind/` | base + backing services, Pod Security `restricted` enforced on the namespace. |
 | `overlays/openshift/` | base + backing services + a TLS Route, published images, no fixed UIDs so the restricted-v2 SCC assigns them. |
 | `overlays/aws/` | base only, against real RDS, ElastiCache and Secrets Manager; the ServiceAccount carries an IAM role (IRSA) on EKS or ROSA. |
-| `ci/openshift-sim/` | CI only: the openshift overlay on kind, every pod forced to an arbitrary UID with GID 0, the way OpenShift runs it. |
 
 **kind** (needs Docker, kind and kubectl):
 
@@ -128,17 +130,16 @@ but cannot read any secret. One-time setup:
 [`.github/workflows/ci.yaml`](.github/workflows/ci.yaml):
 
 ```
-checks ─► build ─┬─► compose ─────────────────────┐
-                 └─► kind (kind, openshift-sim) ───┴─► images (main only)
+checks ─► build ─┬─► compose ─┐
+                 └─► kind ────┴─► images (main only)
 ```
 
 | Job | What it proves |
 | --- | --- |
-| `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (Route included); `cfn-lint` on the CloudFormation template. |
+| `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (the OpenShift Route is skipped: it has no public schema); `cfn-lint` on both CloudFormation templates; actionlint on every workflow. |
 | `build` | `docker compose build`, once; the images are saved and handed to every later job. |
 | `compose` | Path A on the runner: the dashboard walk, the bootstrap passwords burned, the end-to-end smoke test. |
-| `kind (kind)` | Path B under Pod Security `restricted`: who each container runs as, that Kubernetes holds no copy of the app's credentials, the bootstrap burned, SCRAM-only password changes in the Postgres log, and the smoke test. |
-| `kind (openshift-sim)` | The OpenShift overlay with every pod as UID 1000680000 / GID 0, so an image that only works as its built-in user fails here, not on your cluster. |
+| `kind` | Path B under Pod Security `restricted`: who each container runs as, that Kubernetes holds no copy of the app's credentials, the bootstrap burned, SCRAM-only password changes in the Postgres log, and the smoke test. |
 | `images` | On `main`, pushes the exact images that passed to GHCR. |
 | `aws (Part C)` | Separate, manual workflow (above): Part C on real AWS, then teardown. Linted on every push. |
 
@@ -186,6 +187,7 @@ backend/        Node.js app: src/secrets (provider, fetchers, SecretValue, redac
 frontend/       dashboard (vanilla JS, strict CSP, textContent only)
 dev/            Secrets Manager + STS + agent mock (dev/CI only), Redis entrypoint
 deploy/k8s/     Kustomize base, component and overlays (kind, OpenShift, AWS)
+docs/           GUIDE.md: the step-by-step guide for all three paths
 infra/          CloudFormation (app stack + GitHub OIDC bootstrap), systemd unit, example IAM and IRSA policies
 scripts/        the same scripts on a laptop and in CI; capture/ = the dashboard walk
 .github/        ci.yaml and the browser-walk action
