@@ -1,0 +1,46 @@
+# CI ONLY: the openshift overlay, run on kind the way OpenShift would run it.
+#
+# OpenShift's restricted-v2 SCC starts every container as an arbitrary UID
+# from the project's range (here 1000680000, a typical value), with GID 0 and
+# that range's fsGroup. kind has no SCC, so this sets the same identity on
+# every pod. If an image only works as its own built-in user, this fails in
+# CI instead of on your cluster. kind has no router, so the Route is dropped
+# here (it is validated against its schema in the checks job instead), and
+# the images are the ones CI just built.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../overlays/openshift
+  - namespace.yaml
+
+images:
+  - name: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app
+    newName: secure-notes-app
+    newTag: dev
+  - name: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/aws-mock
+    newName: secure-notes-aws-mock
+    newTag: dev
+
+patches:
+  - patch: |-
+      $patch: delete
+      apiVersion: route.openshift.io/v1
+      kind: Route
+      metadata:
+        name: secure-notes
+  - target:
+      kind: Deployment
+    patch: &arbitrary-uid |-
+      - op: add
+        path: /spec/template/spec/securityContext/runAsUser
+        value: 1000680000
+      - op: add
+        path: /spec/template/spec/securityContext/runAsGroup
+        value: 0
+      - op: add
+        path: /spec/template/spec/securityContext/fsGroup
+        value: 1000680000
+  - target:
+      kind: Job
+    patch: *arbitrary-uid

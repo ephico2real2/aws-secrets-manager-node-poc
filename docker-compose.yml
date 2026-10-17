@@ -1,0 +1,110 @@
+# Local demo stack. No AWS account needed.
+#
+#   docker compose up --build        then open http://localhost:3000
+#   docker compose down -v           full reset (new random credentials)
+#
+# This file is also THE place the images are built. `docker compose build`
+# produces secure-notes-app:dev and secure-notes-aws-mock:dev, and the
+# Kubernetes manifests use exactly those tags: scripts/images-build.sh loads
+# them into kind, and CI builds them once and reuses them in every job.
+#
+# The bootstrap passwords below exist only so the one-shot `seed` job can log
+# in the first time. It immediately replaces them with random values stored
+# in the (mock) Secrets Manager, so after startup they no longer work.
+
+name: secure-notes
+
+x-mock-aws-env: &mock-aws-env
+  # The image defaults to NODE_ENV=production, which refuses demo mode and
+  # mock endpoints. Local development opts out explicitly.
+  NODE_ENV: development
+  AWS_REGION: us-east-1
+  AWS_MOCK_ENDPOINT: http://aws-mock:4566
+  # Dummy values: the AWS SDK requires credentials to sign requests even
+  # though the mock ignores them. On EC2 nothing like this is set.
+  AWS_ACCESS_KEY_ID: local-mock
+  AWS_SECRET_ACCESS_KEY: local-mock
+  DB_SECRET_ID: secure-notes/local/db
+  DB_ADMIN_SECRET_ID: secure-notes/local/db-admin
+  REDIS_SECRET_ID: secure-notes/local/redis
+  REDIS_ADMIN_SECRET_ID: secure-notes/local/redis-admin
+
+services:
+  aws-mock:
+    image: secure-notes-aws-mock:dev
+    build: ./dev/aws-mock
+    environment:
+      MOCK_STATE_FILE: /data/state.json
+    volumes:
+      - mock-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4566/health"]
+      interval: 2s
+      retries: 20
+
+  postgres:
+    image: docker.io/library/postgres:16 # same image as the Kubernetes manifests
+    environment:
+      POSTGRES_DB: notes
+      POSTGRES_PASSWORD: ${PG_BOOTSTRAP_PASSWORD:-bootstrap-only-change-me}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    command: ["postgres", "-c", "log_statement=ddl"] # proves passwords never appear in DDL logs
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres", "-d", "notes"]
+      interval: 2s
+      retries: 30
+
+  redis:
+    image: docker.io/library/redis:7-alpine
+    environment:
+      REDIS_BOOTSTRAP_PASSWORD: ${REDIS_BOOTSTRAP_PASSWORD:-bootstrap-only-change-me}
+    entrypoint: ["/bin/sh", "/dev-scripts/redis-entrypoint.sh"]
+    volumes:
+      - ./dev/redis-entrypoint.sh:/dev-scripts/redis-entrypoint.sh:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"] # NOAUTH reply still proves the server is up
+      interval: 2s
+      retries: 30
+
+  seed:
+    image: secure-notes-app:dev # same image as the app, as in Kubernetes
+    build: { context: ., dockerfile: backend/Dockerfile }
+    command: ["node", "scripts/seed-local.js"]
+    environment:
+      <<: *mock-aws-env
+      SEED_PG_HOST: postgres
+      SEED_REDIS_HOST: redis
+      PG_BOOTSTRAP_PASSWORD: ${PG_BOOTSTRAP_PASSWORD:-bootstrap-only-change-me}
+      REDIS_BOOTSTRAP_PASSWORD: ${REDIS_BOOTSTRAP_PASSWORD:-bootstrap-only-change-me}
+    depends_on:
+      aws-mock: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_started }
+    restart: "no"
+
+  app:
+    image: secure-notes-app:dev
+    build: { context: ., dockerfile: backend/Dockerfile }
+    environment:
+      <<: *mock-aws-env
+      HOST: 0.0.0.0
+      PORT: "3000"
+      DEMO_MODE: "true"
+      SECRETS_MODE: sdk
+    ports:
+      - "127.0.0.1:3000:3000" # loopback only
+    depends_on:
+      seed: { condition: service_completed_successfully }
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    ulimits:
+      core: 0
+
+volumes:
+  mock-data:
+  pg-data:
+  redis-data:

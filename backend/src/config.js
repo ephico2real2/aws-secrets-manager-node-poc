@@ -1,0 +1,104 @@
+// Non-secret configuration only.
+//
+// Everything here is safe to see in `ps`, systemd units, CloudFormation outputs
+// or a support ticket: secret IDs, hostnames, ports, feature flags.
+// Credentials themselves are fetched at runtime from AWS Secrets Manager.
+
+const env = process.env;
+
+const bool = (v, d = false) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(v));
+const num = (v, d) => (v === undefined || v === '' ? d : Number(v));
+
+export const config = Object.freeze({
+  nodeEnv: env.NODE_ENV ?? 'development',
+  port: num(env.PORT, 3000),
+  // On EC2 the app listens on loopback only; you reach it through an SSM port
+  // forward or a reverse proxy. Docker needs 0.0.0.0 inside the container.
+  host: env.HOST ?? '127.0.0.1',
+
+  region: env.AWS_REGION ?? env.AWS_DEFAULT_REGION ?? 'us-east-1',
+
+  // 'sdk'   -> AWS SDK v3 GetSecretValue + in-process cache (default)
+  // 'agent' -> AWS Workload Credentials Provider (formerly Secrets Manager Agent)
+  //            on http://localhost:2773, authenticated with its SSRF token
+  secretsMode: env.SECRETS_MODE ?? 'sdk',
+
+  // ONLY for local development against the bundled mock. Never set on EC2.
+  awsEndpoint: env.AWS_MOCK_ENDPOINT || undefined,
+
+  agent: Object.freeze({
+    url: env.AWCP_URL ?? 'http://localhost:2773',
+    tokenFile: env.AWCP_TOKEN_FILE ?? '/var/run/awssmatoken',
+  }),
+
+  cache: Object.freeze({
+    ttlSeconds: num(env.SECRET_CACHE_TTL_SECONDS, 300),
+    // If Secrets Manager is briefly unreachable, keep serving the last good
+    // value for this long instead of failing every request.
+    maxStaleSeconds: num(env.SECRET_MAX_STALE_SECONDS, 3600),
+  }),
+
+  secretIds: Object.freeze({
+    db: env.DB_SECRET_ID,
+    redis: env.REDIS_SECRET_ID,
+  }),
+
+  db: Object.freeze({
+    host: env.DB_HOST,
+    port: num(env.DB_PORT, 5432),
+    name: env.DB_NAME ?? 'notes',
+    ssl: bool(env.DB_SSL),
+    sslCaFile: env.DB_SSL_CA_FILE,
+    // Create the notes table on startup (used on AWS; locally the seed job does it).
+    autoMigrate: bool(env.DB_AUTO_MIGRATE),
+  }),
+
+  redis: Object.freeze({
+    host: env.REDIS_HOST,
+    port: num(env.REDIS_PORT, 6379),
+    tls: bool(env.REDIS_TLS),
+  }),
+
+  // Demo-only features (rotation lab, leak test, log tail). Off by default and
+  // refused in production; see assertSafeEnvironment().
+  demo: Object.freeze({
+    enabled: bool(env.DEMO_MODE),
+    dbAdminSecretId: env.DB_ADMIN_SECRET_ID,
+    redisAdminSecretId: env.REDIS_ADMIN_SECRET_ID,
+  }),
+});
+
+// Environment variable names that must never carry credentials into this
+// process. If any is set, we refuse to start: it means someone "fixed" a
+// problem by pasting a password into the environment.
+const FORBIDDEN_ENV = [
+  'DB_PASSWORD', 'PGPASSWORD', 'DATABASE_URL', 'POSTGRES_PASSWORD',
+  'REDIS_PASSWORD', 'REDIS_URL', 'REDISCLI_AUTH',
+];
+
+export function assertSafeEnvironment() {
+  const problems = [];
+
+  for (const name of FORBIDDEN_ENV) {
+    if (env[name]) problems.push(`${name} is set; credentials must come from Secrets Manager, not the environment`);
+  }
+
+  if (!config.secretIds.db) problems.push('DB_SECRET_ID is required');
+  if (!config.secretIds.redis) problems.push('REDIS_SECRET_ID is required');
+  if (!['sdk', 'agent'].includes(config.secretsMode)) problems.push(`SECRETS_MODE must be 'sdk' or 'agent'`);
+
+  if (config.nodeEnv === 'production') {
+    // Long-term access keys on an EC2 host defeat the purpose of the instance role.
+    if (env.AWS_ACCESS_KEY_ID && !env.AWS_SESSION_TOKEN) {
+      problems.push('static AWS_ACCESS_KEY_ID found in production; use the EC2 instance role instead');
+    }
+    if (config.awsEndpoint) problems.push('AWS_MOCK_ENDPOINT must not be set in production');
+    if (config.demo.enabled) problems.push('DEMO_MODE must not be enabled in production');
+  }
+
+  if (problems.length) {
+    const err = new Error(`Refusing to start:\n  - ${problems.join('\n  - ')}`);
+    err.code = 'UNSAFE_CONFIG';
+    throw err;
+  }
+}

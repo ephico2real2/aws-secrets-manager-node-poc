@@ -1,0 +1,412 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Secure Notes demo on EC2: Node.js app reading Postgres (RDS) and Redis
+  (ElastiCache) credentials from AWS Secrets Manager with an instance role,
+  IMDSv2, a VPC interface endpoint, a customer-managed KMS key and no inbound
+  ports (access through SSM Session Manager port forwarding).
+
+Parameters:
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+  AppSubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Private subnet for the instance. Needs outbound internet (NAT) to install packages.
+  DataSubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Two or more private subnets in different AZs for RDS, ElastiCache and the VPC endpoint.
+  AppArtifactBucket:
+    Type: String
+    Description: S3 bucket holding the app zip (see scripts/package.sh).
+  AppArtifactKey:
+    Type: String
+    Default: secure-notes/app.zip
+  SecretsMode:
+    Type: String
+    AllowedValues: [sdk, agent]
+    Default: sdk
+    Description: sdk = AWS SDK in the app; agent = AWS Workload Credentials Provider on localhost:2773.
+  AwcpVersion:
+    Type: String
+    Default: 3.1.1
+    Description: Workload Credentials Provider release (only used when SecretsMode=agent).
+  CreateSecretsManagerEndpoint:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: Set to false if the VPC already has a Secrets Manager interface endpoint with private DNS.
+  ExistingSecretsManagerEndpointId:
+    Type: String
+    Default: ''
+    Description: Required when CreateSecretsManagerEndpoint=false (vpce-...). Used in the IAM condition.
+  InstanceType:
+    Type: String
+    Default: t3.small
+  DbInstanceClass:
+    Type: String
+    Default: db.t4g.micro
+  CacheNodeType:
+    Type: String
+    Default: cache.t4g.micro
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Conditions:
+  MakeEndpoint: !Equals [!Ref CreateSecretsManagerEndpoint, 'true']
+  UseAgent: !Equals [!Ref SecretsMode, agent]
+
+Resources:
+  # ---------------------------------------------------------------- KMS ----
+  SecretsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Encrypts Secure Notes secrets, RDS storage and ElastiCache data
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root' }
+            Action: kms:*
+            Resource: '*'
+
+  SecretsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/${AWS::StackName}-secrets
+      TargetKeyId: !Ref SecretsKey
+
+  # ------------------------------------------------------ security groups --
+  AppSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Secure Notes app - no inbound; reached via SSM port forwarding
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS (AWS APIs, packages) }
+
+  AppToDbEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 5432
+      ToPort: 5432
+      DestinationSecurityGroupId: !Ref DbSecurityGroup
+
+  AppToCacheEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref AppSecurityGroup
+      IpProtocol: tcp
+      FromPort: 6379
+      ToPort: 6379
+      DestinationSecurityGroupId: !Ref CacheSecurityGroup
+
+  DbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Postgres - only from the app
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 5432, ToPort: 5432, SourceSecurityGroupId: !Ref AppSecurityGroup }
+
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Redis - only from the app
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 6379, ToPort: 6379, SourceSecurityGroupId: !Ref AppSecurityGroup }
+
+  EndpointSecurityGroup:
+    Condition: MakeEndpoint
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Secrets Manager interface endpoint - HTTPS from the app
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, SourceSecurityGroupId: !Ref AppSecurityGroup }
+
+  # ------------------------------------------- Secrets Manager endpoint ----
+  SecretsManagerEndpoint:
+    Condition: MakeEndpoint
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      VpcId: !Ref VpcId
+      ServiceName: !Sub com.amazonaws.${AWS::Region}.secretsmanager
+      VpcEndpointType: Interface
+      PrivateDnsEnabled: true # the SDK's normal endpoint name resolves to this endpoint
+      SubnetIds: !Ref DataSubnetIds
+      SecurityGroupIds: [!Ref EndpointSecurityGroup]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # Only principals of this account, only secrets of this account:
+          # the endpoint cannot be used to read from or write to other accounts.
+          - Effect: Allow
+            Principal: '*'
+            Action: secretsmanager:*
+            Resource: '*'
+            Condition:
+              StringEquals:
+                aws:PrincipalAccount: !Ref AWS::AccountId
+                aws:ResourceAccount: !Ref AWS::AccountId
+
+  # ------------------------------------------------------------- secrets ----
+  RedisAppSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: !Sub ${AWS::StackName}/redis
+      Description: ElastiCache RBAC user for the app
+      KmsKeyId: !Ref SecretsKey
+      GenerateSecretString:
+        SecretStringTemplate: '{"username": "notes-app"}'
+        GenerateStringKey: password
+        PasswordLength: 40
+        ExcludePunctuation: true # ElastiCache passwords: 16-128 printable chars, some symbols disallowed
+
+  # ------------------------------------------------------------------ RDS ----
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Secure Notes
+      SubnetIds: !Ref DataSubnetIds
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Snapshot
+    UpdateReplacePolicy: Snapshot
+    Properties:
+      Engine: postgres
+      DBInstanceClass: !Ref DbInstanceClass
+      AllocatedStorage: '20'
+      DBName: notes
+      MasterUsername: notesadmin
+      # RDS creates the secret in Secrets Manager and rotates it (managed rotation).
+      # No password ever appears in this template, a parameter, or CI.
+      ManageMasterUserPassword: true
+      MasterUserSecret:
+        KmsKeyId: !Ref SecretsKey
+      StorageEncrypted: true
+      KmsKeyId: !Ref SecretsKey
+      PubliclyAccessible: false
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref DbSecurityGroup]
+      BackupRetentionPeriod: 1
+      DeletionProtection: false # demo; turn on for real workloads
+
+  # ---------------------------------------------------------- ElastiCache ----
+  CacheDefaultUser:
+    Type: AWS::ElastiCache::User
+    Properties:
+      UserId: !Sub ${AWS::StackName}-default
+      UserName: default # every user group needs a "default" user; this one is disabled
+      Engine: redis
+      AccessString: off -@all
+      NoPasswordRequired: true
+
+  CacheAppUser:
+    Type: AWS::ElastiCache::User
+    Properties:
+      UserId: !Sub ${AWS::StackName}-app
+      UserName: notes-app
+      Engine: redis
+      # Least privilege: only keys under notes:*, no admin/dangerous commands.
+      AccessString: on ~notes:* -@all +@read +@write +@connection -@dangerous +info
+      AuthenticationMode:
+        Type: password
+        Passwords:
+          # Dynamic reference: CloudFormation resolves it at deploy time and never shows the value.
+          - !Sub '{{resolve:secretsmanager:${RedisAppSecret}:SecretString:password}}'
+
+  CacheUserGroup:
+    Type: AWS::ElastiCache::UserGroup
+    Properties:
+      UserGroupId: !Sub ${AWS::StackName}-users
+      Engine: redis
+      UserIds: [!Ref CacheDefaultUser, !Ref CacheAppUser]
+
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Secure Notes
+      SubnetIds: !Ref DataSubnetIds
+
+  Cache:
+    Type: AWS::ElastiCache::ReplicationGroup
+    Properties:
+      ReplicationGroupDescription: Secure Notes cache
+      Engine: redis
+      EngineVersion: '7.1'
+      CacheNodeType: !Ref CacheNodeType
+      NumCacheClusters: 1
+      AutomaticFailoverEnabled: false
+      TransitEncryptionEnabled: true
+      AtRestEncryptionEnabled: true
+      KmsKeyId: !Ref SecretsKey
+      UserGroupIds: [!Ref CacheUserGroup]
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+      SecurityGroupIds: [!Ref CacheSecurityGroup]
+
+  # ------------------------------------------------------------ IAM role ----
+  AppRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: read-own-secrets
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # Read-only, only these two secrets, and only through our VPC endpoint:
+              # role credentials stolen off the box are useless from anywhere else.
+              - Sid: ReadAppSecretsViaVpce
+                Effect: Allow
+                Action:
+                  - secretsmanager:GetSecretValue
+                  - secretsmanager:DescribeSecret
+                Resource:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref RedisAppSecret
+                Condition:
+                  StringEquals:
+                    aws:SourceVpce: !If [MakeEndpoint, !Ref SecretsManagerEndpoint, !Ref ExistingSecretsManagerEndpointId]
+              # Decrypt with our key, but only when Secrets Manager asks on our behalf.
+              - Sid: DecryptViaSecretsManagerOnly
+                Effect: Allow
+                Action: kms:Decrypt
+                Resource: !GetAtt SecretsKey.Arn
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub secretsmanager.${AWS::Region}.amazonaws.com
+              - Sid: FetchAppArtifact
+                Effect: Allow
+                Action: s3:GetObject
+                Resource: !Sub arn:${AWS::Partition}:s3:::${AppArtifactBucket}/${AppArtifactKey}
+
+  AppInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref AppRole]
+
+  # ------------------------------------------------------------ instance ----
+  AppLaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateData:
+        MetadataOptions:
+          HttpTokens: required # IMDSv2 only: blocks SSRF theft of role credentials
+          HttpPutResponseHopLimit: 1 # token cannot leave the host (e.g. into containers)
+          HttpEndpoint: enabled
+          InstanceMetadataTags: disabled
+        BlockDeviceMappings:
+          - DeviceName: /dev/xvda
+            Ebs: { VolumeSize: 20, VolumeType: gp3, Encrypted: true }
+
+  AppInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: [Database, Cache]
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref AppSubnetId
+      SecurityGroupIds: [!Ref AppSecurityGroup]
+      IamInstanceProfile: !Ref AppInstanceProfile
+      LaunchTemplate:
+        LaunchTemplateId: !Ref AppLaunchTemplate
+        Version: !GetAtt AppLaunchTemplate.LatestVersionNumber
+      Tags:
+        - { Key: Name, Value: !Sub '${AWS::StackName}-app' }
+      UserData:
+        Fn::Base64: !Sub
+          - |
+            #!/bin/bash
+            set -euo pipefail
+            dnf install -y nodejs22 nodejs22-npm unzip
+            alternatives --set node /usr/bin/node-22 || true
+
+            # Dedicated, non-login service user. Code is owned by root and only readable by the app.
+            useradd --system --home-dir /opt/secure-notes --shell /sbin/nologin securenotes || true
+            mkdir -p /opt/secure-notes /etc/secure-notes
+            aws s3 cp "s3://${AppArtifactBucket}/${AppArtifactKey}" /tmp/app.zip
+            unzip -oq /tmp/app.zip -d /opt/secure-notes && rm -f /tmp/app.zip
+            (cd /opt/secure-notes/backend && npm-22 install --omit=dev --no-audit --no-fund)
+
+            # RDS CA bundle so the app can verify the database certificate.
+            curl -fsSL -o /opt/secure-notes/rds-global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+
+            chown -R root:securenotes /opt/secure-notes
+            chmod -R u=rwX,g=rX,o= /opt/secure-notes
+
+            if [ "${SecretsMode}" = "agent" ]; then
+              cat > /etc/secure-notes/awcp.toml <<'TOML'
+            [capabilities.secrets_manager]
+            http_port = 2773
+            [capabilities.secrets_manager.cache]
+            ttl_seconds = 300
+            TOML
+              installer=$(mktemp)
+              curl --proto '=https' --tlsv1.2 -fsSL -o "$installer" \
+                https://raw.githubusercontent.com/aws/aws-workload-credentials-provider/HEAD/install.sh
+              AWCP_VERSION=${AwcpVersion} bash "$installer" --config /etc/secure-notes/awcp.toml
+              rm -f "$installer"
+              usermod -aG aws-wcp-token securenotes
+            fi
+
+            # Non-secret configuration only: IDs and hostnames.
+            cat > /etc/secure-notes/app.env <<ENV
+            NODE_ENV=production
+            AWS_REGION=${AWS::Region}
+            SECRETS_MODE=${SecretsMode}
+            DB_SECRET_ID=${DbSecretArn}
+            DB_HOST=${DbHost}
+            DB_PORT=${DbPort}
+            DB_NAME=notes
+            DB_AUTO_MIGRATE=true
+            DB_SSL=true
+            DB_SSL_CA_FILE=/opt/secure-notes/rds-global-bundle.pem
+            REDIS_SECRET_ID=${RedisAppSecret}
+            REDIS_HOST=${CacheHost}
+            REDIS_PORT=${CachePort}
+            REDIS_TLS=true
+            ENV
+            chown root:securenotes /etc/secure-notes/app.env
+            chmod 640 /etc/secure-notes/app.env
+
+            cp /opt/secure-notes/infra/systemd/secure-notes.service /etc/systemd/system/
+            if [ "${SecretsMode}" = "agent" ]; then
+              mkdir -p /etc/systemd/system/secure-notes.service.d
+              printf '[Service]\nSupplementaryGroups=aws-wcp-token\n' > /etc/systemd/system/secure-notes.service.d/agent.conf
+            fi
+            systemctl daemon-reload
+            systemctl enable --now secure-notes
+          - DbSecretArn: !GetAtt Database.MasterUserSecret.SecretArn
+            DbHost: !GetAtt Database.Endpoint.Address
+            DbPort: !GetAtt Database.Endpoint.Port
+            CacheHost: !GetAtt Cache.PrimaryEndPoint.Address
+            CachePort: !GetAtt Cache.PrimaryEndPoint.Port
+
+Outputs:
+  InstanceId:
+    Value: !Ref AppInstance
+  OpenTheApp:
+    Description: Run locally, then browse to http://localhost:3000
+    Value: !Sub >-
+      aws ssm start-session --target ${AppInstance} --document-name AWS-StartPortForwardingSession
+      --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+  DbSecretArn:
+    Description: RDS-managed secret (rotated by RDS)
+    Value: !GetAtt Database.MasterUserSecret.SecretArn
+  RedisSecretArn:
+    Value: !Ref RedisAppSecret
+  KmsKeyArn:
+    Value: !GetAtt SecretsKey.Arn

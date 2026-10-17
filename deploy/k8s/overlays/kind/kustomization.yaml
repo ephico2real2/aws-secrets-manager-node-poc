@@ -1,0 +1,16 @@
+# kind (or any local Kubernetes): the app plus in-cluster Postgres, Redis and
+# the Secrets Manager mock. Images are the locally built :dev tags, loaded
+# into kind by scripts/images-build.sh.
+#
+#   kubectl apply -k deploy/k8s/overlays/kind
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: secure-notes
+
+resources:
+  - namespace.yaml
+  - ../../base
+
+components:
+  - ../../components/local-backing-services

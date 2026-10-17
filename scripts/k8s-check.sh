@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+# Evidence and assertions for a running Kubernetes deployment, then the same
+# end-to-end smoke test Docker Compose runs. Needs a port-forward to the app:
+#
+#   kubectl -n secure-notes port-forward svc/secure-notes 3000:80 &
+#   scripts/k8s-check.sh http://localhost:3000
+set -uo pipefail
+cd "$(dirname "$0")/.." || exit 1
+# shellcheck disable=SC1091
+. scripts/versions.env
+BASE="${1:-http://localhost:3000}"
+K="${KUBECTL:-kubectl}"
+NS="$NAMESPACE"
+BOOT='bootstrap-only-change-me'
+fails=0
+pass() { printf '  ok    %s\n' "$*"; }
+fail() { printf '  FAIL  %s\n' "$*"; fails=$((fails + 1)); }
+
+echo "== who each container runs as (OpenShift-style arbitrary UIDs show up here)"
+for d in secure-notes aws-mock postgres redis; do
+  printf '  %-13s %s\n' "$d" "$("$K" -n "$NS" exec "deploy/$d" -- id 2>&1 | head -1)"
+done
+root=$("$K" -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.securityContext.runAsUser}{"\n"}{end}' | awk '$2=="0"')
+[ -z "$root" ] && pass "no pod asks for UID 0" || fail "pods running as root: $root"
+
+echo "== Pod Security admission on the namespace"
+psa=$("$K" get ns "$NS" -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}')
+[ "$psa" = restricted ] && pass "enforce=restricted: the API server rejects non-compliant pods" || fail "PSA enforce label is '${psa:-unset}'"
+
+echo "== Kubernetes Secrets in the namespace"
+"$K" -n "$NS" get secrets -o custom-columns='NAME:.metadata.name,KEYS:.data' --no-headers | sed 's/^/  /'
+others=$("$K" -n "$NS" get secrets -o name | grep -v 'secret/local-bootstrap-' || true)
+[ -z "$others" ] && pass "the only Secret is the one-time bootstrap; the app's credentials are not stored in Kubernetes" || fail "unexpected Secrets: $others"
+
+echo "== the bootstrap passwords were burned by the seed job"
+if "$K" -n "$NS" exec deploy/redis -- redis-cli --no-auth-warning --user default --pass "$BOOT" ping 2>&1 | grep -q PONG; then
+  fail "Redis still accepts the bootstrap password"
+else
+  pass "Redis rejects the bootstrap password"
+fi
+if "$K" -n "$NS" exec deploy/postgres -- env PGPASSWORD="$BOOT" psql -h 127.0.0.1 -U postgres -d notes -tAc 'select 1' >/dev/null 2>&1; then
+  fail "Postgres still accepts the bootstrap password"
+else
+  pass "Postgres rejects the bootstrap password"
+fi
+
+echo "== the app's environment holds IDs and hostnames, no credentials"
+names=$("$K" -n "$NS" exec deploy/secure-notes -- sh -c 'env | cut -d= -f1 | sort' 2>&1)
+echo "$names" | tr '\n' ' ' | fold -w 110 | sed 's/^/  /'; echo
+if echo "$names" | grep -Eiq 'PASSWORD|PGPASS|DATABASE_URL|REDIS_URL'; then fail "a credential-named variable is set"; else pass "no credential-named variables"; fi
+
+echo "== Postgres statement log: new passwords arrived as SCRAM verifiers"
+alter=$("$K" -n "$NS" logs deploy/postgres 2>/dev/null | grep -o "ALTER ROLE [^ ]* WITH[^']*PASSWORD '[^']\{0,24\}" | head -3)
+echo "$alter" | sed 's/^/  /'
+if [ -n "$alter" ] && ! echo "$alter" | grep -v "PASSWORD 'SCRAM-SHA-256" | grep -q .; then
+  pass "every ALTER ROLE in the log carries a SCRAM verifier"
+else
+  fail "no SCRAM-only ALTER ROLE lines found"
+fi
+
+echo "== NetworkPolicies"
+"$K" -n "$NS" get networkpolicy --no-headers | awk '{print "  " $1}'
+
+echo "== end-to-end smoke test against $BASE"
+node backend/scripts/smoke-test.js "$BASE" || fails=$((fails + 1))
+
+echo
+if [ "$fails" -eq 0 ]; then echo "k8s-check: all checks passed"; else echo "k8s-check: $fails check(s) failed"; fi
+exit $((fails > 0))

@@ -1,0 +1,47 @@
+[Unit]
+Description=Secure Notes (Node.js) - credentials from AWS Secrets Manager
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=securenotes
+Group=securenotes
+WorkingDirectory=/opt/secure-notes/backend
+# Non-secret settings only (secret IDs, hostnames). No passwords here, ever.
+EnvironmentFile=/etc/secure-notes/app.env
+Environment=HOST=127.0.0.1 PORT=3000
+ExecStart=/usr/bin/node-22 src/server.js
+Restart=on-failure
+RestartSec=5
+# Exit code 78 = unsafe configuration; don't hot-loop on it.
+RestartPreventExitStatus=78
+
+# --- hardening: protect the secrets this process holds in memory ---------
+LimitCORE=0
+NoNewPrivileges=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+ProtectProc=invisible
+ProcSubset=pid
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+RestrictRealtime=yes
+LockPersonality=yes
+CapabilityBoundingSet=
+AmbientCapabilities=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+SystemCallArchitectures=native
+UMask=0077
+# Node's JIT needs writable+executable memory, so MemoryDenyWriteExecute stays off.
+
+[Install]
+WantedBy=multi-user.target
