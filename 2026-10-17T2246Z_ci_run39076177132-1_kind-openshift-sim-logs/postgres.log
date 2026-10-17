@@ -1,0 +1,81 @@
+chmod: changing permissions of '/var/run/postgresql': Operation not permitted
+The files belonging to this database system will be owned by user "postgres".
+This user must also own the server process.
+
+The database cluster will be initialized with locale "en_US.utf8".
+The default database encoding has accordingly been set to "UTF8".
+The default text search configuration will be set to "english".
+
+Data page checksums are disabled.
+
+fixing permissions on existing directory /var/lib/postgresql/data/pgdata ... ok
+creating subdirectories ... ok
+selecting dynamic shared memory implementation ... posix
+selecting default max_connections ... 100
+selecting default shared_buffers ... 128MB
+selecting default time zone ... Etc/UTC
+creating configuration files ... ok
+running bootstrap script ... ok
+performing post-bootstrap initialization ... ok
+syncing data to disk ... ok
+
+
+Success. You can now start the database server using:
+
+    pg_ctl -D /var/lib/postgresql/data/pgdata -l logfile start
+
+initdb: warning: enabling "trust" authentication for local connections
+initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+waiting for server to start....2026-10-17 22:45:41.446 UTC [57] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-17 22:45:41.447 UTC [57] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-17 22:45:41.449 UTC [60] LOG:  database system was shut down at 2026-10-17 22:45:41 UTC
+2026-10-17 22:45:41.453 UTC [57] LOG:  database system is ready to accept connections
+ done
+server started
+2026-10-17 22:45:41.594 UTC [68] LOG:  statement: CREATE DATABASE "notes" ;
+CREATE DATABASE
+
+
+/usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+
+waiting for server to shut down...2026-10-17 22:45:41.635 UTC [57] LOG:  received fast shutdown request
+.2026-10-17 22:45:41.635 UTC [57] LOG:  aborting any active transactions
+2026-10-17 22:45:41.637 UTC [57] LOG:  background worker "logical replication launcher" (PID 63) exited with exit code 1
+2026-10-17 22:45:41.638 UTC [58] LOG:  shutting down
+2026-10-17 22:45:41.639 UTC [58] LOG:  checkpoint starting: shutdown immediate
+2026-10-17 22:45:41.654 UTC [58] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.014 s, sync=0.001 s, total=0.016 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E8, redo lsn=0/191F0E8
+2026-10-17 22:45:41.662 UTC [57] LOG:  database system is shut down
+ done
+server stopped
+
+PostgreSQL init process complete; ready for start up.
+
+2026-10-17 22:45:41.755 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-10-17 22:45:41.755 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-10-17 22:45:41.755 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+2026-10-17 22:45:41.756 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+2026-10-17 22:45:41.759 UTC [73] LOG:  database system was shut down at 2026-10-17 22:45:41 UTC
+2026-10-17 22:45:41.763 UTC [1] LOG:  database system is ready to accept connections
+2026-10-17 22:45:45.083 UTC [84] LOG:  statement: ALTER ROLE notes_app WITH LOGIN PASSWORD 'SCRAM-SHA-256$4096:4mS6Z44SDHGUr7loKxQ2qg==$hcGv2Rjc6nE328SWSEJRAhx694op6dave8NcpbHs++o=:rTHV0Wm4Hy1hYz24vGRn6Lfp97hy+bpjrr8uf5ikJkg='
+2026-10-17 22:45:45.087 UTC [84] LOG:  statement: 
+	  CREATE TABLE IF NOT EXISTS notes (
+	    id         bigserial PRIMARY KEY,
+	    body       text NOT NULL CHECK (length(body) BETWEEN 1 AND 280),
+	    created_at timestamptz NOT NULL DEFAULT now()
+	  )
+2026-10-17 22:45:45.092 UTC [84] LOG:  statement: REVOKE ALL ON notes FROM notes_app
+2026-10-17 22:45:45.092 UTC [84] LOG:  statement: GRANT SELECT, INSERT ON notes TO notes_app
+2026-10-17 22:45:45.093 UTC [84] LOG:  statement: GRANT USAGE ON SEQUENCE notes_id_seq TO notes_app
+2026-10-17 22:45:45.093 UTC [84] LOG:  statement: REVOKE CREATE ON SCHEMA public FROM PUBLIC
+2026-10-17 22:45:45.097 UTC [84] LOG:  statement: ALTER ROLE "postgres" WITH PASSWORD 'SCRAM-SHA-256$4096:9ZSg1oqX1yJtfGHF0c+N+g==$Yri/3rObZBvK9ZFOV4QbDictqelcK1ZND9o3v28vhB4=:ChA+9TKlT8BeqUcnO19Ul7+1qVaVNCa0e3IrblpGyGs='
+2026-10-17 22:46:12.422 UTC [151] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:X/0h3nSfxKTnOCBCBcdxrg==$D5Jzv0VFGrJ7QhZw3POj4XaPXb0rrTF3yrxAP63h43Q=:NjaXuoKkgX2TkFkN7Of/PbnzKK5oKXW3GHw8GfCJOQU='
+2026-10-17 22:46:12.525 UTC [85] FATAL:  terminating connection due to administrator command
+2026-10-17 22:46:12.545 UTC [154] FATAL:  password authentication failed for user "notes_app"
+2026-10-17 22:46:12.545 UTC [154] DETAIL:  Connection matched file "/var/lib/postgresql/data/pgdata/pg_hba.conf" line 128: "host all all all scram-sha-256"
+2026-10-17 22:46:19.594 UTC [155] FATAL:  terminating connection due to administrator command
+2026-10-17 22:46:36.868 UTC [226] FATAL:  password authentication failed for user "postgres"
+2026-10-17 22:46:36.868 UTC [226] DETAIL:  Connection matched file "/var/lib/postgresql/data/pgdata/pg_hba.conf" line 119: "host    all             all             127.0.0.1/32            scram-sha-256"
+2026-10-17 22:46:37.660 UTC [227] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:KnLmfuBE2QlLLcF+re3duA==$oL/6X6yho/HWk/v9YrgcdnFRaYqcEjgpYm/fm47OlSA=:Z/3F1tnz3t7Ni/LzZ2lgoHvugUDE1g1DHzvMAaLgBN8='
+2026-10-17 22:46:37.757 UTC [171] FATAL:  terminating connection due to administrator command
+2026-10-17 22:46:37.773 UTC [230] FATAL:  password authentication failed for user "notes_app"
+2026-10-17 22:46:37.773 UTC [230] DETAIL:  Connection matched file "/var/lib/postgresql/data/pgdata/pg_hba.conf" line 128: "host all all all scram-sha-256"
