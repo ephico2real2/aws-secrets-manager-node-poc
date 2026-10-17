@@ -53,7 +53,6 @@ Parameters:
 
 Conditions:
   MakeEndpoint: !Equals [!Ref CreateSecretsManagerEndpoint, 'true']
-  UseAgent: !Equals [!Ref SecretsMode, agent]
 
 Resources:
   # ---------------------------------------------------------------- KMS ----
@@ -84,7 +83,7 @@ Resources:
       GroupDescription: Secure Notes app - no inbound; reached via SSM port forwarding
       VpcId: !Ref VpcId
       SecurityGroupEgress:
-        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: HTTPS (AWS APIs, packages) }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0, Description: 'HTTPS: AWS APIs and packages' }
 
   AppToDbEgress:
     Type: AWS::EC2::SecurityGroupEgress
@@ -314,7 +313,6 @@ Resources:
 
   AppInstance:
     Type: AWS::EC2::Instance
-    DependsOn: [Database, Cache]
     Properties:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref InstanceType
