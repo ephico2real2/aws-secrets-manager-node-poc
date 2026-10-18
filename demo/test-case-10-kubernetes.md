@@ -29,6 +29,8 @@ scripts/k8s-check.sh
   postgres      uid=999(postgres) gid=999(postgres) groups=999(postgres),101(ssl-cert)
   redis         uid=999(redis) gid=1000(redis) groups=1000(redis)
   ok    no pod asks for UID 0
+== the app never restarted (startup and rotation recover in-process)
+  ok    restartCount 0
 == Pod Security admission on the namespace
   ok    enforce=restricted: the API server rejects non-compliant pods
 == Kubernetes Secrets in the namespace (Opaque ones; names and keys only)

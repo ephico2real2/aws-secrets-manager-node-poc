@@ -25,7 +25,7 @@ secrets, and keep a tamper-resistant audit trail.
 
 | | AWS Secrets Manager | What it means for you |
 | --- | --- | --- |
-| **At rest** | Envelope encryption: each secret version is encrypted with a unique AES-256 data key, which is itself encrypted by a **KMS key** | With a customer-managed key, the key policy is a second lock: reading the secret also needs permission to use the key. Secure Notes' key allows decrypt only *via Secrets Manager* (`kms:ViaService`) |
+| **At rest** | Envelope encryption: each secret version is encrypted with a unique AES-256 data key, which is itself encrypted by a **KMS key** | Reading the secret also needs permission to use the key. Secure Notes' app role may call `kms:Decrypt` only *via Secrets Manager* (`kms:ViaService`). With a customer-managed key you can also make the key policy a second lock; today its policy delegates to IAM, and narrowing it is [S4.6](../modernization/backlog.md#e4--security-hardening) |
 | **In transit** | TLS 1.2 or 1.3 on every endpoint; hybrid post-quantum key exchange available | Combined with a **VPC endpoint**, the request never leaves the AWS network |
 | **In use** | The app holds the value in memory | The remaining exposure: a memory dump of the process. Keep the cache short and never log the value ([chapter 6](06-request-flows.md#63-logging-why-no-line-can-carry-a-password)) |
 
@@ -34,8 +34,8 @@ verification for RDS, and TLS (required) for ElastiCache.
 
 ## Rotation without people
 
-Rotation is a four-step state machine (`createSecret → setSecret → testSecret →
-finishSecret`). Versions carry labels: `AWSPENDING` while the new one is tested,
+A rotation **Lambda** is a four-step state machine (`createSecret → setSecret → testSecret →
+finishSecret`); RDS managed rotation runs inside AWS but uses the same version labels. Versions carry labels: `AWSPENDING` while the new one is tested,
 `AWSCURRENT` once it is live, `AWSPREVIOUS` for the one before.
 
 - **RDS, Aurora, Redshift, DocumentDB:** managed. With `ManageMasterUserPassword`, RDS
@@ -83,7 +83,7 @@ passwords, so the values never appear in a template, a parameter or an output.
 - name: Configure the app's database user
   community.postgresql.postgresql_user:
     name: notes_app
-    password: "{{ lookup('amazon.aws.secretsmanager_secret', 'secure-notes/db') }}"
+    password: "{{ (lookup('amazon.aws.secretsmanager_secret', '/rds/prod/notes-db/app') | from_json).password }}"
   no_log: true
 ```
 
@@ -103,7 +103,7 @@ verifies against the issuer's published public keys. The claims that matter:
 | `iss` | Who issued it | `https://oidc.eks.us-east-1.amazonaws.com/id/EXAMPLE` |
 | `sub` | Who it is about | `system:serviceaccount:secure-notes:secure-notes` |
 | `aud` | Who it is for | `sts.amazonaws.com` |
-| `exp` | When it expires | a Unix time, about an hour ahead |
+| `exp` | When it expires | a Unix time: 24 h ahead for IRSA's token (the kubelet refreshes it), about 1 h for a default projected token |
 
 A workload uses its JWT to get cloud credentials **without any stored key**:
 
@@ -137,7 +137,7 @@ directly ([chapter 1](01-secrets-managers.md#13-the-pattern-on-aws)).
 | Cost | How to manage it |
 | --- | --- |
 | A runtime dependency: if the store is unreachable, a cold start can't get its secret | Cache with a TTL and serve the last good value on errors; retry at startup; multi-region replicas for DR |
-| Money: $0.40 per secret per month and $0.05 per 10,000 API calls (AWS) | The cache keeps calls to a few per hour per instance |
+| Money: $0.40 per secret per month and $0.05 per 10,000 API calls (AWS) | The cache keeps reads to about 24 an hour per instance (2 secrets, 5-minute TTL), plus up to 120 `DescribeSecret` calls an hour while a dashboard is open |
 | The value is still in process memory | Short cache TTL, no core dumps, never log it |
 | The identity is now the key | Least-privilege roles, IMDSv2, narrow trust policies on `sub` and `aud`, and an alarm on unexpected reads |
 

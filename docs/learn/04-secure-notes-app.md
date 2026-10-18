@@ -48,6 +48,9 @@ flowchart LR
   user["Browser"] --> app
 ```
 
+On EC2, `app.env` is `/etc/secure-notes/app.env`, written by the CloudFormation user data
+and loaded by systemd (`EnvironmentFile=`); on Kubernetes the same keys are a ConfigMap.
+
 Integration point: **secret IDs** (names or ARNs), or the parts of a name built by the
 [naming convention](../reference/secret-naming.md) (`/elasticache/prod/secure-notes/app`).
 The environment says *where* the credentials are, never *what* they are. The full request path is in

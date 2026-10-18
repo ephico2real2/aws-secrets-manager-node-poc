@@ -66,6 +66,6 @@ branch ([what CI proves](docs/reference/ci.md)).
 | Page | For |
 | --- | --- |
 | [Security controls](docs/reference/security-controls.md) | Every control and where it lives; debug logging and the reveal flag; SDK vs agent mode; the production checklist |
-| [Secret naming convention](docs/reference/secret-naming.md) | `/{service}/{env}/{resource}/{name}`, set from env vars, `config.yaml`, `config.env` or Helm values |
+| [Secret naming convention](docs/reference/secret-naming.md) | `/{service}/{env}/{resource}/{name}`, set from env vars, `config.yaml`, `config.env`, Kustomize, or Helm (example) |
 | [CI](docs/reference/ci.md) | What each job proves |
 | [Quick reference](docs/reference/deploy-quickref.md) | Commands for paths A–C, and the project layout |

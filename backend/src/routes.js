@@ -64,13 +64,16 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
   });
 
   // ---- secrets metadata (never values) -------------------------------------
-  // Short cache for DescribeSecret so dashboard polling stays cheap; dropped
-  // whenever we know the version changed.
+  // Cache DescribeSecret so dashboard polling stays cheap: the cache is per
+  // process, shared by every viewer, and dropped whenever the version changes.
+  // 5 s in the demo (the rotation lab shows changes live), 60 s otherwise:
+  // at most 2 secrets x 60 calls an hour per instance while a dashboard is open.
+  const DESCRIBE_TTL_MS = config.demo.enabled ? 5_000 : 60_000;
   const describeCache = new Map();
   provider.on('loaded', ({ secretId }) => describeCache.delete(secretId));
   async function remoteMeta(secretId) {
     const hit = describeCache.get(secretId);
-    if (hit && Date.now() - hit.at < 5_000) return hit.meta;
+    if (hit && Date.now() - hit.at < DESCRIBE_TTL_MS) return hit.meta;
     const meta = await provider.describe(secretId).catch(() => undefined);
     describeCache.set(secretId, { at: Date.now(), meta });
     return meta;

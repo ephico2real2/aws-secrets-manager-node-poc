@@ -13,6 +13,23 @@ example throughout. About 30 minutes in total.
 | 5 | [System design review](05-system-design.md) | What the AWS design gets right, what to improve, and the target architecture |
 | 6 | [Inside the app: request flows](06-request-flows.md) | Startup retrieval, rotation recovery and log masking, step by step |
 
+## Words you'll meet
+
+| Term | Meaning |
+| --- | --- |
+| **IAM role** | An AWS identity a workload *assumes*; it has permissions but no long-lived password or key |
+| **STS** | AWS Security Token Service: issues the short-lived credentials for a role |
+| **SigV4** | How AWS requests are signed with those credentials, so they can't be forged or replayed later |
+| **IMDSv2** | The EC2 instance metadata service, session-token version: where the SDK gets the instance role's credentials |
+| **KMS** / **envelope encryption** | AWS Key Management Service. Each secret is encrypted with its own data key, and the data key is encrypted with your KMS key |
+| **VPC endpoint** | A private address for an AWS service inside your network, so calls don't cross the internet |
+| **JWT** | JSON Web Token: a signed statement of who a workload is ([chapter 3](03-why-a-secrets-manager.md#workload-identity-and-jwt)) |
+| **IRSA** / **EKS Pod Identity** | IAM Roles for Service Accounts: how a Kubernetes pod on AWS gets an IAM role from its service-account token |
+| **EKS** / **ROSA** / **kind** | Amazon's Kubernetes; Red Hat OpenShift Service on AWS; Kubernetes in Docker, for laptops and CI |
+| **SSRF** | Server-side request forgery: tricking an app into fetching a URL on the attacker's behalf |
+| **Rotation** | Replacing a credential on a schedule; version labels `AWSCURRENT`, `AWSPENDING`, `AWSPREVIOUS` track the old and new |
+| **Break-glass role** | An emergency admin role, used rarely and audited |
+
 **Then:** run it yourself with the [tutorial](../TUTORIAL.md), demo one feature at a time
 with the [demo pages](../../demo/README.md), or deploy it with the [guide](../GUIDE.md).
 The work behind all of this is organized as an agile initiative in

@@ -9,33 +9,34 @@ Secrets Manager at the center.
 ## 5.1 Evaluation
 
 Each row asks one question of the deployed design (`infra/cloudformation.yaml`).
-✅ = in place, ⚠️ = gap, with the backlog story that closes it.
+✅ = in place, 🔎 = built but still to verify on a real AWS account, ⚠️ = gap. S4.x is a
+story in the [backlog](../modernization/backlog.md#e4--security-hardening) (and a GitHub issue).
 
 | Area | Question | Today | |
 | --- | --- | --- | --- |
 | Identity | Does the workload hold any long-lived key? | No: EC2 instance role; IRSA on EKS/ROSA; GitHub OIDC for CI | ✅ |
-| Identity | Can a server-side request forgery steal the role? | IMDSv2 required, hop limit 1 | ✅ |
+| Identity | Can a server-side request forgery (SSRF: tricking the app into fetching a URL for you) steal the role? | IMDSv2 required, hop limit 1 | ✅ |
 | Authorization | Can the role read anything besides its two secrets? | Read-only on two ARNs, only via the VPC endpoint; `kms:Decrypt` only via Secrets Manager | ✅ |
-| Authorization | Could a broadly privileged admin read the secrets? | The Redis secret has a resource policy: only the app, the rotation function and a named break-glass role | ✅ [S4.1](../modernization/backlog.md#e4--security-hardening) |
-| Authorization | …and the RDS-managed secret? | Protected by IAM and the alarm; a resource policy on it must first be proven not to break RDS rotation | ⚠️ S4.1b |
+| Authorization | Could a broadly privileged admin read the secrets? | The Redis secret has a resource policy: only the app, the rotation function and a named break-glass role (an emergency admin role). Reads through CloudFormation are allowed, for cache-user updates, and alarmed | 🔎 built; verify on AWS · [S4.1](../modernization/backlog.md#e4--security-hardening) |
+| Authorization | …and the RDS-managed secret? | Protected by IAM and the alarm; a resource policy on it must first be proven not to break RDS rotation | ⚠️ [S4.1b](../modernization/backlog.md#e4--security-hardening) |
 | Network | Does a secret request cross the internet? | VPC endpoint with an account-only endpoint policy | ✅ |
-| Network | What can the app reach? | No inbound; egress 443, Postgres and Redis only; 443 is still open to any address | ⚠️ S4.6 |
+| Network | What can the app reach? | No inbound; egress 443, Postgres and Redis only; 443 is still open to any address | ⚠️ [S4.6](../modernization/backlog.md#e4--security-hardening) |
 | Encryption | At rest and in transit? | Customer-managed KMS key; RDS and ElastiCache encrypted; TLS everywhere with RDS certificate verification | ✅ |
 | Rotation | Are both credentials rotated without people or restarts? | RDS managed (7 days); Redis via the stack's function; the app re-reads on auth failure | ✅ |
-| Detection | Would anyone notice an unexpected read? | CloudTrail → EventBridge → SNS alarm on readers other than the app and rotation | ✅ [S4.2](../modernization/backlog.md#e4--security-hardening) |
-| Compliance | Is drift caught? | Optional AWS Config rules: rotation enabled, rotation succeeded, IMDSv2 | ✅ [S4.3](../modernization/backlog.md#e4--security-hardening) |
-| Least privilege in the data store | Does the app log in as an admin? | Yes: the app uses the RDS **master** user | ⚠️ S4.4 |
-| Credential lifetime | Could there be no password at all? | Passwords, rotated; IAM auth tokens (15 minutes) are possible for both RDS and ElastiCache | ⚠️ S4.5 |
-| Resilience | What if a region is lost? | Single region; the app's cache rides out short outages only | ⚠️ S4.6 |
+| Detection | Would anyone notice an unexpected read? | CloudTrail → EventBridge → SNS alarm on any role, user or root other than the app and rotation roles; the RDS secret is matched by ARN | 🔎 built; verify on AWS · [S4.2](../modernization/backlog.md#e4--security-hardening) |
+| Compliance | Is drift caught? | AWS Config rules: rotation enabled, rotation succeeded, IMDSv2 | ✅ opt-in (`EnableConfigRules=true`) · [S4.3](../modernization/backlog.md#e4--security-hardening) |
+| Least privilege in the data store | Does the app log in as an admin? | Yes: the app uses the RDS **master** user | ⚠️ [S4.4](../modernization/backlog.md#e4--security-hardening) |
+| Credential lifetime | Could there be no password at all? | Passwords, rotated; IAM auth tokens (15 minutes) are possible for both RDS and ElastiCache | ⚠️ [S4.5](../modernization/backlog.md#e4--security-hardening) |
+| Resilience | What if a region is lost? | Single region; the app's cache rides out short outages only | ⚠️ [S4.6](../modernization/backlog.md#e4--security-hardening) |
 | Application | Can a credential leak through config, logs or the API? | Refuses credential env vars; two-layer redaction; scanned for in CI | ✅ |
 
 ## 5.2 Enhancements
 
 | Story | Change | Why it matters | Trade-off |
 | --- | --- | --- | --- |
-| S4.4 | A dedicated `notes_app` Postgres role with rights on its own tables; the master user only for admin and rotation | A stolen app credential can't drop the database or read other schemas | One more secret to rotate (use the "alternating users" rotation template) |
-| S4.5 | IAM authentication: RDS `rds-db:connect`, ElastiCache Valkey 7.2+/Redis 7+ IAM users | No password exists to steal; a token lives 15 minutes | Token generation on every new connection; ElastiCache closes IAM connections after 12 hours; RDS IAM auth isn't suited to very high connection rates |
-| S4.6 | Replica secrets in a second region; egress 443 limited to the VPC endpoints' prefix lists; a tighter KMS key policy (named admins only) | Recovery from a regional outage; less room for exfiltration | More moving parts; a package mirror or proxy is needed once 443 is closed |
+| [S4.4](../modernization/backlog.md#e4--security-hardening) | A dedicated `notes_app` Postgres role with rights on its own tables; the master user only for admin and rotation | A stolen app credential can't drop the database or read other schemas | One more secret to rotate (use the "alternating users" rotation template) |
+| [S4.5](../modernization/backlog.md#e4--security-hardening) | IAM authentication: RDS `rds-db:connect`, ElastiCache Valkey 7.2+/Redis 7+ IAM users | No password exists to steal; a token lives 15 minutes | Token generation on every new connection; ElastiCache closes IAM connections after 12 hours; RDS IAM auth isn't suited to very high connection rates |
+| [S4.6](../modernization/backlog.md#e4--security-hardening) | Replica secrets in a second region; egress 443 limited to the interface endpoints' security group (plus the S3 gateway endpoint's prefix list); a tighter KMS key policy (named admins only) | Recovery from a regional outage; less room for exfiltration | More moving parts; a package mirror or proxy is needed once 443 is closed |
 
 ## 5.3 Target architecture
 
@@ -64,7 +65,7 @@ flowchart TB
   end
 
   subgraph protect["Protection and evidence"]
-    kms["KMS key<br/>decrypt only via Secrets Manager"]
+    kms["KMS key<br/>roles decrypt only via Secrets Manager"]
     vpce["VPC endpoint<br/>+ endpoint policy"]
     ct["CloudTrail"]
     eb["EventBridge rule<br/>unexpected reader"]
@@ -103,7 +104,7 @@ How each AWS service integrates, so nobody handles a credential:
 | **ElastiCache** | An RBAC user whose password CloudFormation reads from a generated secret; a rotation function keeps both in step, using the user's two password slots so there is no gap |
 | **Redshift, DocumentDB** | Managed rotation, like RDS |
 | **Lambda, ECS, EKS** | The Lambda extension or the local agent; ECS injects from Secrets Manager at task start (env, so prefer runtime fetch); EKS through IRSA plus the SDK, the CSI driver or External Secrets |
-| **KMS** | Customer-managed key; the key policy allows decrypt only via Secrets Manager |
+| **KMS** | Customer-managed key; the app and rotation roles may decrypt only via Secrets Manager (`kms:ViaService`) |
 | **CloudTrail, EventBridge, SNS** | Every read is an event; a rule alerts on unexpected readers |
 | **AWS Config** | Managed rules flag secrets without rotation, failed rotations and instances without IMDSv2 |
 

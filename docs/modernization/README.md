@@ -46,7 +46,7 @@ flowchart LR
 | E1 Select a secrets manager for AWS | Decision with criteria and consequences | ✅ [ADR-001](02-adr-001-secrets-manager-selection.md) |
 | E2 Application changes | The app fetches, caches, refreshes and redacts secrets; names follow a convention | ✅ |
 | E3 Platform on AWS | Identity, network path, encryption, managed rotation | ✅ |
-| E4 Security hardening | Resource policy, unexpected-read alarm, Config rules; least-privilege DB user, IAM auth, multi-region next | ✅ top three (🔎 verify on AWS) · 🔜 rest |
+| E4 Security hardening | Resource policy, unexpected-read alarm, Config rules; least-privilege DB user, IAM auth, multi-region next | 🔎 S4.1, S4.2 built, verify on AWS · ✅ S4.3 (opt-in) · 🔜 S4.1b, S4.4–S4.6 |
 | E5 Delivery and automation | One build, CI, supply chain, keyless deploys | ✅ |
 | E6 Verification and evidence | Every claim has a test that fails if it stops being true | ✅ |
 | E7 Documentation and enablement | A learning path a junior engineer can follow | ✅ |

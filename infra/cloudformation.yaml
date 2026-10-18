@@ -586,19 +586,49 @@ Resources:
       EventPattern:
         source: [aws.secretsmanager]
         detail-type: [AWS API Call via CloudTrail]
+        # (GetSecretValue names one secret in secretId; BatchGetSecretValue lists
+        # them in secretIdList) x (a role session other than the app and rotation
+        # roles, or a user or root, which has no role session at all).
+        # The RDS secret is matched by ARN: a read that names it by name or partial
+        # ARN is still in CloudTrail but doesn't raise this alarm.
         detail:
           eventSource: [secretsmanager.amazonaws.com]
           eventName: [GetSecretValue, BatchGetSecretValue]
-          requestParameters:
-            secretId:
-              - !GetAtt Database.MasterUserSecret.SecretArn
-              - !Ref RedisAppSecret
-              - !Sub /elasticache/${Environment}/${AWS::StackName}/app
-          userIdentity:
-            sessionContext:
-              sessionIssuer:
-                arn:
-                  - anything-but: [!GetAtt AppRole.Arn, !GetAtt RedisRotationRole.Arn]
+          $or:
+          - requestParameters:
+              secretId:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref RedisAppSecret
+                  - !Sub /elasticache/${Environment}/${AWS::StackName}/app
+            userIdentity:
+              sessionContext:
+                sessionIssuer:
+                  arn:
+                    - anything-but: [!GetAtt AppRole.Arn, !GetAtt RedisRotationRole.Arn]
+          - requestParameters:
+              secretId:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref RedisAppSecret
+                  - !Sub /elasticache/${Environment}/${AWS::StackName}/app
+            userIdentity:
+              type: [IAMUser, Root, FederatedUser, IdentityCenterUser]
+          - requestParameters:
+              secretIdList:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref RedisAppSecret
+                  - !Sub /elasticache/${Environment}/${AWS::StackName}/app
+            userIdentity:
+              sessionContext:
+                sessionIssuer:
+                  arn:
+                    - anything-but: [!GetAtt AppRole.Arn, !GetAtt RedisRotationRole.Arn]
+          - requestParameters:
+              secretIdList:
+                  - !GetAtt Database.MasterUserSecret.SecretArn
+                  - !Ref RedisAppSecret
+                  - !Sub /elasticache/${Environment}/${AWS::StackName}/app
+            userIdentity:
+              type: [IAMUser, Root, FederatedUser, IdentityCenterUser]
       Targets:
         - Id: alert
           Arn: !Ref SecretReadAlertTopic

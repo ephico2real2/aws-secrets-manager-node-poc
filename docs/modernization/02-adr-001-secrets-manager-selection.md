@@ -56,8 +56,8 @@ process is preferred.
 - ✅ The app's code depends on a small interface (`fetch(secretId)`), so a different store
   is a new fetcher, not a rewrite (`backend/src/secrets/fetchers.js`).
 - ⚠️ AWS lock-in for the store itself. Accepted: the app already runs on AWS.
-- ⚠️ A small monthly cost per secret and per call; the app's cache (one call per secret
-  per ~5 minutes) keeps call volume negligible.
+- ⚠️ A small monthly cost per secret and per call; the app's cache (one read per secret
+  per ~5 minutes, about 24 an hour per instance) keeps call volume small.
 - ⚠️ Secrets Manager is a runtime dependency. Mitigated by the cache serving the last good
   value during an outage, and by fetching at startup with retries.
 - 🔁 Revisit if any of these becomes true (Vault wins then): workloads span several clouds

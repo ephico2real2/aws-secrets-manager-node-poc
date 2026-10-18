@@ -20,8 +20,8 @@ With one pattern:
 
 ```
 /{service}/{env}/{resource}/{name}        default
- /rds/prod/notes-db/app                   the app's database login
- /elasticache/prod/notes-cache/app        the app's Redis user
+ /rds/prod/notes-db/app                   the app's database login (DB_SECRET_RESOURCE=notes-db)
+ /elasticache/prod/notes-cache/app        the app's Redis user (REDIS_SECRET_RESOURCE=notes-cache)
 ```
 
 | Token | Meaning | Default | Set with (env var · config file key) |
@@ -48,8 +48,9 @@ environments.
 
 **Rules the app enforces at startup** (it exits 78 with the reason):
 
-- the pattern contains `{env}`, and `env` is an allowed value (`SECRETS_ALLOWED_ENVS`
-  changes the list, for example `dev,staging,prod`);
+- the pattern contains `{env}`, and `env` is an allowed value (the environment variable
+  `SECRETS_ALLOWED_ENVS` changes the list, for example `dev,staging,prod`; the
+  CloudFormation `Environment` parameter has its own list);
 - every value is one path segment: letters, digits and `_+=.@-`, never `/`;
 - the result is a valid Secrets Manager name: at most 512 characters, no `//`;
 - it **warns** if a name ends in `-` plus six characters (`app-secret`): that looks like
@@ -96,7 +97,7 @@ DB_SECRET_ID=arn:aws:secretsmanager:us-east-1:111122223333:secret:rds!db-0a1b2c3
 REDIS_SECRET_RESOURCE=secure-notes
 ```
 
-**Kustomize** (what this repo uses): `configMapGenerator` literals. The kind overlay sets
+**Kustomize** (what this repo uses): `configMapGenerator` literals. The `local-backing-services` component (used by the kind and OpenShift overlays) sets
 `SECRETS_ENV=dev`, `DB_SECRET_RESOURCE=notes-db`, `REDIS_SECRET_RESOURCE=notes-cache`
 ([`deploy/k8s/components/local-backing-services/kustomization.yaml`](../../deploy/k8s/components/local-backing-services/kustomization.yaml)).
 

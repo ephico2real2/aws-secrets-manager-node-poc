@@ -46,7 +46,7 @@ sequenceDiagram
   IMDS-->>App: temporary credentials for the instance role (issued by STS)
   App->>VPCE: GetSecretValue(secret name), signed, over TLS
   VPCE->>SM: stays inside the AWS network
-  Note over SM: authorize: IAM policy on the role,<br/>endpoint policy, resource policy on the secret
+  Note over SM: authorize: the role's IAM policy and the endpoint policy allow it,<br/>and no policy (e.g. the secret's resource policy) denies it
   SM->>KMS: decrypt the secret's data key
   KMS-->>SM: data key
   SM->>CT: record the call: who, which secret, when, from where
@@ -58,8 +58,9 @@ sequenceDiagram
    **temporary credentials** for that role; they expire and are refreshed automatically.
 2. The SDK signs a `GetSecretValue` request with them (SigV4) and sends it over TLS, to a
    **VPC endpoint**, so it never crosses the internet.
-3. Secrets Manager checks the **IAM policy** on the role, the **endpoint policy** and the
-   **resource policy** on the secret. All must allow it.
+3. Secrets Manager checks the policies: the **IAM policy** on the role must allow the read,
+   the **endpoint policy** must allow it, and nothing may deny it, including the
+   **resource policy** on the secret (Secure Notes' resource policy only adds denies).
 4. It decrypts the secret with a **KMS** key (envelope encryption: a data key protected by
    your KMS key).
 5. The value returns to the app, which keeps it **in memory** and never writes it down.

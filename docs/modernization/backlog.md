@@ -11,8 +11,10 @@ labels `type:epic|feature|story`, `epic:E0…E7`, `size:S|M|L` and `needs-aws-ve
 Done items are closed with their evidence. This page and the issues are generated from
 the same list, so they say the same thing.
 
-Epics run in the order of the [epic map](README.md#how-the-work-is-organized):
-discover → decide → change the app and the platform → harden → automate → prove → teach.
+Order: see the [epic map](README.md#how-the-work-is-organized). E0 then E1; E2 and E3 after
+E1; E4, E5 and E6 in parallel once E3 is in place; E7 throughout. A small feature with
+one deliverable is written as its own story (persona and acceptance criteria) rather
+than split into stories.
 
 ## E0 — Discovery: review the initial source code
 
@@ -86,7 +88,7 @@ Evidence: [backend/src/config.js](../../backend/src/config.js), [test case 8](..
 **F2.2 · Fetch with the platform identity (SDK or agent)** · M · ✅ · [#15](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/15)
 *As a developer, I want one fetch interface over the AWS SDK and the local agent, so that the deployment can choose without code changes.*
 - [x] SDK mode: `GetSecretValue` with the default credential chain.
-- [x] Agent mode: `localhost:2773` with the SSRF token.
+- [x] Agent mode: `localhost:2773` with the agent's SSRF token.
 
 Evidence: [backend/src/secrets/fetchers.js](../../backend/src/secrets/fetchers.js)
 
@@ -119,8 +121,8 @@ Evidence: [backend/src/secrets/redactor.js](../../backend/src/secrets/redactor.j
 Evidence: [backend/src/secrets/mask.js](../../backend/src/secrets/mask.js), [test case 5](../../demo/test-case-05-debug-log.md), [test case 7](../../demo/test-case-07-reveal-flag.md)
 
 **F2.7 · Agent mode** · S · ✅ · [#20](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/20)
-*As a platform engineer, I want the app to read through the AWS Workload Credentials Provider, so that hosts that run the agent need no SDK cache in the app.*
-- [x] Reads with the SSRF token; forces a refresh after an auth failure, because the agent's cache doesn't see rotation.
+*As a platform engineer, I want the app to read through the AWS Workload Credentials Provider, so that the app needs no AWS SDK credentials of its own where the agent runs.*
+- [x] Reads with the agent's SSRF token (a local file that proves the caller is on the host, so a forged request can't reach the agent); forces a refresh after an auth failure, because the agent's cache doesn't see rotation.
 
 Evidence: [docker-compose.agent.yml](../../docker-compose.agent.yml), [test case 9](../../demo/test-case-09-agent-mode.md)
 
@@ -153,7 +155,7 @@ Evidence: [infra/cloudformation.yaml](../../infra/cloudformation.yaml)
 
 **F3.3 · Encryption at rest and in transit** · S · ✅ · [#25](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/25)
 *As a security engineer, I want our own KMS key and TLS everywhere, so that a stolen disk or packet reveals nothing.*
-- [x] Customer-managed KMS key; decrypt only via Secrets Manager.
+- [x] Customer-managed KMS key; the app and rotation roles may decrypt only via Secrets Manager.
 - [x] RDS and ElastiCache encrypted at rest and in transit; RDS certificate verified.
 
 Evidence: [infra/cloudformation.yaml](../../infra/cloudformation.yaml), [backend/src/clients/db.js](../../backend/src/clients/db.js)
@@ -191,16 +193,12 @@ Evidence: `RedisSecretPolicy` in [infra/cloudformation.yaml](../../infra/cloudfo
 - [ ] Prove on AWS that a resource policy on the `rds!` secret leaves RDS managed rotation working.
 - [ ] Then add the same deny.
 
-**S4.4 · Least-privilege database user** · M · 🔜 · [#32](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/32)
-*As a DBA, I want the app to log in as a role that owns only its tables, so that a stolen app credential can't administer the database.*
-- [ ] A `notes_app` role and its own secret, named by the convention (`/rds/<env>/<db>/app`), rotated with the alternating-users template.
-- [ ] The master user is used only by RDS rotation and administrators.
-
 ### F4.2 · Detect misuse and drift · ✅ built · 🔎 verify on AWS · [#33](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/33)
 
 **S4.2 · Alarm on unexpected secret reads** · M · ✅ built · 🔎 verify on AWS · [#34](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/34)
 *As an on-call engineer, I want an alert when anyone other than the app or rotation reads a secret, so that misuse is noticed in minutes, not in an audit.*
-- [x] EventBridge rule on CloudTrail `GetSecretValue` / `BatchGetSecretValue` for both secrets, excluding the app and rotation roles → encrypted SNS, optional email.
+- [x] EventBridge rule on CloudTrail `GetSecretValue` / `BatchGetSecretValue` for both secrets by any role, user or root other than the app and rotation roles → encrypted SNS, optional email.
+- [x] Known gap, documented: the RDS secret is matched by ARN, so a read by name alone is in CloudTrail but not alarmed.
 - [x] Optional trail (`CreateTrail=true`) for accounts without one.
 - [ ] On AWS: a read from the console raises an email within minutes; the app's reads don't.
 
@@ -212,7 +210,12 @@ Evidence: `SecretReadAlertRule`, `SecretReadAlertTopic` in [infra/cloudformation
 
 Evidence: `RotationEnabledRule`, `RotationSucceededRule`, `ImdsV2Rule` in [infra/cloudformation.yaml](../../infra/cloudformation.yaml)
 
-### F4.3 · Fewer passwords and regional resilience · 🔜 · [#36](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/36)
+### F4.3 · Least privilege, fewer passwords and regional resilience · 🔜 · [#36](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/36)
+
+**S4.4 · Least-privilege database user** · M · 🔜 · [#32](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/32)
+*As a DBA, I want the app to log in as a role that owns only its tables, so that a stolen app credential can't administer the database.*
+- [ ] A `notes_app` role and its own secret, named by the convention (`/rds/<env>/<db>/app`), rotated with the alternating-users template.
+- [ ] The master user is used only by RDS rotation and administrators.
 
 **S4.5 · Spike: IAM authentication for RDS and ElastiCache** · L · 🔜 · [#37](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/37)
 *As an architect, I want to know whether we can drop passwords entirely, so that there is nothing left to steal.*
