@@ -30,6 +30,8 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
     environment: config.nodeEnv,
     usingLocalMock: Boolean(config.awsEndpoint),
     demoMode: config.demo.enabled,
+    logLevel: config.logging.level,
+    revealSecrets: config.logging.revealSecrets,
     secrets: Object.fromEntries(ALIASES.map((a) => [a, config.secretIds[a]])),
   }));
 

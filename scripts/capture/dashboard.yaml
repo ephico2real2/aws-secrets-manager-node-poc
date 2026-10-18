@@ -58,3 +58,16 @@ pages:
     before: 3000
     expect:
       text: [Secure Notes, Notes]
+
+  # 6. The Application log at debug level: which secret and which keys each
+  #    client used, every password shown as ******** (length, fingerprint).
+  - name: 06-debug-log
+    url: ${BASE}/
+    before: 4000
+    element: "#logs-card"
+    actions:
+      - scrollToBottom: "#log"
+      - wait: 500
+    expect:
+      text: [Application log, secret consumed, "password=******** (", connecting with]
+      absent: [values revealed]

@@ -13,6 +13,7 @@
 import { createHmac, randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
 import { SecretValue } from './SecretValue.js';
+import { describeKeys, describeUse, revealKeys } from './mask.js';
 
 export class SecretsProvider extends EventEmitter {
   #fetcher;
@@ -107,6 +108,7 @@ export class SecretsProvider extends EventEmitter {
         },
         changed ? 'secret refreshed: new version' : 'secret loaded',
       );
+      this.#logConsumed(secretId, entry, parsed, { reason, prevFingerprint: changed ? prev.fingerprint : undefined });
       this.emit('loaded', { secretId, reason, changed: Boolean(changed), versionId: entry.versionId });
       return entry.value;
     } catch (err) {
@@ -121,6 +123,39 @@ export class SecretsProvider extends EventEmitter {
       this.#log.error({ secretId, err, reason }, 'secret fetch failed');
       throw err;
     }
+  }
+
+  // DEBUG: which secret and which keys this process now holds, values masked.
+  #logConsumed(secretId, entry, parsed, { reason, prevFingerprint }) {
+    if (!this.#log.isDebug) return;
+    const fields = {
+      secretId,
+      name: entry.name,
+      versionId: entry.versionId,
+      stages: entry.versionStages,
+      source: this.mode, // sdk | agent
+      reason,
+      fingerprint: prevFingerprint ? `${prevFingerprint} -> ${entry.fingerprint}` : entry.fingerprint,
+    };
+    this.#log.debug({ ...fields, keys: describeKeys(parsed, this.#fingerprintKey) }, 'secret consumed');
+    this.#log.revealUnsafe?.({ ...fields, keys: revealKeys(parsed, this.#fingerprintKey) }, 'secret consumed (values revealed)');
+  }
+
+  /**
+   * DEBUG, for clients: which keys of the cached secret feed which connection
+   * settings, values masked. mapping = { setting: secretKey }.
+   */
+  logUse(log, secretId, mapping, fields, msg) {
+    if (!log.isDebug) return;
+    const e = this.#entries.get(secretId);
+    if (!e) return;
+    const obj = e.value.reveal();
+    const base = { secretId, versionId: e.versionId, fingerprint: e.fingerprint, ...fields };
+    log.debug({ ...base, using: describeUse(obj, mapping, this.#fingerprintKey) }, msg);
+    log.revealUnsafe?.(
+      { ...base, using: Object.entries(mapping).map(([s, k]) => `${s}<-${k}=${obj?.[k]}`) },
+      `${msg} (values revealed)`,
+    );
   }
 
   /** Dashboard-safe metadata. Contains no secret material. */

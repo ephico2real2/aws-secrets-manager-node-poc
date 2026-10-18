@@ -63,7 +63,13 @@ async function loadConfig() {
     el('span', { class: 'pill' }, cfg.region),
     cfg.usingLocalMock ? el('span', { class: 'pill pill-info' }, 'local mock') : el('span', { class: 'pill' }, 'AWS'),
     cfg.demoMode ? el('span', { class: 'pill pill-warn' }, 'demo mode') : null,
+    cfg.logLevel === 'debug'
+      ? cfg.revealSecrets
+        ? el('span', { class: 'pill pill-fail' }, 'debug log · VALUES REVEALED')
+        : el('span', { class: 'pill pill-info' }, 'debug log · values masked')
+      : null,
   );
+  $('reveal-banner').hidden = !cfg.revealSecrets;
   const where = {
     compose: ['Docker Compose', 'container · dummy keys, for the mock only'],
     kubernetes: ['Kubernetes', 'pod · no SA token · restricted PSA'],

@@ -213,9 +213,10 @@ jobs:
             sleep 10
           done
           user="$STACK-app"
-          for _ in $(seq 1 60); do
+          for i in $(seq 1 60); do
             read -r st n < <(aws elasticache describe-users --user-id "$user" --query 'Users[0].[Status,Authentication.PasswordCount]' --output text)
             [ "$st" = active ] && [ "$n" = 1 ] && { echo "ElastiCache user $user: active, old password retired"; break; }
+            [ "$i" = 60 ] && { echo "::error::ElastiCache user $user still has $n password(s) (status $st) after 10 minutes: the old password was not retired"; exit 1; }
             sleep 10
           done
           # The app re-reads the secret and keeps serving; its Redis client logs in with the new password on its next connection.

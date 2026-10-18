@@ -74,6 +74,13 @@ export const config = Object.freeze({
     tls: bool(env.REDIS_TLS),
   }),
 
+  logging: Object.freeze({
+    level: env.LOG_LEVEL ?? 'info',
+    // Lab troubleshooting only: debug credential lines also print the real
+    // values. Refused in production (assertSafeEnvironment).
+    revealSecrets: bool(env.LOG_REVEAL_SECRETS),
+  }),
+
   // Demo-only features (rotation lab, leak test, log tail). Off by default and
   // refused in production; see assertSafeEnvironment().
   demo: Object.freeze({
@@ -109,6 +116,7 @@ export function assertSafeEnvironment() {
     }
     if (config.awsEndpoint) problems.push('AWS_MOCK_ENDPOINT must not be set in production');
     if (config.demo.enabled) problems.push('DEMO_MODE must not be enabled in production');
+    if (config.logging.revealSecrets) problems.push('LOG_REVEAL_SECRETS must not be enabled in production: it writes secret values to the log');
   }
 
   if (problems.length) {

@@ -201,6 +201,34 @@ jobs:
           scripts/compose-check.sh | tee output/compose-check.txt
           { echo "## Docker Compose (${{ matrix.mode }}) — check"; echo; echo '```'; cat output/compose-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      # The flag that prints real values (lab use) — and the proof the scan
+      # would catch a leak: with it on, the scan MUST find the values in the
+      # app's log, and still nowhere else.
+      - name: Reveal flag on — the scan must find the values in the app log, and only there
+        if: matrix.mode == 'sdk'
+        run: |
+          set -o pipefail
+          LOG_REVEAL_SECRETS=true docker compose up -d --no-deps app
+          for _ in $(seq 1 60); do curl -fsS --max-time 3 http://localhost:3000/api/health | grep -q '"status":"ok"' && break; sleep 2; done
+          curl -fsS http://localhost:3000/api/notes > /dev/null   # a request, so a database login happens too
+          EXPECT_REVEALED=1 scripts/credential-scan.sh compose | tee output/credential-scan-revealed.txt
+          { echo "## LOG_REVEAL_SECRETS=true — the scan finds the values in the app log only"; echo; echo '```'; cat output/credential-scan-revealed.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Reveal flag on — what the dashboard shows
+        if: matrix.mode == 'sdk'
+        uses: ./.github/actions/browser-walk
+        with:
+          spec: scripts/capture/reveal.yaml
+          out: captures-reveal
+          label: compose-reveal
+          env-json: '{"BASE":"http://localhost:3000"}'
+
+      - name: Reveal flag off again
+        if: matrix.mode == 'sdk'
+        run: |
+          docker compose up -d --no-deps app
+          for _ in $(seq 1 60); do curl -fsS --max-time 3 http://localhost:3000/api/health | grep -q '"status":"ok"' && exit 0; sleep 2; done; exit 1
+
       - name: Logs
         if: always()
         run: |

@@ -25,6 +25,11 @@ Parameters:
     AllowedValues: [sdk, agent]
     Default: sdk
     Description: sdk = AWS SDK in the app; agent = AWS Workload Credentials Provider on localhost:2773.
+  LogLevel:
+    Type: String
+    AllowedValues: [info, debug]
+    Default: info
+    Description: debug adds lines showing which secret keys the app used, values masked. (Revealing values is refused in production.)
   RedisRotationDays:
     Type: Number
     Default: 30
@@ -530,6 +535,7 @@ Resources:
             NODE_ENV=production
             AWS_REGION=${AWS::Region}
             SECRETS_MODE=${SecretsMode}
+            LOG_LEVEL=${LogLevel}
             DB_SECRET_ID=${DbSecretArn}
             DB_HOST=${DbHost}
             DB_PORT=${DbPort}

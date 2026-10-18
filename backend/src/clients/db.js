@@ -28,12 +28,20 @@ export function createDb({ provider, secretId, config, logger, events }) {
   async function buildPool() {
     const s = (await provider.get(secretId)).reveal();
     poolUser = s.username;
+    const host = config.db.host ?? s.host;
+    const port = Number(config.db.port ?? s.port ?? 5432);
+    const database = config.db.name ?? s.dbname;
     const pool = new pg.Pool({
-      host: config.db.host ?? s.host,
-      port: Number(config.db.port ?? s.port ?? 5432),
-      database: config.db.name ?? s.dbname,
+      host,
+      port,
+      database,
       user: s.username,
-      password: async () => (await provider.get(secretId)).reveal().password,
+      // Called for every NEW connection: the debug line shows each login's key use.
+      password: async () => {
+        const password = (await provider.get(secretId)).reveal().password;
+        provider.logUse(log, secretId, { user: 'username', password: 'password' }, { host, port, database, tls: Boolean(ssl) }, 'postgres connecting with');
+        return password;
+      },
       ssl,
       max: 10,
       idleTimeoutMillis: 30_000,

@@ -24,6 +24,11 @@ if docker compose exec -T redis redis-cli --no-auth-warning --user default --pas
 else
   echo "  ok    Redis rejects the bootstrap password"
 fi
+if docker compose exec -T postgres env PGPASSWORD=bootstrap-only-change-me psql -h 127.0.0.1 -U postgres -d notes -tAc 'select 1' >/dev/null 2>&1; then
+  echo "  FAIL  Postgres still accepts the bootstrap password"; fails=$((fails + 1))
+else
+  echo "  ok    Postgres rejects the bootstrap password"
+fi
 
 mode=$(curl -fsS "$BASE/api/config" | sed -n 's/.*"secretsMode":"\([a-z]*\)".*/\1/p')
 echo "== secrets mode: ${mode:-unknown}"
@@ -44,4 +49,10 @@ fi
 
 echo "== end-to-end smoke test"
 node backend/scripts/smoke-test.js "$BASE" || fails=$((fails + 1))
+
+# After the smoke test: its rotations and its leak test have run, so the logs
+# hold every place a password could have slipped into.
+echo "== the actual credential values, searched for in every container, file and log"
+scripts/credential-scan.sh compose || fails=$((fails + 1))
+
 exit $((fails > 0))

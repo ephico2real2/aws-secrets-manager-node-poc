@@ -90,10 +90,11 @@ await check('leak test: no attempt exposes the password', async () => {
   return `${leak.attempts.length} attempts, 0 leaks`;
 });
 
-await check('security checks run', async () => {
+await check('security posture: no check fails', async () => {
   const { checks } = await call('GET', '/api/security/checks');
   const fails = checks.filter((c) => c.status === 'fail');
-  return `${checks.length} checks, ${fails.length} fail${fails.length ? `: ${fails.map((f) => f.id).join(', ')}` : ''}`;
+  assert(fails.length === 0, `failing: ${fails.map((f) => `${f.id} (${f.detail})`).join('; ')}`);
+  return `${checks.length} checks, none failing`;
 });
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');

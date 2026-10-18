@@ -19,10 +19,13 @@ export async function createCache({ provider, secretId, config, logger, events }
   const log = logger.child({ component: 'redis' });
   const s = (await provider.get(secretId)).reveal();
   const host = config.redis.host ?? s.host;
+  const port = Number(config.redis.port ?? s.port ?? 6379);
+  const logUse = (why) =>
+    provider.logUse(log, secretId, { username: 'username', password: 'password' }, { host, port, tls: Boolean(config.redis.tls), why }, 'redis authenticating with');
 
   const client = new Redis({
     host,
-    port: Number(config.redis.port ?? s.port ?? 6379),
+    port,
     username: s.username,
     password: s.password,
     tls: config.redis.tls ? { servername: host } : undefined, // ElastiCache in-transit encryption
@@ -41,6 +44,7 @@ export async function createCache({ provider, secretId, config, logger, events }
       const fresh = (await provider.refresh(secretId, reason)).reveal();
       client.options.username = fresh.username;
       client.options.password = fresh.password;
+      logUse('after refresh');
     })().finally(() => {
       refreshing = null;
     });
@@ -65,6 +69,7 @@ export async function createCache({ provider, secretId, config, logger, events }
 
   // The very first credential can already be stale (e.g. the agent's cache
   // still holds a pre-rotation value), so startup gets the same refresh path.
+  logUse('first connection');
   try {
     await client.connect();
   } catch (err) {

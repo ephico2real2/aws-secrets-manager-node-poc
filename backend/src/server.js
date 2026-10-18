@@ -11,7 +11,12 @@ import { registerRoutes } from './routes.js';
 import { NOTES_SCHEMA } from './schema.js';
 
 const redactor = new Redactor();
-const logger = createLogger({ redactor, level: process.env.LOG_LEVEL ?? 'info', base: { app: 'secure-notes' } });
+const logger = createLogger({
+  redactor,
+  level: config.logging.level,
+  revealSecrets: config.logging.revealSecrets && config.nodeEnv !== 'production',
+  base: { app: 'secure-notes' },
+});
 
 process.on('unhandledRejection', (err) => logger.error({ err }, 'unhandled rejection'));
 process.on('uncaughtException', (err) => {
@@ -24,6 +29,24 @@ try {
 } catch (err) {
   logger.error(err.message);
   process.exit(78); // EX_CONFIG: systemd will not hot-loop on a config error with RestartPreventExitStatus=78
+}
+
+logger.debug(
+  {
+    secretsMode: config.secretsMode,
+    secretIds: config.secretIds,
+    endpoint: config.awsEndpoint ?? (config.secretsMode === 'agent' ? config.agent.url : `secretsmanager.${config.region} (SDK default)`),
+    logLevel: config.logging.level,
+  },
+  'credential sources: which secrets this process will consume',
+);
+if (config.logging.revealSecrets) {
+  logger.warn(
+    { logLevel: config.logging.level },
+    config.logging.level === 'debug'
+      ? 'LOG_REVEAL_SECRETS=true: secret values will be written to this log. Lab use only; never in production.'
+      : 'LOG_REVEAL_SECRETS=true has no effect unless LOG_LEVEL=debug',
+  );
 }
 
 const events = createEventLog();

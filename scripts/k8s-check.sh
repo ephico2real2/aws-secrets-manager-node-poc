@@ -77,6 +77,11 @@ echo "== NetworkPolicies"
 echo "== end-to-end smoke test against $BASE"
 node backend/scripts/smoke-test.js "$BASE" || fails=$((fails + 1))
 
+# After the smoke test: its rotations and its leak test have run.
+echo "== the actual credential values, searched for in every pod, object, file and log"
+KUBECTL="$K" NAMESPACE="$NS" scripts/credential-scan.sh k8s || fails=$((fails + 1))
+
+
 echo
 if [ "$fails" -eq 0 ]; then echo "k8s-check: all checks passed"; else echo "k8s-check: $fails check(s) failed"; fi
 exit $((fails > 0))

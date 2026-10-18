@@ -9,6 +9,8 @@
 //           process by sending the SSRF token from /var/run/awssmatoken.
 
 import { readFile } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
+import { fullyMask } from './mask.js';
 import {
   SecretsManagerClient,
   GetSecretValueCommand,
@@ -62,7 +64,9 @@ export function createSdkFetcher({ region, endpoint }) {
 
 const LOOPBACK = new Set(['localhost', '127.0.0.1', '[::1]', '::1']);
 
-export function createAgentFetcher({ url, tokenFile, timeoutMs = 3000 }) {
+export function createAgentFetcher({ url, tokenFile, timeoutMs = 3000, logger }) {
+  const log = logger?.child({ component: 'agent' });
+  const fpKey = randomBytes(32);
   const base = new URL(url);
   // The SSRF token must never be sent anywhere but the local agent.
   if (!LOOPBACK.has(base.hostname) || base.protocol !== 'http:') {
@@ -78,6 +82,13 @@ export function createAgentFetcher({ url, tokenFile, timeoutMs = 3000 }) {
       u.searchParams.set('secretId', secretId);
       if (versionStage) u.searchParams.set('versionStage', versionStage);
       if (force) u.searchParams.set('refreshNow', 'true'); // bypass the agent's own cache
+      if (log?.isDebug) {
+        log.debug(
+          { secretId, agent: base.origin, tokenFile, ssrfTokenMasked: fullyMask(token, fpKey), refreshNow: force },
+          'agent request: SSRF token from file, masked',
+        );
+        log.revealUnsafe?.({ secretId, tokenFile, token }, 'agent request (token revealed)');
+      }
 
       const res = await fetch(u, {
         headers: { 'X-Aws-Parameters-Secrets-Token': token },

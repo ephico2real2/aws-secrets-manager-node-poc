@@ -7,7 +7,7 @@ export { Redactor } from './redactor.js';
 export function createSecretsProvider({ config, redactor, logger }) {
   const fetcher =
     config.secretsMode === 'agent'
-      ? createAgentFetcher(config.agent)
+      ? createAgentFetcher({ ...config.agent, logger })
       : createSdkFetcher({ region: config.region, endpoint: config.awsEndpoint });
 
   // In agent mode the agent already caches (default 300s), so keep the

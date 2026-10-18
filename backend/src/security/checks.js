@@ -129,6 +129,11 @@ export async function runSecurityChecks({ config, redactor, provider }) {
   add('redis-tls', 'TLS to Redis', config.redis.tls ? 'pass' : mock ? 'info' : 'warn', config.redis.tls ? 'ElastiCache in-transit encryption is on.' : 'Plaintext connection. Enable REDIS_TLS with ElastiCache in-transit encryption.');
 
   // 12. Redaction
+  if (config.logging?.revealSecrets) {
+    add('reveal-flag', 'Secret values kept out of logs', 'fail', `LOG_REVEAL_SECRETS=true: ${config.logging.level === 'debug' ? 'debug lines print the real credential values' : 'set, but inert until LOG_LEVEL=debug'}. Lab use only; the app refuses this in production.`);
+  } else {
+    add('reveal-flag', 'Secret values kept out of logs', 'pass', `Debug logs (LOG_LEVEL=${config.logging?.level ?? 'info'}) show key names and masked values only.`);
+  }
   add('redaction', 'Log and response redaction active', redactor.size > 0 ? 'pass' : 'warn', `${redactor.size} secret value encodings registered; every log line and API response is scrubbed.`);
 
   return out;

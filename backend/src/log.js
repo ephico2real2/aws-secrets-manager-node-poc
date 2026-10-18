@@ -7,7 +7,7 @@
 
 const LEVELS = { debug: 20, info: 30, warn: 40, error: 50 };
 
-export function createLogger({ redactor, level = 'info', ringSize = 300, base = {}, out = process.stdout }) {
+export function createLogger({ redactor, level = 'info', ringSize = 300, base = {}, out = process.stdout, revealSecrets = false }) {
   const ring = [];
   const min = LEVELS[level] ?? LEVELS.info;
 
@@ -32,6 +32,20 @@ export function createLogger({ redactor, level = 'info', ringSize = 300, base = 
     return line;
   }
 
+  // LOG_REVEAL_SECRETS=true only (refused in production, see config.js): the ONE
+  // path that writes a line without redaction, so a lab can see the real value
+  // a client used. Debug level only. Grep for revealUnsafe to find every use.
+  function emitUnredacted(bindings, fields, msg) {
+    if (LEVELS.debug < min) return;
+    const record = {
+      time: new Date().toISOString(), level: 'debug', ...bindings, ...fields, msg,
+      revealed: true, warning: 'secret values in this line are NOT masked (LOG_REVEAL_SECRETS=true)',
+    };
+    const line = JSON.stringify(record);
+    out.write(`${line}\n`);
+    return line; // not kept in the ring: /api/logs never serves revealed lines
+  }
+
   function make(bindings) {
     return {
       debug: (...a) => emit('debug', bindings, a),
@@ -39,6 +53,9 @@ export function createLogger({ redactor, level = 'info', ringSize = 300, base = 
       warn: (...a) => emit('warn', bindings, a),
       error: (...a) => emit('error', bindings, a),
       child: (more) => make({ ...bindings, ...more }),
+      /** Present only when LOG_REVEAL_SECRETS=true. */
+      revealUnsafe: revealSecrets ? (fields, msg) => emitUnredacted(bindings, fields, msg) : undefined,
+      isDebug: LEVELS.debug >= min,
       /** Most recent (already redacted) log lines, newest last. */
       recent: (n = 100) => ring.slice(-n),
     };

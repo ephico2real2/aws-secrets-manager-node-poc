@@ -28,6 +28,8 @@ configMapGenerator:
       # Development mode: allows demo mode and the mock endpoint.
       - NODE_ENV=development
       - DEMO_MODE=true
+      # The log shows which secret keys each client used, values masked.
+      - LOG_LEVEL=debug
       - AWS_REGION=us-east-1
       - AWS_MOCK_ENDPOINT=http://aws-mock:4566
       # Dummy values: the AWS SDK signs requests even though the mock ignores

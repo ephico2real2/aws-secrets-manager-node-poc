@@ -94,6 +94,10 @@ services:
       PORT: "3000"
       DEMO_MODE: "true"
       SECRETS_MODE: sdk
+      # debug: the log shows which secret keys each client used, values masked.
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      # true: those debug lines ALSO print the real values (lab only; refused in production).
+      LOG_REVEAL_SECRETS: ${LOG_REVEAL_SECRETS:-false}
     ports:
       - "127.0.0.1:3000:3000" # loopback only
     depends_on:

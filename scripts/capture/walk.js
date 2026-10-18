@@ -7,7 +7,8 @@
 //
 // spec: viewport {width, height}; pages: [ {name, url, before: ms, fullPage, viewport,
 //       actions: [ {click: "visible text, exact"}, {clickSelector: css}, {fill: [sel, value]}, {wait: ms},
-//                  {waitForText: "text", timeout: ms} ],
+//                  {waitForText: "text", timeout: ms}, {scrollToBottom: css} ],
+//       element: css (screenshot only that element),
 //       screenshot: true, expect: { text: [strings the page's text must contain],
 //                                   absent: [strings it must NOT contain] } } ]
 // ${VAR} anywhere in the spec expands from the environment.
@@ -48,8 +49,12 @@ function check(page, text) {
         if (a.fill) await p.fill(a.fill[0], a.fill[1]);
         if (a.waitForText) await p.getByText(a.waitForText).first().waitFor({ timeout: a.timeout || 20000 });
         if (a.wait) await p.waitForTimeout(a.wait);
+        if (a.scrollToBottom) await p.locator(a.scrollToBottom).first().evaluate((n) => { n.scrollTop = n.scrollHeight; });
       }
-      if (page.screenshot !== false) await p.screenshot({ path: `${S}/${page.name}.png`, fullPage: !!page.fullPage });
+      if (page.screenshot !== false) {
+        if (page.element) await p.locator(page.element).first().screenshot({ path: `${S}/${page.name}.png` });
+        else await p.screenshot({ path: `${S}/${page.name}.png`, fullPage: !!page.fullPage });
+      }
       const text = await p.evaluate(() => document.body.innerText);
       // Evidence: the expected strings as found on the page, else the page's first lines.
       const wanted = (page.expect && page.expect.text) || [];

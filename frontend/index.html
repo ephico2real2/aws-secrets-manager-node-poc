@@ -21,6 +21,10 @@
   </header>
 
   <main class="wrap">
+    <p class="banner banner-fail" id="reveal-banner" role="alert" hidden>
+      <strong>Secret values are being written to the log.</strong> LOG_REVEAL_SECRETS is on, so the debug credential lines
+      print real passwords. Lab troubleshooting only: turn it off when you are done. The app refuses this setting in production.
+    </p>
     <section class="flow" aria-label="How credentials flow">
       <ol class="flow-chain">
         <li class="node"><span class="node-title">Browser</span><span class="node-sub">never sees a credential</span></li>
