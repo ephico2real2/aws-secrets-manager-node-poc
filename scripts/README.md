@@ -15,7 +15,7 @@ macOS ships 3.2, and `bootstrap/macos.sh` installs a newer one.
 | [`podman.env`](podman.env) | Source it (`. scripts/podman.env`) to point the docker CLI and kind at Podman, on macOS or Linux |
 | [`bootstrap/macos.sh`](bootstrap/macos.sh) | MacBook: installs what's missing with Homebrew (bash, jq, node, kind, kubectl; `--openshift` adds `oc`), Docker Desktop or with `--podman` Podman Desktop, and PyYAML in `.tmp/venv`, then runs the preflight |
 | [`bootstrap/linux.sh`](bootstrap/linux.sh) | Linux laptop or CI runner: kind at its pin, checked against the release's SHA-256, and kubectl if missing; then the preflight |
-| [`preflight.sh`](preflight.sh) `compose\|kind\|openshift [--observability]` | One table: tools and versions, Docker's memory, free ports, `oc` login. `PREFLIGHT_STRICT=1` exits 1 if a required row fails |
+| [`preflight.sh`](preflight.sh) `compose\|kind\|openshift [--observability]` | One table: tools and versions, the engine (Docker or Podman) and its memory, kind's provider, PyYAML, free ports, `oc` login. `PREFLIGHT_STRICT=1` exits 1 if a required row fails |
 
 ## Run a lab
 
@@ -37,7 +37,7 @@ macOS ships 3.2, and `bootstrap/macos.sh` installs a newer one.
 | [`k8s-check.sh`](k8s-check.sh) `[base-url]` | Kubernetes or OpenShift: who each container runs as, no app credential in any Kubernetes object, Postgres got only password hashes, the smoke test, the alert paths |
 | [`credential-scan.sh`](credential-scan.sh) `compose\|k8s` | Searches the running stack for the **actual password values** (every version): container config, process environments, every file, every log, the databases, the alert deliveries, the audit records, the log store |
 | [`alerts-check.sh`](alerts-check.sh) | An intruder's read raises the alarm by email, SMS and chat; the documented gap stays quiet; rotations go to chat only; recipients are masked |
-| [`pipeline-check.sh`](pipeline-check.sh) | With `docker-compose.observability.yml`: records reach VictoriaLogs, and a real failure becomes a delivered critical alert |
+| [`pipeline-check.sh`](pipeline-check.sh) | With `docker-compose.observability.yml`: records reach VictoriaLogs, a real failure becomes a delivered critical alert, and a burst of errors (a warning) reaches chat only, never a page |
 | [`env-file-demo.sh`](env-file-demo.sh) | Who can read credentials passed in a `.env` file, next to the same lookups on Secure Notes |
 | [`scan-images.sh`](scan-images.sh) | An SBOM per image (syft) and a vulnerability scan (grype) that fails on a fixable critical |
 

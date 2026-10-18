@@ -35,7 +35,8 @@ Everything written about Secure Notes is in this folder. The demo pages are in
 
 - **Output is real.** Output and screenshots come from CI runs, published on the
   [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
-  branch, and each page says which run.
+  branch, and each page says which run. The few captures from a run on the owner's
+  MacBook (on Podman) are labelled as such.
 - **Generated parts can't drift.** The alert table, the alarms and the backlog are
   generated from code or data, and CI fails if a copy is stale.
 - **Links and diagrams are checked.** The `docs` CI job checks every relative link and

@@ -16,7 +16,7 @@ and 17 add the log pipeline overlay (`docker-compose.observability.yml`). Test c
 is the "before" picture and runs on its own. Counts such as versions, file numbers and fingerprints will differ on
 your machine; the shape of the output is what matters.
 
-**You need:** Docker with Compose v2 (Docker Desktop, or Podman through its Docker API: test case 10), `jq`, and for the check scripts Node.js 22
+**You need:** Docker or Podman, with Compose (Podman through its Docker API, `. scripts/podman.env`: test case 10), `jq`, and for the check scripts Node.js 22
 and `curl` on your machine. Test case 10 also needs [kind](https://kind.sigs.k8s.io)
 and `kubectl`; test case 11 `cosign` (and Linux on x86-64 for the scan script);
 test case 12 `skopeo` (or `oc`) and a registry you can push to. Test case 16 needs about

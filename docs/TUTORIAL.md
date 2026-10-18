@@ -1,6 +1,6 @@
 # Tutorial — see every feature work, and prove it yourself
 
-About 20 minutes, on your laptop. You need Docker with Compose v2, `jq`, and for the check scripts Node.js 22 and `curl`; step 9 also needs kind and `kubectl`. You will watch the app load
+About 20 minutes, on your laptop. You need Docker, or Podman with the docker CLI pointed at it ([GUIDE](GUIDE.md#podman-instead-of-docker)), with Compose, `jq`, and for the check scripts Node.js 22 and `curl`; step 9 also needs kind and `kubectl`. You will watch the app load
 its credentials, rotate them from the dashboard, try to leak them, read the
 app's own log (with every password masked), then search the running containers
 for the real passwords and find nothing. Every screenshot below is taken by CI

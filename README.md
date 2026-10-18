@@ -51,7 +51,7 @@ The same images run three ways.
 | **B. Kubernetes / OpenShift** | kind, OpenShift, or EKS/ROSA | The mock in the cluster, or real Secrets Manager via IRSA | Only for EKS/ROSA |
 | **C. AWS on EC2** | An EC2 instance built by CloudFormation | Real Secrets Manager via the instance role | Yes |
 
-Quickest start (needs only Docker):
+Quickest start (needs only a container engine: Docker, or Podman after `. scripts/podman.env`):
 
 ```bash
 docker compose up --build        # dashboard http://localhost:3000, notification console http://localhost:4575
@@ -62,7 +62,7 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up --bu
 ```
 
 **On a MacBook:** `scripts/bootstrap/macos.sh` installs what's missing (Homebrew formulae,
-Docker Desktop, or Podman Desktop with `--podman`), then `scripts/preflight.sh kind` checks the machine. kind maps the app to
+Docker Desktop, or Podman Desktop with `--podman`; then `. scripts/podman.env` in each terminal), then `scripts/preflight.sh kind` checks the machine. kind maps the app to
 `localhost:3000` (`scripts/kind-up.sh`); OpenShift Local works too, building the images on
 the cluster for Apple silicon (`scripts/openshift-build.sh`).
 

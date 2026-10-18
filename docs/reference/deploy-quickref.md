@@ -14,11 +14,12 @@ for OpenShift and EKS to pull. Nothing is rebuilt between the test and the publi
 
 ## A. Run locally with Docker Compose
 
-Needs only Docker to run. The check scripts (`scripts/*-check.sh`) also need Node.js 22, `curl` and `jq`.
+Needs only a container engine: Docker, or Podman after `. scripts/podman.env` ([GUIDE](../GUIDE.md#podman-instead-of-docker)). The check scripts (`scripts/*-check.sh`) also need Node.js 22, `curl` and `jq`.
 
 ```bash
 docker compose up --build        # then open http://localhost:3000
 docker compose down -v           # stop and wipe (new random credentials next time)
+scripts/capture-local.sh compose # optional: screenshots, each page checked as in CI
 ```
 
 Six containers start: Postgres 16, Redis 7, the AWS mock (`dev/aws-mock`: Secrets
@@ -60,10 +61,10 @@ Kustomize, in `deploy/k8s/`:
 | `overlays/openshift/` | base + backing services + a TLS Route, published images, no fixed UIDs so the restricted-v2 SCC assigns them. |
 | `overlays/aws/` | base only, against real RDS, ElastiCache and Secrets Manager; the ServiceAccount carries an IAM role (IRSA) on EKS or ROSA. |
 
-**kind** (needs Docker, kind and kubectl; on a Mac, `scripts/bootstrap/macos.sh` installs them):
+**kind** (needs Docker or Podman, kind and kubectl; on a Mac, `scripts/bootstrap/macos.sh [--podman]` installs them; on Podman, `. scripts/podman.env` first):
 
 ```bash
-scripts/preflight.sh kind                         # tools, Docker's memory, free ports
+scripts/preflight.sh kind                         # tools, the engine and its memory, kind's provider, free ports
 scripts/kind-up.sh                                # the cluster, from deploy/kind/cluster.yaml
 scripts/images-build.sh                           # docker compose build, then load into kind
 scripts/k8s-deploy.sh deploy/k8s/overlays/kind    # apply and wait

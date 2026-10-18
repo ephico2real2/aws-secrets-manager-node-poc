@@ -5,7 +5,7 @@ the claim stopped being true. This page lists them all, grouped by feature.
 For a hands-on walk through the same features, see [TUTORIAL.md](TUTORIAL.md).
 
 **Where they run.** *unit* = `npm test` in `backend/` (also the CI `checks` job).
-*compose* = `scripts/compose-check.sh` (CI `compose (sdk)` and `compose (agent)`).
+*compose* = `scripts/compose-check.sh` (CI `compose (sdk)` and `compose (agent)`; `compose (podman)` runs it on Podman).
 *kind* = `scripts/k8s-check.sh` (CI `kind`). *walk* = the browser walk
 (`scripts/capture/`), which photographs each page and fails if the page lacks
 the text it must show. *aws* = the manual `aws (Part C)` workflow.

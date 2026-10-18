@@ -41,7 +41,7 @@ No git? On the repository page, choose **Code → Download ZIP**, unzip it, and 
 
 ## Part A — Run locally with Docker Compose
 
-The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Everything AWS would normally provide runs in containers, including a stand-in for Secrets Manager.
+The quickest way to see the app: no AWS account, no Kubernetes, only a container engine (Docker, or Podman). Everything AWS would normally provide runs in containers, including a stand-in for Secrets Manager.
 
 **You need:** Docker Desktop, running, or Podman with the docker CLI pointed at it ([Podman instead of Docker](#podman-instead-of-docker)). Check with `docker compose version`; it should print a version number. Node.js 22 is only needed for the optional tests in step 3.
 
@@ -762,7 +762,7 @@ If the environment isn't set up yet, the run stops at its first step and names t
 
 ## CI — what every push proves
 
-Every push to the repository runs Part A and Part B1 (kind) on a GitHub runner, photographs the dashboard, and only then publishes the images. The workflow is [`.github/workflows/ci.yaml`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/blob/main/.github/workflows/ci.yaml), and it calls the same scripts you run by hand.
+Every push to the repository runs Part A (on Docker and on Podman) and Part B1 (kind) on a GitHub runner, photographs the dashboard, and only then publishes the images. The workflow is [`.github/workflows/ci.yaml`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/blob/main/.github/workflows/ci.yaml), and it calls the same scripts you run by hand.
 
 ```mermaid
 flowchart LR
@@ -770,6 +770,7 @@ flowchart LR
   build --> compose["compose (sdk, agent)<br/>Part A, both secrets modes"]
   build --> kind["kind<br/>B1 · Pod Security restricted"]
   build --> mirror["mirror<br/>all images to another registry"]
+  build --> podman["compose (podman)<br/>Part A on rootless Podman"]
   compose --> images["images<br/>main only: push,<br/>sign, attest SBOM"]
   kind --> images
   mirror --> images
@@ -779,7 +780,8 @@ flowchart LR
 | --- | --- | --- |
 | `checks` | Part A, step 3 | Unit tests with the real Postgres, Redis and AWS SDK libraries; every script and workflow lints clean; every Kustomize overlay renders and matches its schema; `cfn-lint` passes on both CloudFormation templates |
 | `build` | `docker compose build` | Builds the two images once, lists every package in them (an SBOM) and fails if any has a critical vulnerability that already has a fix, then hands them to every later job |
-| `compose (sdk)`, `compose (agent)` | Part A | The stack starts, the startup passwords stop working, and the end-to-end test passes. It runs twice: once as normal, and once with the app reading its secrets through a local agent (agent mode), which must refuse any request without its token. Both prove every alert path: an intruder's read raises the alarm by email, SMS and chat; the sdk leg also runs the log pipeline and turns a real failure into a page |
+| `compose (sdk)`, `compose (agent)` | Part A | The stack starts, the startup passwords stop working, and the end-to-end test passes. It runs twice: once as normal, and once with the app reading its secrets through a local agent (agent mode), which must refuse any request without its token. Both prove every alert path: an intruder's read raises the alarm by email, SMS and chat; the sdk leg also runs the log pipeline, turns a real failure into a page, and proves a warning goes to chat only |
+| `compose (podman)` | Part A on Podman | The base stack on rootless Podman instead of Docker, through the docker CLI ([Podman instead of Docker](#podman-instead-of-docker)): the startup passwords stop working, the end-to-end test and the credential scan pass. It does not hold back the images |
 | `kind` | B1 | The same under Pod Security `restricted`: who each container runs as, that no app credential is a Kubernetes Secret, that Postgres only received password hashes, and the end-to-end test |
 | mirror | B2, no internet | The mirror script copies all four images into a throwaway registry, and the overlay it generates pulls only from there |
 | `v0-leak` | [`versions/v0-env-file`](../versions/v0-env-file/README.md) | The original `.env` app still leaks its passwords (the "before" picture) |
