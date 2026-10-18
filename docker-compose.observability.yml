@@ -14,7 +14,7 @@ services:
     volumes:
       - ./deploy/observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
     depends_on:
-      victorialogs: { condition: service_healthy }
+      victorialogs: { condition: service_started }
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]
@@ -26,10 +26,8 @@ services:
       - vlogs-data:/vlogs
     ports:
       - "127.0.0.1:9428:9428" # loopback only
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9428/health"]
-      interval: 2s
-      retries: 30
+    # No healthcheck: the image has no shell or wget. The collector retries its
+    # exports, and vmalert retries its queries, until VictoriaLogs is up.
 
   vmalert:
     image: docker.io/victoriametrics/vmalert:v1.154.0
@@ -45,7 +43,7 @@ services:
     ports:
       - "127.0.0.1:8880:8880" # loopback only
     depends_on:
-      victorialogs: { condition: service_healthy }
+      victorialogs: { condition: service_started }
       alertmanager: { condition: service_started }
     read_only: true
     cap_drop: [ALL]
