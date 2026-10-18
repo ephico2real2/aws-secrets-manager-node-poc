@@ -1,0 +1,405 @@
+aws-mock-1  | [aws-mock] EventBridge rule SecretReadAlertRule loaded (State=ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS, sha256 8438b9c8198e)
+aws-mock-1  | [aws-mock] Secrets Manager + STS mock on http://0.0.0.0:4566
+app-1       | {"time":"2026-10-18T17:23:05.564Z","level":"debug","app":"secure-notes","secretsMode":"agent","secretIds":{"db":"/rds/dev/notes-db/app","redis":"/elasticache/dev/notes-cache/app"},"secretIdSources":{"db":"pattern","redis":"pattern","dbAdmin":"pattern","redisAdmin":"pattern"},"namingPattern":"/{service}/{env}/{resource}/{name}","endpoint":"http://aws-mock:4566","logLevel":"debug","msg":"credential sources: which secrets this process will consume"}
+app-1       | {"time":"2026-10-18T17:23:05.566Z","level":"info","app":"secure-notes","secretIds":{"db":"/rds/dev/notes-db/app","redis":"/elasticache/dev/notes-cache/app"},"sources":{"db":"pattern","redis":"pattern","dbAdmin":"pattern","redisAdmin":"pattern"},"environment":"dev","pattern":"/{service}/{env}/{resource}/{name}","msg":"secret IDs resolved"}
+app-1       | {"time":"2026-10-18T17:23:05.573Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/rds/dev/notes-db/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":false,"msg":"agent request: SSRF token from file, masked"}
+app-1       | {"time":"2026-10-18T17:23:05.584Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/elasticache/dev/notes-cache/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":false,"msg":"agent request: SSRF token from file, masked"}
+app-1       | {"time":"2026-10-18T17:23:05.639Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","versionId":"0d4ffc2d-d096-43ad-b9a4-e150911a46a0","reason":"cold-start","forced":false,"changed":false,"ms":72,"msg":"secret loaded"}
+app-1       | {"time":"2026-10-18T17:23:05.640Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","name":"/rds/dev/notes-db/app","versionId":"0d4ffc2d-d096-43ad-b9a4-e150911a46a0","stages":["AWSCURRENT"],"source":"agent","reason":"cold-start","fingerprint":"8cd5bb99eb23","keys":["engine=postgres","host=postgres","port=5432","dbname=n****","username=no*****pp","password=******** (32 chars, fp=a0c67949)"],"msg":"secret consumed"}
+app-1       | {"time":"2026-10-18T17:23:05.643Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","versionId":"909f8929-c19e-4d97-a02b-615fb0de0526","reason":"cold-start","forced":false,"changed":false,"ms":75,"msg":"secret loaded"}
+app-1       | {"time":"2026-10-18T17:23:05.644Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","name":"/elasticache/dev/notes-cache/app","versionId":"909f8929-c19e-4d97-a02b-615fb0de0526","stages":["AWSCURRENT"],"source":"agent","reason":"cold-start","fingerprint":"50c117a43e93","keys":["host=redis","port=6379","username=no*****pp","password=******** (32 chars, fp=771d29f0)"],"msg":"secret consumed"}
+app-1       | {"time":"2026-10-18T17:23:05.645Z","level":"debug","app":"secure-notes","component":"redis","secretId":"/elasticache/dev/notes-cache/app","versionId":"909f8929-c19e-4d97-a02b-615fb0de0526","fingerprint":"50c117a43e93","host":"redis","port":6379,"tls":false,"why":"first connection","using":["username<-username=no*****pp","password<-password=******** (32 chars, fp=771d29f0)"],"msg":"redis authenticating with"}
+app-1       | {"time":"2026-10-18T17:23:05.656Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1       | {"time":"2026-10-18T17:23:05.661Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"0d4ffc2d-d096-43ad-b9a4-e150911a46a0","fingerprint":"8cd5bb99eb23","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=a0c67949)"],"msg":"postgres connecting with"}
+app-1       | {"time":"2026-10-18T17:23:05.684Z","level":"info","app":"secure-notes","host":"0.0.0.0","port":3000,"secretsMode":"agent","demoMode":true,"msg":"secure-notes listening"}
+app-1       | {"time":"2026-10-18T17:23:07.368Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/health","status":200,"ms":4.5,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.543Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":1.3,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.578Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":1.1,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.585Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":15.2,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.586Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.7,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.589Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1.2,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.648Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":17.7,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:23.651Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":77.9,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:25.668Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.4,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:25.669Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:25.670Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:25.673Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":6.4,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.829Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.4,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.835Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":1.1,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.838Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.840Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.7,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.841Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.844Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":8.2,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:26.855Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":15.4,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:28.860Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:28.861Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:28.861Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.5,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:28.865Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":3.6,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.428Z","level":"info","app":"secure-notes","component":"rotator","alias":"db","secretId":"/rds/dev/notes-db/app","newVersionId":"74473946-5ba4-4ec2-889b-318ff6e29458","msg":"demo rotation complete"}
+app-1       | {"time":"2026-10-18T17:23:29.429Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/rotate/db","status":200,"ms":48.3,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.432Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.6,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.433Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.5,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.433Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.4,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.436Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.7,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.534Z","level":"warn","app":"secure-notes","component":"db","err":{"type":"error","message":"terminating connection due to administrator command","code":"57P01","stack":"error: terminating connection due to administrator command\n    at parseErrorMessage (/app/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/app/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/app/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/app/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:519:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)"},"msg":"idle database connection closed"}
+app-1       | {"time":"2026-10-18T17:23:29.540Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/drop-connections","status":200,"ms":29.7,"msg":"request"}
+app-1       | {"time":"2026-10-18T17:23:29.545Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"0d4ffc2d-d096-43ad-b9a4-e150911a46a0","fingerprint":"8cd5bb99eb23","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=a0c67949)"],"msg":"postgres connecting with"}
+app-1       | {"time":"2026-10-18T17:23:29.548Z","level":"warn","app":"secure-notes","component":"db","code":"28P01","event":"db.auth.rejected","msg":"database rejected cached credential; refreshing from Secrets Manager"}
+app-1       | {"time":"2026-10-18T17:23:29.548Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/rds/dev/notes-db/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":true,"msg":"agent request: SSRF token from file, masked"}
+app-1       | {"time":"2026-10-18T17:23:29.555Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","reason":"db-auth-failure","forced":true,"changed":true,"ms":7,"msg":"secret refreshed: new version"}
+app-1       | {"time":"2026-10-18T17:23:29.556Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","name":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","stages":["AWSCURRENT"],"source":"agent","reason":"db-auth-failure","fingerprint":"8cd5bb99eb23 -> f30ae72173af","keys":["engine=postgres","host=postgres","port=5432","dbname=n****","username=no*****pp","password=******** (32 chars, fp=8e8c8dcd)"],"msg":"secret consumed"}
+app-1       | {"time":"2026-10-18T17:23:29.582Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","fingerprint":"f30ae72173af","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=8e8c8dcd)"],"msg":"postgres connecting with"}
+app-1         | {"time":"2026-10-18T17:23:29.588Z","level":"info","app":"secure-notes","component":"alerts","event":"alerting.notification.sent","messaging.system":"aws.sns","messaging.operation.type":"send","messaging.destination.name":"secure-notes-ops-chat","aws.sns.topic.arn":"arn:aws:sns:us-east-1:000000000000:secure-notes-ops-chat","alert.name":"credential.rotated","alert.severity":"info","alert.id":"8a2dc3af-3afc-458a-a3fc-c94b8fc5d46d","alert.subject":"[INFO] Secure Notes (dev): The app switched to a rotated credential","alert.channels":["chat"],"sms.segments":1,"messaging.message.id":"3121ed99-c8e5-4b89-a52d-dcaf6ed976c7","msg":"notification sent: [INFO] Secure Notes (dev): The app switched to a rotated credential"}
+app-1         | {"time":"2026-10-18T17:23:29.589Z","level":"info","app":"secure-notes","component":"db","event":"db.auth.recovered","msg":"database accepted the refreshed credential"}
+app-1         | {"time":"2026-10-18T17:23:29.741Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1         | {"time":"2026-10-18T17:23:29.742Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/notes","status":201,"ms":199.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:29.745Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":1.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:29.748Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+seed-1      | [seed] secret names (/{service}/{env}/{resource}/{name}): /rds/dev/notes-db/app, /elasticache/dev/notes-cache/app, /rds/dev/notes-db/admin, /elasticache/dev/notes-cache/admin
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret -> ResourceNotFoundException
+seed-1        | [seed] created 4 secrets
+postgres-1  | The files belonging to this database system will be owned by user "postgres".
+seed-1        | [seed] postgres: role, table, grants done; bootstrap password replaced
+postgres-1    | This user must also own the server process.
+seed-1        | [seed] redis: ACL user created (notes:* keys only); bootstrap password replaced
+redis-1       | 1:C 18 Oct 2026 17:23:00.038 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+seed-1        | [seed] done. Every credential now lives only in Secrets Manager.
+agent-1     | [aws-mock] EventBridge rule SecretReadAlertRule loaded (State=ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS, sha256 8438b9c8198e)
+redis-1       | 1:C 18 Oct 2026 17:23:00.039 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+redis-1       | 1:C 18 Oct 2026 17:23:00.039 * Redis version=7.4.11, bits=64, commit=00000000, modified=0, pid=1, just started
+redis-1       | 1:C 18 Oct 2026 17:23:00.039 * Configuration loaded
+redis-1       | 1:M 18 Oct 2026 17:23:00.039 * monotonic clock: POSIX clock_gettime
+redis-1       | 1:M 18 Oct 2026 17:23:00.040 * Running mode=standalone, port=6379.
+redis-1       | 1:M 18 Oct 2026 17:23:00.041 * Server initialized
+redis-1       | 1:M 18 Oct 2026 17:23:00.041 * Ready to accept connections tcp
+agent-1       | [aws-mock] Workload Credentials Provider emulation on http://127.0.0.1:2773 (token file /var/run/awssm/token)
+agent-1       | [aws-mock agent] fetched /rds/dev/notes-db/app
+agent-1       | [aws-mock agent] fetched /elasticache/dev/notes-cache/app
+agent-1       | [aws-mock agent] fetched /rds/dev/notes-db/app (refreshNow)
+agent-1       | [aws-mock agent] fetched /elasticache/dev/notes-cache/app (refreshNow)
+agent-1       | [aws-mock agent] fetched /rds/dev/notes-db/app (refreshNow)
+agent-1       | [aws-mock agent] fetched /elasticache/dev/notes-cache/app (refreshNow)
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+app-1         | {"time":"2026-10-18T17:23:29.749Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:29.750Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:29.753Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":3.9,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:30.860Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.7,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:30.861Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:30.862Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:30.865Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:32.860Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:32.860Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:32.861Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.7,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:32.865Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:34.074Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:34.080Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":1.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:34.084Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:34.086Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:34.088Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.9,"msg":"request"}
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] eventbridge SecretReadAlertRule matched GetSecretValue /elasticache/dev/notes-cache/app by arn:aws:iam::000000000000:user/mallory: published to SNS
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:ListSecrets
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+sns-logger-1  | {"time":"2026-10-18T17:23:00.205Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-secret-read-alert","protocol":"email","endpoint":"on****@example.com","msg":"subscribed email to secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-18T17:23:00.208Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-secret-read-alert","protocol":"sms","endpoint":"+1******0100","msg":"subscribed sms to secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-18T17:23:00.208Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-secret-read-alert","protocol":"https","endpoint":"https://chat.example.com/…","msg":"subscribed https to secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-18T17:23:00.208Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-alerts","protocol":"email","endpoint":"on****@example.com","msg":"subscribed email to secure-notes-ops-alerts"}
+postgres-1    | 
+postgres-1    | The database cluster will be initialized with locale "en_US.utf8".
+postgres-1    | The default database encoding has accordingly been set to "UTF8".
+postgres-1    | The default text search configuration will be set to "english".
+postgres-1    | 
+postgres-1    | Data page checksums are disabled.
+postgres-1    | 
+postgres-1    | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1    | creating subdirectories ... ok
+postgres-1    | selecting dynamic shared memory implementation ... posix
+postgres-1    | selecting default max_connections ... 100
+postgres-1    | selecting default shared_buffers ... 128MB
+postgres-1    | selecting default time zone ... Etc/UTC
+postgres-1    | creating configuration files ... ok
+postgres-1    | running bootstrap script ... ok
+postgres-1    | performing post-bootstrap initialization ... ok
+postgres-1    | syncing data to disk ... ok
+postgres-1    | 
+postgres-1    | initdb: warning: enabling "trust" authentication for local connections
+postgres-1    | 
+postgres-1    | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+postgres-1    | Success. You can now start the database server using:
+postgres-1    | 
+postgres-1    |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1    | 
+postgres-1    | waiting for server to start....2026-10-18 17:23:00.710 UTC [49] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1    | 2026-10-18 17:23:00.710 UTC [49] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1    | 2026-10-18 17:23:00.713 UTC [52] LOG:  database system was shut down at 2026-10-18 17:23:00 UTC
+postgres-1    | 2026-10-18 17:23:00.716 UTC [49] LOG:  database system is ready to accept connections
+postgres-1    |  done
+postgres-1    | server started
+postgres-1    | 2026-10-18 17:23:00.853 UTC [60] LOG:  statement: CREATE DATABASE "notes" ;
+postgres-1    | CREATE DATABASE
+postgres-1    | 
+postgres-1    | 
+postgres-1    | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+postgres-1    | 
+postgres-1    | 2026-10-18 17:23:00.894 UTC [49] LOG:  received fast shutdown request
+postgres-1    | waiting for server to shut down....2026-10-18 17:23:00.894 UTC [49] LOG:  aborting any active transactions
+postgres-1    | 2026-10-18 17:23:00.896 UTC [49] LOG:  background worker "logical replication launcher" (PID 55) exited with exit code 1
+postgres-1    | 2026-10-18 17:23:00.897 UTC [50] LOG:  shutting down
+postgres-1    | 2026-10-18 17:23:00.897 UTC [50] LOG:  checkpoint starting: shutdown immediate
+postgres-1    | 2026-10-18 17:23:00.911 UTC [50] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.002 s, total=0.014 s; sync files=301, longest=0.001 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E8, redo lsn=0/191F0E8
+postgres-1    | 2026-10-18 17:23:00.917 UTC [49] LOG:  database system is shut down
+sns-logger-1  | {"time":"2026-10-18T17:23:00.208Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-alerts","protocol":"sms","endpoint":"+1******0100","msg":"subscribed sms to secure-notes-ops-alerts"}
+postgres-1    |  done
+postgres-1    | server stopped
+postgres-1    | 
+postgres-1    | PostgreSQL init process complete; ready for start up.
+postgres-1    | 
+postgres-1    | 2026-10-18 17:23:01.013 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1    | 2026-10-18 17:23:01.014 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1    | 2026-10-18 17:23:01.014 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1    | 2026-10-18 17:23:01.015 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1    | 2026-10-18 17:23:01.017 UTC [65] LOG:  database system was shut down at 2026-10-18 17:23:00 UTC
+postgres-1    | 2026-10-18 17:23:01.021 UTC [1] LOG:  database system is ready to accept connections
+postgres-1    | 2026-10-18 17:23:03.029 UTC [76] LOG:  statement: ALTER ROLE notes_app WITH LOGIN PASSWORD 'SCRAM-SHA-256$4096:TBz9LsDP+aUmsqoj2l/+Kg==$kSVGQRYGNzFiTLtinyV5Obs1aMJxuSA3zXiwl3bMYM4=:X9KeDostn7v4l6n+eteaVzZdyJ1ve/inHlNdtq/6PMs='
+postgres-1    | 2026-10-18 17:23:03.033 UTC [76] LOG:  statement: 
+postgres-1    | 	  CREATE TABLE IF NOT EXISTS notes (
+postgres-1    | 	    id         bigserial PRIMARY KEY,
+sns-logger-1  | {"time":"2026-10-18T17:23:00.209Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-alerts","protocol":"https","endpoint":"https://chat.example.com/…","msg":"subscribed https to secure-notes-ops-alerts"}
+postgres-1    | 	    body       text NOT NULL CHECK (length(body) BETWEEN 1 AND 280),
+app-1         | {"time":"2026-10-18T17:23:34.097Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:34.100Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":20,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.103Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.104Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.2,"msg":"request"}
+sns-logger-1  | {"time":"2026-10-18T17:23:00.209Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-chat","protocol":"https","endpoint":"https://chat.example.com/…","msg":"subscribed https to secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-18T17:23:00.220Z","level":"info","app":"sns-logger","topics":["secure-notes-secret-read-alert","secure-notes-ops-alerts","secure-notes-ops-chat"],"pipeline":false,"msg":"sns-logger: a local Amazon SNS on http://0.0.0.0:4575 (screen: http://localhost:4575)"}
+sns-logger-1  | {"time":"2026-10-18T17:23:29.587Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-chat","messageId":"3121ed99-c8e5-4b89-a52d-dcaf6ed976c7","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): The app switched to a rotated credential","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-18T17:23:36.945Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-chat","messageId":"d73a8269-da17-4582-9fea-dea1aaf5fe25","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): The app switched to a rotated credential","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-18T17:24:17.677Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"email","endpoint":"on****@example.com","topic":"secure-notes-secret-read-alert","messageId":"e85eb736-72b4-4919-adc4-9554e0b99bf8","publishedBy":"events.amazonaws.com","subject":"AWS Notification Message","msg":"delivered email to on****@example.com from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-18T17:24:17.678Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"sms","endpoint":"+1******0100","topic":"secure-notes-secret-read-alert","messageId":"e85eb736-72b4-4919-adc4-9554e0b99bf8","publishedBy":"events.amazonaws.com","segments":2,"encoding":"GSM-7","msg":"delivered sms to +1******0100 from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-18T17:24:17.678Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-secret-read-alert","messageId":"e85eb736-72b4-4919-adc4-9554e0b99bf8","publishedBy":"events.amazonaws.com","msg":"delivered https to https://chat.example.com/… from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-18T17:24:21.851Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"email","endpoint":"on****@example.com","topic":"secure-notes-ops-alerts","messageId":"f23c5531-ed8a-4ded-a45a-77cc4576792b","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): Test alert from Secure Notes","msg":"delivered email to on****@example.com from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-18T17:24:21.851Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"sms","endpoint":"+1******0100","topic":"secure-notes-ops-alerts","messageId":"f23c5531-ed8a-4ded-a45a-77cc4576792b","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","segments":1,"encoding":"GSM-7","msg":"delivered sms to +1******0100 from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-18T17:24:21.851Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-alerts","messageId":"f23c5531-ed8a-4ded-a45a-77cc4576792b","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): Test alert from Secure Notes","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-alerts"}
+postgres-1    | 	    created_at timestamptz NOT NULL DEFAULT now()
+postgres-1    | 	  )
+postgres-1    | 2026-10-18 17:23:03.037 UTC [76] LOG:  statement: REVOKE ALL ON notes FROM notes_app
+postgres-1    | 2026-10-18 17:23:03.038 UTC [76] LOG:  statement: GRANT SELECT, INSERT ON notes TO notes_app
+postgres-1    | 2026-10-18 17:23:03.038 UTC [76] LOG:  statement: GRANT USAGE ON SEQUENCE notes_id_seq TO notes_app
+postgres-1    | 2026-10-18 17:23:03.039 UTC [76] LOG:  statement: REVOKE CREATE ON SCHEMA public FROM PUBLIC
+postgres-1    | 2026-10-18 17:23:03.042 UTC [76] LOG:  statement: ALTER ROLE "postgres" WITH PASSWORD 'SCRAM-SHA-256$4096:MFpUw9vRS/r6rG0c1cWFmQ==$uH29r6jTGT1VqqjF3LAHfY5fyVVZUSN3tj43h5t3W7I=:8bmYaE6T+StWZpTIox/YBCHY9ZcUYSlDcS660fN/kRo='
+postgres-1    | 2026-10-18 17:23:29.409 UTC [171] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:/abDUuzP7hNSge5EDUi2DA==$g6UClvFB6+X6tmsAI/mrMxk1CLheSmSyhLQXQKV0mj4=:kYLXZt2UtGc2/h3oMG7+8m0ptKrGI61mXrEiZM9m01U='
+postgres-1    | 2026-10-18 17:23:29.532 UTC [84] FATAL:  terminating connection due to administrator command
+postgres-1    | 2026-10-18 17:23:29.547 UTC [174] FATAL:  password authentication failed for user "notes_app"
+postgres-1    | 2026-10-18 17:23:29.547 UTC [174] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+postgres-1    | 2026-10-18 17:23:36.727 UTC [175] FATAL:  terminating connection due to administrator command
+postgres-1    | 2026-10-18 17:24:15.878 UTC [342] FATAL:  password authentication failed for user "postgres"
+postgres-1    | 2026-10-18 17:24:15.878 UTC [342] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 119: "host    all             all             127.0.0.1/32            scram-sha-256"
+postgres-1    | 2026-10-18 17:24:16.480 UTC [350] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:uPKWLakFwl7Au/Pmrz88Tg==$+TJ5oiF2q8WmiE/Cr0Fr+Y9tPg/PLHHmmkIkmKB3g3k=:oSDoyi0sU3l4ftfadjBmVT2RGVrsUVdsuhykQlE3rC4='
+postgres-1    | 2026-10-18 17:24:16.563 UTC [335] FATAL:  terminating connection due to administrator command
+postgres-1    | 2026-10-18 17:24:16.575 UTC [353] FATAL:  password authentication failed for user "notes_app"
+postgres-1    | 2026-10-18 17:24:16.575 UTC [353] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+app-1         | {"time":"2026-10-18T17:23:36.105Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.108Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.653Z","level":"info","app":"secure-notes","component":"rotator","alias":"redis","secretId":"/elasticache/dev/notes-cache/app","newVersionId":"02a71ece-0718-43f0-a097-2dcc509f5aab","msg":"demo rotation complete"}
+app-1         | {"time":"2026-10-18T17:23:36.654Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/rotate/redis","status":200,"ms":27,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.661Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.664Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.665Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.666Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":3.9,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.727Z","level":"warn","app":"secure-notes","component":"db","err":{"type":"error","message":"terminating connection due to administrator command","code":"57P01","stack":"error: terminating connection due to administrator command\n    at parseErrorMessage (/app/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/app/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/app/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/app/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:519:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)"},"msg":"idle database connection closed"}
+app-1         | {"time":"2026-10-18T17:23:36.731Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/drop-connections","status":200,"ms":21.1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:36.736Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","fingerprint":"f30ae72173af","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=8e8c8dcd)"],"msg":"postgres connecting with"}
+app-1         | {"time":"2026-10-18T17:23:36.934Z","level":"warn","app":"secure-notes","component":"redis","event":"cache.auth.rejected","msg":"redis rejected cached credential; refreshing from Secrets Manager"}
+app-1         | {"time":"2026-10-18T17:23:36.935Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/elasticache/dev/notes-cache/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":true,"msg":"agent request: SSRF token from file, masked"}
+app-1         | {"time":"2026-10-18T17:23:36.939Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","versionId":"02a71ece-0718-43f0-a097-2dcc509f5aab","reason":"redis-auth-failure","forced":true,"changed":true,"ms":5,"msg":"secret refreshed: new version"}
+app-1         | {"time":"2026-10-18T17:23:36.941Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","name":"/elasticache/dev/notes-cache/app","versionId":"02a71ece-0718-43f0-a097-2dcc509f5aab","stages":["AWSCURRENT"],"source":"agent","reason":"redis-auth-failure","fingerprint":"50c117a43e93 -> bbd0b21e3507","keys":["host=redis","port=6379","username=no*****pp","password=******** (32 chars, fp=c04d3167)"],"msg":"secret consumed"}
+app-1         | {"time":"2026-10-18T17:23:36.941Z","level":"debug","app":"secure-notes","component":"redis","secretId":"/elasticache/dev/notes-cache/app","versionId":"02a71ece-0718-43f0-a097-2dcc509f5aab","fingerprint":"bbd0b21e3507","host":"redis","port":6379,"tls":false,"why":"after refresh","using":["username<-username=no*****pp","password<-password=******** (32 chars, fp=c04d3167)"],"msg":"redis authenticating with"}
+app-1         | {"time":"2026-10-18T17:23:36.946Z","level":"info","app":"secure-notes","component":"alerts","event":"alerting.notification.sent","messaging.system":"aws.sns","messaging.operation.type":"send","messaging.destination.name":"secure-notes-ops-chat","aws.sns.topic.arn":"arn:aws:sns:us-east-1:000000000000:secure-notes-ops-chat","alert.name":"credential.rotated","alert.severity":"info","alert.id":"fd449a19-b99e-4bb1-a6e5-4951620905f2","alert.subject":"[INFO] Secure Notes (dev): The app switched to a rotated credential","alert.channels":["chat"],"sms.segments":1,"messaging.message.id":"d73a8269-da17-4582-9fea-dea1aaf5fe25","msg":"notification sent: [INFO] Secure Notes (dev): The app switched to a rotated credential"}
+app-1         | {"time":"2026-10-18T17:23:37.338Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1         | {"time":"2026-10-18T17:23:37.338Z","level":"info","app":"secure-notes","component":"redis","event":"cache.auth.recovered","msg":"redis accepted the refreshed credential"}
+app-1         | {"time":"2026-10-18T17:23:37.339Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/notes","status":201,"ms":605.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:37.344Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":2.1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:37.348Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:37.350Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":1.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:37.351Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:37.357Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":5.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:38.103Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:38.105Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:38.105Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:38.108Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":4.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:40.103Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:40.106Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:40.106Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:40.108Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":4.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.783Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.788Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.789Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.789Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":2.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.793Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.800Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:41.804Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":15.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:43.815Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:43.817Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:43.820Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:43.823Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:44.328Z","level":"error","app":"secure-notes","component":"api","err":{"type":"Error","message":"connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes","stack":"Error: connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes\n    at Object.handler (file:///app/backend/src/routes.js:210:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Server.<anonymous> (file:///app/backend/src/http.js:140:22)"},"msg":"simulated: library error containing a connection string"}
+app-1         | {"time":"2026-10-18T17:23:44.328Z","level":"warn","app":"secure-notes","component":"api","user":"notes_app","dbPassword":"[REDACTED]","msg":"simulated: developer logs the credential"}
+app-1         | {"time":"2026-10-18T17:23:44.328Z","level":"info","app":"secure-notes","component":"api","msg":"simulated: password inlined into a message: [REDACTED]"}
+app-1         | {"time":"2026-10-18T17:23:44.329Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/leak-test","status":200,"ms":1.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:44.342Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:44.343Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:44.345Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1.7,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:44.349Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":3.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:45.816Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.7,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:45.816Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:45.817Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:45.820Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.168Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.172Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":0.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.173Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.174Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.175Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.186Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":9.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:46.189Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":17.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:48.197Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:48.198Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:48.199Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.9,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:48.202Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.9,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.232Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.237Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":1.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.238Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.238Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.240Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1.1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.247Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":6.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:49.251Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":14.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:51.264Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:51.265Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:51.265Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:51.269Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.9,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:53.265Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:53.267Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:53.267Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:53.270Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":6.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:53.283Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:55.264Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:55.265Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:55.265Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/logs","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:23:55.268Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/demo/detections","status":200,"ms":2.7,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:15.456Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/rds/dev/notes-db/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":false,"msg":"agent request: SSRF token from file, masked"}
+app-1         | {"time":"2026-10-18T17:24:15.459Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","reason":"ttl-expired","forced":false,"changed":false,"ms":4,"msg":"secret loaded"}
+app-1         | {"time":"2026-10-18T17:24:15.460Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","name":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","stages":["AWSCURRENT"],"source":"agent","reason":"ttl-expired","fingerprint":"f30ae72173af","keys":["engine=postgres","host=postgres","port=5432","dbname=n****","username=no*****pp","password=******** (32 chars, fp=8e8c8dcd)"],"msg":"secret consumed"}
+app-1         | {"time":"2026-10-18T17:24:15.461Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","fingerprint":"f30ae72173af","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=8e8c8dcd)"],"msg":"postgres connecting with"}
+app-1         | {"time":"2026-10-18T17:24:15.466Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/health","status":200,"ms":17.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:15.891Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.427Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/config","status":200,"ms":0.5,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.443Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/health","status":200,"ms":1.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.452Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/notes","status":201,"ms":2.9,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.456Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":1.7,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.459Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":1,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.503Z","level":"info","app":"secure-notes","component":"rotator","alias":"db","secretId":"/rds/dev/notes-db/app","newVersionId":"21078b14-6658-40f3-8c63-53b97b5a6a47","msg":"demo rotation complete"}
+app-1         | {"time":"2026-10-18T17:24:16.504Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/rotate/db","status":200,"ms":42.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.507Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.536Z","level":"info","app":"secure-notes","component":"rotator","alias":"redis","secretId":"/elasticache/dev/notes-cache/app","newVersionId":"3029cb08-3231-4871-9fcf-c40e4837ab93","msg":"demo rotation complete"}
+app-1         | {"time":"2026-10-18T17:24:16.538Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/rotate/redis","status":200,"ms":28.8,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.541Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.544Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.564Z","level":"warn","app":"secure-notes","component":"db","err":{"type":"error","message":"terminating connection due to administrator command","code":"57P01","stack":"error: terminating connection due to administrator command\n    at parseErrorMessage (/app/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/app/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/app/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/app/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:519:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)"},"msg":"idle database connection closed"}
+app-1         | {"time":"2026-10-18T17:24:16.568Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/drop-connections","status":200,"ms":22.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:16.573Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"74473946-5ba4-4ec2-889b-318ff6e29458","fingerprint":"f30ae72173af","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=8e8c8dcd)"],"msg":"postgres connecting with"}
+app-1         | {"time":"2026-10-18T17:24:16.575Z","level":"warn","app":"secure-notes","component":"db","code":"28P01","event":"db.auth.rejected","msg":"database rejected cached credential; refreshing from Secrets Manager"}
+app-1         | {"time":"2026-10-18T17:24:16.575Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/rds/dev/notes-db/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":true,"msg":"agent request: SSRF token from file, masked"}
+app-1         | {"time":"2026-10-18T17:24:16.581Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","versionId":"21078b14-6658-40f3-8c63-53b97b5a6a47","reason":"db-auth-failure","forced":true,"changed":true,"ms":6,"msg":"secret refreshed: new version"}
+app-1         | {"time":"2026-10-18T17:24:16.582Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","name":"/rds/dev/notes-db/app","versionId":"21078b14-6658-40f3-8c63-53b97b5a6a47","stages":["AWSCURRENT"],"source":"agent","reason":"db-auth-failure","fingerprint":"f30ae72173af -> b4f8b2d40e2f","keys":["engine=postgres","host=postgres","port=5432","dbname=n****","username=no*****pp","password=******** (32 chars, fp=8ee7e28e)"],"msg":"secret consumed"}
+app-1         | {"time":"2026-10-18T17:24:16.582Z","level":"info","app":"secure-notes","component":"alerts","event":"alerting.notification.suppressed","alert.name":"credential.rotated","alert.dedup_key":"rotated:/rds/dev/notes-db/app","alert.repeat":"10m","msg":"notification suppressed: credential.rotated was sent less than 10m ago"}
+app-1         | {"time":"2026-10-18T17:24:16.584Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"21078b14-6658-40f3-8c63-53b97b5a6a47","fingerprint":"b4f8b2d40e2f","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=8ee7e28e)"],"msg":"postgres connecting with"}
+app-1         | {"time":"2026-10-18T17:24:16.588Z","level":"info","app":"secure-notes","component":"db","event":"db.auth.recovered","msg":"database accepted the refreshed credential"}
+app-1         | {"time":"2026-10-18T17:24:16.770Z","level":"warn","app":"secure-notes","component":"redis","event":"cache.auth.rejected","msg":"redis rejected cached credential; refreshing from Secrets Manager"}
+app-1         | {"time":"2026-10-18T17:24:16.771Z","level":"debug","app":"secure-notes","component":"agent","secretId":"/elasticache/dev/notes-cache/app","agent":"http://127.0.0.1:2773","tokenFile":"/var/run/awssm/token","ssrfTokenMasked":"******** (43 chars, fp=7335c9cf)","refreshNow":true,"msg":"agent request: SSRF token from file, masked"}
+app-1         | {"time":"2026-10-18T17:24:16.776Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","versionId":"3029cb08-3231-4871-9fcf-c40e4837ab93","reason":"redis-auth-failure","forced":true,"changed":true,"ms":6,"msg":"secret refreshed: new version"}
+app-1         | {"time":"2026-10-18T17:24:16.778Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","name":"/elasticache/dev/notes-cache/app","versionId":"3029cb08-3231-4871-9fcf-c40e4837ab93","stages":["AWSCURRENT"],"source":"agent","reason":"redis-auth-failure","fingerprint":"bbd0b21e3507 -> 91f95e723195","keys":["host=redis","port=6379","username=no*****pp","password=******** (32 chars, fp=542bc5c0)"],"msg":"secret consumed"}
+app-1         | {"time":"2026-10-18T17:24:16.778Z","level":"info","app":"secure-notes","component":"alerts","event":"alerting.notification.suppressed","alert.name":"credential.rotated","alert.dedup_key":"rotated:/elasticache/dev/notes-cache/app","alert.repeat":"10m","msg":"notification suppressed: credential.rotated was sent less than 10m ago"}
+app-1         | {"time":"2026-10-18T17:24:16.778Z","level":"debug","app":"secure-notes","component":"redis","secretId":"/elasticache/dev/notes-cache/app","versionId":"3029cb08-3231-4871-9fcf-c40e4837ab93","fingerprint":"91f95e723195","host":"redis","port":6379,"tls":false,"why":"after refresh","using":["username<-username=no*****pp","password<-password=******** (32 chars, fp=542bc5c0)"],"msg":"redis authenticating with"}
+app-1         | {"time":"2026-10-18T17:24:17.172Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1         | {"time":"2026-10-18T17:24:17.172Z","level":"info","app":"secure-notes","component":"redis","event":"cache.auth.recovered","msg":"redis accepted the refreshed credential"}
+app-1         | {"time":"2026-10-18T17:24:17.173Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/notes","status":201,"ms":602.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:17.177Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/notes","status":200,"ms":3.2,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:17.480Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/events","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:17.482Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/secrets","status":200,"ms":0.3,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:17.484Z","level":"error","app":"secure-notes","component":"api","err":{"type":"Error","message":"connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes","stack":"Error: connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes\n    at Object.handler (file:///app/backend/src/routes.js:210:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Server.<anonymous> (file:///app/backend/src/http.js:140:22)"},"msg":"simulated: library error containing a connection string"}
+app-1         | {"time":"2026-10-18T17:24:17.484Z","level":"warn","app":"secure-notes","component":"api","user":"notes_app","dbPassword":"[REDACTED]","msg":"simulated: developer logs the credential"}
+app-1         | {"time":"2026-10-18T17:24:17.484Z","level":"info","app":"secure-notes","component":"api","msg":"simulated: password inlined into a message: [REDACTED]"}
+app-1         | {"time":"2026-10-18T17:24:17.484Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/leak-test","status":200,"ms":0.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:17.494Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/security/checks","status":200,"ms":8.6,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:17.651Z","level":"warn","app":"secure-notes","component":"api","demo":"unexpected-read","readAs":"IAM user mallory","secretName":"/elasticache/dev/notes-cache/app","versionId":"3029cb08-3231-4871-9fcf-c40e4837ab93","msg":"detection lab: read a secret as an unexpected identity"}
+app-1         | {"time":"2026-10-18T17:24:17.651Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/unexpected-read","status":200,"ms":8.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:18.775Z","level":"warn","app":"secure-notes","component":"api","demo":"unexpected-read","readAs":"IAM user mallory","secretName":"/rds/dev/notes-db/app","versionId":"21078b14-6658-40f3-8c63-53b97b5a6a47","msg":"detection lab: read a secret as an unexpected identity"}
+app-1         | {"time":"2026-10-18T17:24:18.775Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/unexpected-read","status":200,"ms":4.4,"msg":"request"}
+app-1         | {"time":"2026-10-18T17:24:21.852Z","level":"info","app":"secure-notes","component":"alerts","event":"alerting.notification.sent","messaging.system":"aws.sns","messaging.operation.type":"send","messaging.destination.name":"secure-notes-ops-alerts","aws.sns.topic.arn":"arn:aws:sns:us-east-1:000000000000:secure-notes-ops-alerts","alert.name":"alerting.test","alert.severity":"info","alert.id":"3cf5b940-59e4-4957-be97-18cad655795b","alert.subject":"[INFO] Secure Notes (dev): Test alert from Secure Notes","alert.channels":["email","sms","chat"],"sms.segments":1,"messaging.message.id":"f23c5531-ed8a-4ded-a45a-77cc4576792b","msg":"notification sent: [INFO] Secure Notes (dev): Test alert from Secure Notes"}
+app-1         | {"time":"2026-10-18T17:24:21.853Z","level":"debug","app":"secure-notes","component":"http","method":"POST","path":"/api/demo/alerts/test","status":200,"ms":5.2,"msg":"request"}
