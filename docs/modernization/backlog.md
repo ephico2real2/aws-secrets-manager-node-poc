@@ -263,7 +263,7 @@ Evidence: [.github/workflows/aws.yaml](../../.github/workflows/aws.yaml), [infra
 
 Evidence: [deploy/kind/cluster.yaml](../../deploy/kind/cluster.yaml), [scripts/preflight.sh](../../scripts/preflight.sh), [scripts/kind-up.sh](../../scripts/kind-up.sh), CI job `kind`
 
-**S5.2 · Bootstrap a MacBook and a Linux machine** · S · 🔜 · [#118](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/118)
+**S5.2 · Bootstrap a MacBook and a Linux machine** · S · ✅ · [#118](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/118)
 *As a new contributor, I want one command to install what the lab needs, so that I don't assemble the toolchain by hand.*
 - [x] `scripts/bootstrap/linux.sh`: kind at its pin, checked against the release's SHA-256; kubectl if missing; used by CI.
 - [x] `scripts/bootstrap/macos.sh`: Homebrew formulae and Docker Desktop, then the preflight; changes no settings.
@@ -272,7 +272,7 @@ Evidence: [deploy/kind/cluster.yaml](../../deploy/kind/cluster.yaml), [scripts/p
 - [x] PyYAML for `sync-event-pattern.py` in `.tmp/venv` at the CI pin (Homebrew's Python refuses `pip install --user`).
 - [x] Without Docker Desktop: Homebrew's docker 29.9.1 and docker-compose 5.6.0 (`cliPluginsExtraDirs`) on Podman passed `compose-check.sh`.
 - [x] `scripts/podman.env` sets both variables, in bash or zsh, on macOS.
-- [ ] CI job `compose (podman)` runs Part A on rootless Podman on Linux (`scripts/podman.env` there too).
+- [x] CI job `compose (podman)` runs Part A on rootless Podman on Linux: docker CLI 28.0.4 to Podman 4.9.3, `compose-check.sh` passed (run 39173929084).
 
 Evidence: [scripts/bootstrap/macos.sh](../../scripts/bootstrap/macos.sh), [scripts/bootstrap/linux.sh](../../scripts/bootstrap/linux.sh), [test case 10: the lab on Podman](../../demo/test-case-10-kubernetes.md), [GUIDE B1: Podman instead of Docker](../GUIDE.md)
 

@@ -139,7 +139,7 @@ Open stories at handover:
 | --- | --- | --- |
 | #91 | **S12.5 Prove it on AWS**: a denied read raises the secret-read alert; a test log event trips an alarm; TestEventPattern fixtures match the mock; a batch read's text names the secret | an AWS account; run `aws.yaml`. This also closes #34, #86, #87, #89, #90 |
 | #115 | S12.6 Close the by-name gap for the RDS-managed secret (match `detail.resources.ARN` if CloudTrail carries it) | AWS first, to confirm the record shape |
-| #114 | S10.5 The pipeline check also proves the chat route and a pattern rule | local only |
+| #114 | S10.5 The pipeline check also proves the chat route and a pattern rule: built, passes locally on Podman (and fails when the route pages); closes when CI's `compose (sdk)` passes it | — |
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
@@ -235,7 +235,7 @@ Fix every `REQUIRED-FAIL` row before going on. The common ones on a new Mac:
 | --- | --- |
 | `bash (env bash)` 3.2 | `brew install bash`, then open a new Terminal, so `/opt/homebrew/bin` comes before `/bin` |
 | `docker` not answering | `open -a Docker`, and accept its terms on the first launch |
-| `memory for the lab` (warn) | 4 GiB for Compose or kind, 6 GiB with the log pipeline. Docker Desktop → Settings → Resources → Memory; Podman: `podman machine stop && podman machine set --memory 6144 && podman machine start` |
+| `memory for the lab` (warn) | 4 GiB for every lab (measured: 1.5 GiB used with kind, 1.0 GiB with the log pipeline). Docker Desktop → Settings → Resources → Memory; Podman: `podman machine stop && podman machine set --memory 6144 && podman machine start` |
 | `port 3000` / `4575` in use | Another lab is running: `docker compose down` or `scripts/kind-down.sh` |
 
 ### 11.2 Docker Compose (the quickest lab)
@@ -273,8 +273,8 @@ scripts/bootstrap/macos.sh --podman
 
 Proven on 2026-10-18 on the owner's MacBook (Apple silicon, Podman 6.1.2, rootless, 4 CPUs,
 4 GiB, Docker Desktop stopped): `compose-check.sh` and `k8s-check.sh` both passed. The machine
-used 1074 MiB of 3887 with Compose and 1582 MiB with kind, so 4 GiB is enough; the log
-pipeline is not measured on Podman yet. Screenshots: demo test cases 10 and 14. Colima is not tried.
+used 1074 MiB of 3887 with Compose, 1582 MiB with kind, and 980 MiB with Compose and the log
+pipeline (`pipeline-check.sh` passed), so 4 GiB is enough for every lab. Screenshots: demo test cases 10 and 14. Colima is not tried.
 
 Without Docker Desktop, the bootstrap installs Homebrew's `docker` and `docker-compose`; add
 `"cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"]` to `~/.docker/config.json` (GUIDE B1,

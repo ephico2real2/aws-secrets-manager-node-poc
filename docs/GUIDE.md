@@ -176,7 +176,7 @@ Then Part A and steps 1 to 5 above, unchanged. Source `scripts/podman.env` in ev
 
 in `~/.docker/config.json` (or `$DOCKER_CONFIG/config.json`). **Check:** `docker compose version` prints a version. Proven with Homebrew's docker 29.9.1 and docker-compose 5.6.0 on Podman 6.1.2: `compose-check.sh` passed, with Docker Desktop's CLI off the `PATH` and an empty `DOCKER_CONFIG`.
 
-Proven on a MacBook (Apple silicon) with Podman 6.1.2, rootless, 4 CPUs and 4 GiB: `compose-check.sh` and `k8s-check.sh` passed ([test case 10](../demo/test-case-10-kubernetes.md#the-same-lab-on-a-macbook-on-podman-instead-of-docker)). CI runs Part A on Podman too (rootless, on Linux); kind runs on Docker there. If the lab needs more memory (the log pipeline asks for 6 GiB), resize the machine: `podman machine stop && podman machine set --memory 6144 && podman machine start`.
+Proven on a MacBook (Apple silicon) with Podman 6.1.2, rootless, 4 CPUs and 4 GiB: `compose-check.sh` and `k8s-check.sh` passed ([test case 10](../demo/test-case-10-kubernetes.md#the-same-lab-on-a-macbook-on-podman-instead-of-docker)). CI runs Part A on Podman too (rootless, on Linux); kind runs on Docker there. The log pipeline fits too: Compose with `docker-compose.observability.yml` used 1.0 GiB of the 4 GiB, and `pipeline-check.sh` passed. If a lab ever needs more memory, resize the machine: `podman machine stop && podman machine set --memory 6144 && podman machine start`.
 
 ### B2 — OpenShift
 

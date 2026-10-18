@@ -151,3 +151,4 @@ never printed; each place is reported as `clean` or `FOUND n`.
 | N14 | v0 still leaks (the "before" picture) | `versions/v0-env-file/leak.sh` | ≥ 8 of 9 places | v0-leak |
 | N15 | On AWS: the alarm topics can actually receive alarms | customer-managed key; rule state; a denied read and a test log event | delivered | **not automated yet**: story S12.5 (`aws.yaml` has no alert checks) |
 | N16 | The line that explains an exit reaches the log file the CloudWatch agent reads | unit test: the file sink writes before the call returns; write errors are counted, and the posture check **Logs reach the alerting pipeline** warns | on disk; counted | unit |
+| N17 | A warning goes to chat only (a pattern rule) | Secrets Manager stopped during three paced forced refreshes: six error lines | `app.errors.burst` → vmalert → Alertmanager → one delivery on the chat topic, none on the paging topic | pipeline |

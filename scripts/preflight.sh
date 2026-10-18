@@ -70,8 +70,9 @@ if [ "$TARGET" != openshift ]; then
     shown=$(awk -v m="$mem" 'BEGIN{printf "%.1f GiB", m/1024}')
     if [ "$engine" = podman ]; then name="Podman"; else name="Docker"; fi
     row ok docker "$name engine $(docker version --format '{{.Server.Version}}' 2>/dev/null), ${cpu:-?} CPUs, $shown" "the VM's size is what the lab gets"
-    # kind: one node and the five workloads used 1.5 GiB of a 4 GiB Podman machine (HANDOVER.md 11.3).
-    want=4; [ "$OBS" = 1 ] && want=6
+    # Measured on a 4 GiB Podman machine (HANDOVER.md 11.3): kind used 1.5 GiB, Compose with the log
+    # pipeline 1.0 GiB, so one floor serves every target.
+    want=4
     if [ "$engine" = podman ]; then raise="podman machine stop && podman machine set --memory $((want * 1024)) && podman machine start"
     else raise="Docker Desktop: Settings > Resources > Memory"; fi
     if [ "$mem" -ge $((want * 1024 * 9 / 10)) ]; then row ok "memory for the lab" "$shown" ">= ${want} GiB for this target"

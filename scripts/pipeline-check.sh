@@ -52,6 +52,35 @@ if [ "$got" = "email https sms" ]; then ok "vmalert -> Alertmanager -> SNS deliv
 else bad "the alert was not delivered on every channel (got '$got')"; fi
 if curl -fsS "$SNS/_sns/deliveries" | grep -q 'assumed-role/alertmanager'; then ok "published by Alertmanager's identity"; else bad "no delivery published by Alertmanager"; fi
 
+echo "== a warning goes to chat only: a burst of errors in the app log (pattern rule app.errors.burst)"
+# Each forced refresh with the mock stopped logs two error lines (the fetch and the request);
+# the route allows one refresh per secret every 2 s, so three of them, paced, make six: the rule wants 5 in 5m.
+docker compose stop aws-mock >/dev/null 2>&1
+for _ in 1 2 3; do
+  sleep 2.5
+  curl -s -o /dev/null -X POST -H 'Content-Type: application/json' -d '{}' "$BASE/api/secrets/db/refresh"
+done
+docker compose start aws-mock >/dev/null 2>&1
+n=$(count 'service.name:="secure-notes" level:=error -_msg:~"^simulated:"')
+echo "  error lines from the app in the log store: ${n:-0} (the rule fires at 5 in 5m)"
+burst() { # the topic/protocol of every delivery of the burst alert, sorted
+  curl -fsS "$SNS/_sns/deliveries" | node -e '
+    let s = ""; process.stdin.on("data", (c) => (s += c)).on("end", () => {
+      const ds = JSON.parse(s).deliveries.filter((d) => /Burst of errors in the app log/.test(`${d.subject ?? ""} ${d.body}`));
+      console.log(ds.map((d) => `${d.topicName}/${d.protocol}`).sort().join(" "));
+    });'
+}
+got=""
+for _ in $(seq 1 60); do got=$(burst); [ -n "$got" ] && break; sleep 2; done
+# Alertmanager repeats it after 1h (the catalogue's "repeat"), so a burst that keeps firing still sent one message.
+if [ "$got" = "secure-notes-ops-chat/https" ]; then ok "one delivery, to the chat topic: vmalert -> Alertmanager -> SNS"
+elif [ -z "$got" ]; then bad "the burst alert was never delivered"
+else bad "the burst alert went to '$got', want secure-notes-ops-chat/https only"; fi
+case " $got " in
+  *secure-notes-ops-alerts*) bad "the warning paged (a delivery on the alerts topic)" ;;
+  *) if [ -n "$got" ]; then ok "no page: nothing on the alerts topic, so no email and no SMS"; fi ;;
+esac
+
 echo "== the notification console sees the log store"
 if curl -fsS "$SNS/_sns/pipeline" | grep -q '"deployed":true'; then ok "sns-logger's Pipeline tab reads VictoriaLogs"; else bad "sns-logger can't read VictoriaLogs"; fi
 

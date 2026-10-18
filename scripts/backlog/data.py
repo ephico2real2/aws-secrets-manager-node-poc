@@ -539,7 +539,7 @@ for _it in _all_items():
             (1, "PyYAML for `sync-event-pattern.py` in `.tmp/venv` at the CI pin (Homebrew's Python refuses `pip install --user`)."),
             (1, "Without Docker Desktop: Homebrew's docker 29.9.1 and docker-compose 5.6.0 (`cliPluginsExtraDirs`) on Podman passed `compose-check.sh`."),
             (1, "`scripts/podman.env` sets both variables, in bash or zsh, on macOS."),
-            (0, "CI job `compose (podman)` runs Part A on rootless Podman on Linux (`scripts/podman.env` there too).")]
+            (1, "CI job `compose (podman)` runs Part A on rootless Podman on Linux: docker CLI 28.0.4 to Podman 4.9.3, `compose-check.sh` passed (run 39173929084).")]
         _it["evidence"] += [d("demo/test-case-10-kubernetes.md", "test case 10: the lab on Podman"), d("docs/GUIDE.md", "GUIDE B1: Podman instead of Docker")]
     # Parked by the owner on 2026-10-18: CRC was deleted on their Mac on 2026-10-13 and is restored later.
     if _it["id"] == "S5.3":
