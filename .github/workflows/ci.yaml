@@ -362,11 +362,11 @@ jobs:
           for pair in "$APP_IMAGE|secure-notes-app:latest" "$MOCK_IMAGE|secure-notes-aws-mock:latest" \
                       "$POSTGRES_IMAGE|postgres:${POSTGRES_IMAGE##*:}" "$REDIS_IMAGE|redis:${REDIS_IMAGE##*:}"; do
             src="${pair%%|*}" dst="localhost:5001/secure-notes/${pair##*|}"
-            want=$(docker image inspect --format '{{.Created}}' "$src")
-            got=$(skopeo inspect --tls-verify=false --format '{{.Created}}' "docker://$dst")
-            # same creation time = the same image config, just recompressed
-            [ "$(date -d "$want" +%s)" = "$(date -d "$got" +%s)" ] || { echo "::error title=mirror mismatch::$dst"; exit 1; }
-            echo "  ok    $dst"
+            # The uncompressed layer digests: identical content, however it was recompressed.
+            want=$(docker image inspect --format '{{json .RootFS.Layers}}' "$src" | jq -c .)
+            got=$(skopeo inspect --tls-verify=false --config "docker://$dst" | jq -c .rootfs.diff_ids)
+            [ "$want" = "$got" ] || { echo "::error title=mirror mismatch::$dst"; echo "want $want"; echo "got  $got"; exit 1; }
+            echo "  ok    $dst ($(jq length <<< "$got") identical layers)"
           done
 
   images:
