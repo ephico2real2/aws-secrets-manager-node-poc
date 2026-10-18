@@ -1,0 +1,7 @@
+10-detection-lab: found "Detection lab", "rule receives reads", "user/mallory"
+10-detection-lab: FAILED — text "alarm sent" not on the page
+11-sns-email: found "Notification console", "no-reply@sns.amazonaws.com", "user/mallory", "If you wish to stop receiving notifications" — expectations met
+12-sns-sms: found "Phone", "GSM-7", "+1******0100" — expectations met
+13-sns-chat: found "Chat and webhooks", "The app switched to a rotated credential", "Test alert from Secure Notes" — expectations met
+14-sns-pipeline: found "Pipeline", "receiving", "secure-notes" — expectations met
+1 page(s) failed
