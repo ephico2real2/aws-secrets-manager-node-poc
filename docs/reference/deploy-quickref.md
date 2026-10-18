@@ -21,8 +21,9 @@ docker compose up --build        # then open http://localhost:3000
 docker compose down -v           # stop and wipe (new random credentials next time)
 ```
 
-Five containers start: Postgres 16, Redis 7, the Secrets Manager mock (`dev/aws-mock`),
-a one-shot `seed` job and the app. The seed job generates random passwords, stores them
+Six containers start: Postgres 16, Redis 7, the AWS mock (`dev/aws-mock`: Secrets
+Manager, STS, CloudTrail records and the stack's unexpected-read rule), sns-logger (a
+local SNS with a screen on http://localhost:4575), a one-shot `seed` job and the app. The seed job generates random passwords, stores them
 in Secrets Manager, applies them to Postgres and Redis, then replaces the bootstrap
 passwords. After startup, the only copy of every credential is in Secrets Manager.
 
@@ -32,6 +33,17 @@ on its own `localhost:2773`, as `SECRETS_MODE=agent` does on EC2:
 ```bash
 docker compose -f docker-compose.yml -f docker-compose.agent.yml up --build
 ```
+
+**The log pipeline** (logs first, then alerts; about 600 MB more memory):
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+# VictoriaLogs http://localhost:9428/select/vmui · vmalert http://localhost:8880 · Alertmanager http://localhost:9093
+scripts/pipeline-check.sh        # a real failure becomes a delivered alert
+```
+
+**The original app (v0)**, with its passwords in a `.env` file:
+`cd versions/v0-env-file && docker compose up --build -d && ./leak.sh` (port 3001).
 
 > LocalStack's image now requires an account and auth token, so the project ships its
 > own zero-dependency mock. Point `AWS_MOCK_ENDPOINT` at LocalStack if you prefer it.

@@ -70,7 +70,7 @@ logs-first alerting: E8, then E9 and E11 in parallel, E10, and E12 on AWS
 | APP | E1 Select a secrets manager for AWS | Decision with criteria and consequences | ✅ [ADR-001](02-adr-001-secrets-manager-selection.md) |
 | APP | E2 Application changes | The app fetches, caches, refreshes and redacts secrets; names follow a convention | ✅ |
 | APP | E3 Platform on AWS | Identity, network path, encryption, managed rotation | ✅ |
-| APP | E4 Security hardening | Resource policy, unexpected-read alarm, Config rules; least-privilege DB user, IAM auth, multi-region next | 🔎 S4.1 built, verify on AWS · ⚠️ S4.2 reopened (fixed by S11.4, S12.1) · ✅ S4.3 (opt-in) · 🔜 S4.1b, S4.4–S4.6 |
+| APP | E4 Security hardening | Resource policy, unexpected-read alarm, Config rules; least-privilege DB user, IAM auth, multi-region next | 🔎 S4.1, S4.2 built (S4.2 fixed by S11.4, S12.1), verify on AWS · ✅ S4.3 (opt-in) · 🔜 S4.1b, S4.4–S4.6 |
 | APP | E5 Delivery and automation | One build, CI, supply chain, keyless deploys | ✅ |
 | APP | E6 Verification and evidence | Every claim has a test that fails if it stops being true | ✅ |
 | APP | E8 Structured logs | Catalogued alert events; logs shipped in the OpenTelemetry format, never with a secret | 🔜 |

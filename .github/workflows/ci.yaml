@@ -5,6 +5,7 @@
 #                    ├─► mirror ───────────────┘
 #                    └─► env-file-demo
 #   docs (every relative link resolves, every Mermaid diagram renders)
+#   v0-leak (versions/v0-env-file: the original .env app still leaks, as the story says)
 #
 # The images are built ONCE, by `docker compose build` (the same command a
 # person runs), saved, and loaded unchanged into every later job: Docker
@@ -85,7 +86,7 @@ jobs:
         run: git ls-files '*.js' | xargs -n1 node --check
 
       - name: Shellcheck
-        run: shellcheck -S warning scripts/*.sh dev/*.sh
+        run: shellcheck -S warning scripts/*.sh dev/*.sh versions/*/*.sh
 
       - name: Workflows lint clean (actionlint, including aws.yaml, which only runs by hand)
         run: |
@@ -497,6 +498,38 @@ jobs:
       - name: Publish the output
         if: always()
         run: rm -rf output/supply-chain; scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_env-file-demo"
+
+  v0-leak:
+    # The "before" picture: versions/v0-env-file, the original app with its
+    # passwords in a .env file. Built and run here only (never published); the
+    # job fails if its passwords can NO LONGER be found, so the story stays true.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # publishes the output to ci-captures
+    defaults:
+      run:
+        working-directory: versions/v0-env-file
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Start v0
+        run: |
+          docker compose up --build -d
+          for _ in $(seq 1 60); do curl -fsS --max-time 3 http://localhost:3001/api/notes >/dev/null 2>&1 && exit 0; sleep 2; done
+          docker compose logs --tail=40; exit 1
+
+      - name: Find the passwords
+        run: |
+          set -o pipefail
+          mkdir -p ../../output
+          ./leak.sh | tee ../../output/v0-leak.txt
+          { echo "## v0: where a .env file's passwords can be read"; echo; echo '```'; cat ../../output/v0-leak.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the output
+        if: always()
+        working-directory: .
+        run: scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_v0-leak"
 
   docs:
     # The learning path is part of the product: a broken link or a diagram that

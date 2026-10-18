@@ -127,3 +127,26 @@ never printed; each place is reported as `clean` or `FOUND n`.
 | K3 | Published images are signed, with a signed SBOM | cosign sign + attest, then verify without login | both verify | images (main) |
 | K4 | Mirrored images are identical | `mirror-images.sh` into a throwaway registry | same layer digests; overlay pulls only from it | mirror |
 | K5 | Published images pull without credentials | anonymous `docker pull` | succeeds | images (main) |
+
+## 10. Alerts, audit and the log pipeline
+
+*alerts* = `scripts/alerts-check.sh` (run by the compose and kind checks).
+*pipeline* = `scripts/pipeline-check.sh` (CI `compose (sdk)`, with `docker-compose.observability.yml`).
+
+| ID | What it proves | How | Pass rule | Runs in |
+| --- | --- | --- | --- | --- |
+| N1 | The app, rotation and tooling never trip the unexpected-read alarm | secret-read topic before the test | no delivery | alerts (compose, kind) |
+| N2 | An intruder's read raises the stack's own EventBridge rule | read the Redis secret as IAM user mallory | email, SMS and chat delivered | alerts (compose, kind), walk `10`–`12` |
+| N3 | The documented gap stays documented | read the DB secret by name | recorded, no alarm | alerts (compose, kind) |
+| N4 | The app's notifications tell, they don't page | smoke-test rotations | `credential.rotated` on the chat topic only | alerts (compose, kind), walk `13` |
+| N5 | The test alert reaches every channel | dashboard button / API | email, SMS and chat | alerts (compose, kind) |
+| N6 | Recipients are masked everywhere | sns-logger export | no full address | alerts (compose, kind) |
+| N7 | The local rule is the AWS rule | `sync-event-pattern.py --check`; unit tests on the rule (app quiet, users and other roles alarm, batch reads, by-name gap, `State`) | in sync; all cases | checks |
+| N8 | Every service's records reach the log store, in OpenTelemetry format | LogsQL count per `service.name` | > 0 for app, aws-mock, sns-logger; CloudTrail records present | pipeline |
+| N9 | Logs first, then alerts | Secrets Manager stopped during a forced refresh | `secrets.fetch.failed` logged → vmalert → Alertmanager → email, SMS and chat | pipeline, walk `14` |
+| N10 | Rules, alarms and docs come from one catalogue | `sync-alert-rules.js --check`; a unit test: every logged event is catalogued | in sync | checks |
+| N11 | A revealed lab line never reaches a log store | unit test on the sinks; the scan with the reveal flag on | VictoriaLogs clean | unit, compose (sdk) |
+| N12 | Notification bodies carry no secret | unit test: a registered value in the details | `[REDACTED]`; subject < 100 chars; SMS ≤ 140 bytes | unit |
+| N13 | SNS behaves like SNS | unit tests: subject rules, `default` key, 256 KiB, SMS 1600 bytes, filter policies, segments | AWS's errors | checks |
+| N14 | v0 still leaks (the "before" picture) | `versions/v0-env-file/leak.sh` | ≥ 8 of 9 places | v0-leak |
+| N15 | On AWS: the alarm topics can actually receive alarms | customer-managed key; rule state; a denied read and a test log event | delivered | aws (to verify) |

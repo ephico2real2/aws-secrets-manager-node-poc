@@ -6,20 +6,28 @@
 file. Anyone who can reach the host, the container runtime, the orchestrator, CI logs or
 a backup can read them; they are never rotated, and nobody knows who read them.
 [See it for yourself](docs/learn/02-the-env-file-problem.md): `podman exec … env` prints
-every password.
+every password. The original app is kept, runnable, in
+[`versions/v0-env-file`](versions/v0-env-file/README.md).
 
 **The solution shown here.** Secure Notes (frontend, Node.js backend, Postgres, Redis)
 gets its credentials at runtime from AWS Secrets Manager, using the platform's identity
 instead of a stored key. Credentials stay out of disk, environment variables, logs, API
 responses and Kubernetes objects; they rotate without a restart; every read is audited
-and an unexpected one raises an alarm. A dashboard lets you watch the secrets load,
-rotate them, see the app recover by itself, and try to leak them.
+and an unexpected one raises an alarm by email, SMS and chat. A dashboard lets you watch
+the secrets load, rotate them, see the app recover by itself, try to leak them, and read
+a secret as an intruder to see the alarm arrive.
+
+| Version | What changes | Where |
+| --- | --- | --- |
+| **v0** | Passwords in a `.env` file: works, and leaks | [`versions/v0-env-file`](versions/v0-env-file/README.md) |
+| **v1** | Credentials from AWS Secrets Manager at runtime; rotation without restart; nothing in env, files, images or logs | tag `v1-secrets-manager` |
+| **v2** | Logs first, then alerts: structured logs, SNS notifications, the unexpected-read alarm simulated end to end | this branch (tag `v2-alerts`) |
 
 ## Read the story
 
 | | Start here | What it is |
 | --- | --- | --- |
-| 1 | **[Learning path](docs/learn/README.md)** | Six short chapters, from "what is a secrets manager" to the request flow inside the app. Any language; Secure Notes is the worked example |
+| 1 | **[Learning path](docs/learn/README.md)** | Seven short chapters, from "what is a secrets manager" to alerts and audit. Any language; Secure Notes is the worked example |
 | 2 | **[Modernization initiative](docs/modernization/README.md)** | The same work run as an agile project: [source review](docs/modernization/01-source-review.md) → [tool selection (ADR-001)](docs/modernization/02-adr-001-secrets-manager-selection.md) → [epics, features and stories](docs/modernization/backlog.md), tracked as [GitHub issues](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues) |
 
 The chapters:
@@ -30,6 +38,7 @@ The chapters:
 4. [Secure Notes, before and after](docs/learn/04-secure-notes-app.md): the architecture and the code an app must add
 5. [System design review](docs/learn/05-system-design.md): what's right, what to improve, the target architecture
 6. [Inside the app: request flows](docs/learn/06-request-flows.md): startup, rotation, log masking
+7. [Alerts and audit](docs/learn/07-alerts-and-audit.md): from a log line or a CloudTrail record to an email, an SMS and a chat post
 
 ## Run it
 
@@ -44,8 +53,11 @@ The same images run three ways.
 Quickest start (needs only Docker):
 
 ```bash
-docker compose up --build        # then open http://localhost:3000
+docker compose up --build        # dashboard http://localhost:3000, notification console http://localhost:4575
 docker compose down -v           # stop and wipe
+
+# with the log pipeline (OpenTelemetry Collector, VictoriaLogs, vmalert, Alertmanager):
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
 ```
 
 - **First time:** the [step-by-step guide](docs/GUIDE.md): every command, what you should see, troubleshooting.
@@ -65,6 +77,7 @@ branch ([what CI proves](docs/reference/ci.md)).
 
 | Page | For |
 | --- | --- |
+| [Alerts and notifications](docs/reference/alerts.md) | Every alert: what it means, who gets it, what to do first; how alerts travel locally and on AWS |
 | [Security controls](docs/reference/security-controls.md) | Every control and where it lives; debug logging and the reveal flag; SDK vs agent mode; the production checklist |
 | [Secret naming convention](docs/reference/secret-naming.md) | `/{service}/{env}/{resource}/{name}`, set from env vars, `config.yaml`, `config.env`, Kustomize, or Helm (example) |
 | [CI](docs/reference/ci.md) | What each job proves |

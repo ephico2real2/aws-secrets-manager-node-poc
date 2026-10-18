@@ -230,6 +230,7 @@ One CloudFormation template creates every piece for you:
 | VPC endpoint | Private door to Secrets Manager | Secret requests never cross the public internet |
 | Security groups | Firewalls | Only the server can reach the database and cache |
 | Rotation function | A small Lambda function | Changes the Redis password every 30 days; RDS rotates the database one |
+| Alerts | 3 SNS topics, an EventBridge rule, CloudWatch Logs and alarms | Emails, texts or chat posts when someone unexpected reads a secret or the app logs a critical problem ([alerts](reference/alerts.md)) |
 
 ```mermaid
 flowchart LR
@@ -403,6 +404,16 @@ What the pieces mean:
     CreateSecretsManagerEndpoint=false ExistingSecretsManagerEndpointId=<vpce-id>
 ```
 
+**Want alerts?** Add any of these on the last line too. Each makes SNS send a message to
+confirm the subscription (for SMS, a new AWS account can only text numbers verified in
+the SMS sandbox):
+
+```bash
+    AlertEmail=you@example.com AlertPhone=+15555550100 AlertWebhookUrl=https://hooks.example.com/sns
+```
+
+The app's log goes to CloudWatch Logs unless you add `EnableCloudWatchLogs=false`.
+
 **Watch progress** in a second terminal (run the `export` lines from C1 there first), or in the console under CloudFormation → Stacks → `secure-notes` → Events:
 
 ```bash
@@ -448,7 +459,7 @@ curl -s localhost:3000/api/health
 - `systemctl status` shows `active (running)` in green.
 - The health call returns `{"status":"ok","postgres":true,"redis":true}`.
 
-To follow the app's live log, run `sudo journalctl -u secure-notes -f` and press `Ctrl+C` to stop. Type `exit` to leave the server.
+To follow the app's live log, run `sudo journalctl -u secure-notes -f` and press `Ctrl+C` to stop. The same (redacted) lines are also in CloudWatch Logs, in the log group `/secure-notes/<stack name>/app`. Type `exit` to leave the server.
 
 ### C6 — Open the app in your browser
 
@@ -744,4 +755,4 @@ aws cloudformation delete-stack --stack-name $STACK
 aws cloudformation wait stack-delete-complete --stack-name $STACK
 ```
 
-**Read the app's log on the server:** `sudo journalctl -u secure-notes -n 50 --no-pager`. Passwords never appear there, even in errors, so it's safe to paste into a ticket.
+**Read the app's log on the server:** `sudo journalctl -u secure-notes -n 50 --no-pager` (or the log group `/secure-notes/<stack name>/app` in CloudWatch Logs). Passwords never appear there, even in errors, so it's safe to paste into a ticket.

@@ -21,7 +21,9 @@ or the stack, and the checklist for running it for real.
 | **Passwords sent as hashes** | `backend/src/demo/crypto.js` | SCRAM verifiers for Postgres, `#sha256` for Redis ACLs: never in server logs. |
 | **Hardened runtime** | systemd unit; Kubernetes `securityContext` | Non-root, no core dumps (systemd), read-only root, no capabilities, seccomp, no Kubernetes API token (on EKS/ROSA only IRSA's web-identity token is mounted). |
 | **Network** | Security groups; NetworkPolicies | No inbound to the server; in Kubernetes, default-deny with the backing services reachable only from the app. |
-| **Small supply chain** | `backend/package.json` | Four runtime dependencies; HTTP, logging and headers use Node built-ins. |
+| **Small supply chain** | `backend/package.json` | Five runtime dependencies (pg, ioredis, three AWS SDK clients); HTTP, logging, log shipping and headers use Node built-ins. |
+| **Logs first, then alerts** | `backend/src/alerts/`, `backend/src/logship/` | Every alert-worthy line carries a catalogued `event`; rules outside the app raise alerts; every copy of a log line (file, OpenTelemetry) is the redacted one ([alerts](alerts.md)). |
+| **Unexpected-read alarm** | `SecretReadAlertRule`, `AlertsKey` | CloudTrail → EventBridge (state `ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS`) → SNS on a customer-managed key; the same rule runs in the local mock. |
 
 ### Check an image yourself
 
@@ -68,10 +70,12 @@ CI runs Path A in both modes (`docker-compose.agent.yml`).
 - [ ] `NODE_ENV=production` (the image default): enforces the startup guards; demo routes are not registered.
 - [x] Rotation on: RDS managed rotation for the DB secret; the stack's rotation function for the Redis user.
 - [ ] A dedicated least-privilege DB role for the app instead of the RDS master user.
-- [ ] ⚠️ Built but can't fire yet (topic key and rule state; fixed by S11.4 and S12.1): an alarm on `GetSecretValue` from any principal other than the app and rotation roles (S4.2; set `AlertEmail`, and `CreateTrail=true` if the account has no trail).
+- [ ] 🔎 Built, verify on AWS (S12.5): the alarm on `GetSecretValue` from any principal other than the app and rotation roles (S4.2, fixed by S11.4 and S12.1; set `AlertEmail`/`AlertPhone`/`AlertWebhookUrl`, and `CreateTrail=true` if the account has no trail).
 - [ ] 🔎 Built, verify on AWS: a resource policy on the Redis secret: only the app, the rotation function and `SecretAdminRoleArn` (S4.1). The RDS-managed secret: to do after testing on AWS (S4.1b).
 - [ ] `EnableConfigRules=true` where the account has an AWS Config recorder (S4.3).
 - [ ] `Environment` set to the real environment, so secret names follow the [naming convention](secret-naming.md).
 - [ ] No `--inspect`, no shell for the service user, Session Manager logging on.
 - [ ] The committed `package-lock.json`, installed with `npm ci`.
 - [ ] Only signed images admitted: verify the cosign signature at the cluster (see [Check an image yourself](#check-an-image-yourself)).
+- [ ] 🔎 Built, verify on AWS (S12.5): the app's log in CloudWatch Logs and the generated alarms (`EnableCloudWatchLogs=true`, the default).
+- [ ] SMS: leave the SMS sandbox or verify the on-call numbers; for Slack or Teams, connect the topics in Amazon Q Developer in chat applications.

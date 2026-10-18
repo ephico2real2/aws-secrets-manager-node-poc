@@ -413,3 +413,53 @@ EPICS += [
    ], docs=[d("docs/modernization/parked-openbao-vault.md", "parked plan")]),
   ]),
 ]
+
+# ---- progress on E8–E14 (evidence: commits on main, CI runs, docs) ----
+def _all_items():
+    for e in EPICS:
+        for f in e["children"]:
+            yield f
+            yield from f.get("children", [])
+
+_EVIDENCE = {
+    "S8.1": [d("backend/src/alerts/catalogue.js"), d("backend/test/logging.test.js")],
+    "S8.2": [d("backend/src/logship/otlp.js"), d("backend/src/log.js")],
+    "S8.3": [d("backend/src/logfmt.js")],
+    "S9.1": [d("dev/aws-mock/lib/sns.js"), d("dev/aws-mock/sns-logger/server.js"), d("dev/aws-mock/test/mock.test.js")],
+    "S9.2": [d("dev/aws-mock/sns-logger/ui/index.html", "sns-logger screen")],
+    "S9.3": [d("backend/src/alerts/notifier.js"), d("scripts/alerts-check.sh")],
+    "S9.4": [d("backend/src/alerts/recipients.js")],
+    "S10.1": [d("docker-compose.observability.yml"), d("deploy/observability/otel-collector.yaml")],
+    "S10.2": [d("scripts/sync-alert-rules.js"), d("deploy/observability/vmalert-rules.yaml")],
+    "S10.3": [d("deploy/observability/alertmanager.yml")],
+    "S10.4": [d("scripts/pipeline-check.sh")],
+    "S11.1": [d("dev/aws-mock/lib/principals.js"), d("dev/aws-mock/lib/cloudtrail.js")],
+    "S11.2": [d("dev/aws-mock/lib/event-pattern.js"), d("scripts/sync-event-pattern.py"), d("dev/aws-mock/rules/secret-read-alert.json")],
+    "S11.3": [d("backend/src/routes.js"), d("frontend/index.html", "dashboard: Detection lab")],
+    "S11.4": [d("infra/cloudformation.yaml"), CH7],
+    "S11.5": [d("deploy/k8s/components/local-backing-services/sns-logger.yaml"), d("scripts/k8s-check.sh")],
+    "S12.1": [d("infra/cloudformation.yaml"), CH7],
+    "S12.2": [d("infra/cloudformation.yaml"), d("backend/src/logship/file.js"), d("infra/systemd/secure-notes.service")],
+    "S12.3": [d("scripts/sync-alert-rules.js"), d("docs/reference/alerts.md", "alert catalogue")],
+    "S12.4": [d("infra/cloudformation.yaml")],
+    "S13.1": [d("versions/v0-env-file/README.md", "versions/v0-env-file"), "CI job `v0-leak`"],
+    "S14.1": [CH7],
+    "S14.3": [d("docs/reference/alerts.md", "alert catalogue"), d("README.md")],
+    "S14.4": [d("scripts/backlog/README.md", "scripts/backlog")],
+}
+# Built and tested locally/in CI; on AWS still to be proven by S12.5.
+_AWS_TO_VERIFY = {"S12.1", "S12.2", "S12.3", "S12.4"}
+for _it in _all_items():
+    if _it["id"] in _EVIDENCE:
+        _it["criteria"] = [(1, t) for _, t in _it["criteria"]]
+        _it["status"] = "done"
+        _it["evidence"] = _EVIDENCE[_it["id"]]
+        if _it["id"] in _AWS_TO_VERIFY:
+            _it["criteria"].append((0, "Verified on a real AWS account (S12.5)."))
+            _it["aws"] = True
+    if _it["id"] == "S4.2":
+        _it["criteria"] = [(1 if "S12.1" in t or "S11.4" in t else c, t) for c, t in _it["criteria"]]
+    if _it["id"] == "S13.2":
+        _it["criteria"] = [(0, "`v1-secrets-manager` and `v2-alerts`, each with a release linking the CI evidence: run the `milestone` workflow (this session can't push tags)."),
+                           (1, "Release notes in `docs/releases/`; the `milestone` workflow creates the tag and the release.")]
+        _it["evidence"] = [d(".github/workflows/milestone.yaml"), d("docs/releases/v1-secrets-manager.md")]

@@ -256,7 +256,38 @@ On Kubernetes the scan also checks the pod specs, ConfigMaps, the decoded
 Kubernetes Secrets (only the burned one-time bootstrap Secret may exist) and the
 namespace's events. `scripts/k8s-check.sh` runs it after the end-to-end test.
 
-## 10. Clean up
+## 10. Alerts: read a secret as an intruder
+
+The stack includes a local SNS with a screen (sns-logger, <http://localhost:4575>), and
+the AWS mock runs the CloudFormation stack's own unexpected-read rule.
+
+1. On the dashboard, find **Detection lab** and click **Read Redis secret as IAM user mallory**.
+   Within a second, **Rule matches** shows `alarm sent` and **Delivered** lists an email, an SMS and a chat post.
+2. Open the notification console. **Email** shows the alert as an on-call engineer gets
+   it, from `Secure Notes security <no-reply@sns.amazonaws.com>`, with the recipient
+   masked. **SMS** shows the same text split into parts, and **Chat and webhooks** shows
+   the JSON body SNS would POST.
+3. Click **Read DB secret by name (known gap)**. The read is recorded, but no alarm
+   fires, because the rule matches that secret by ARN.
+4. Click **Send a test alert**. The app's notifier reaches email, SMS and chat.
+
+To check every path from the command line: `scripts/alerts-check.sh compose`.
+
+With the log pipeline (`docker-compose.observability.yml`), stop the mock and force a
+refresh. A minute later a critical alert arrives, raised by a rule on the log store
+rather than by the app:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml stop aws-mock
+curl -s -X POST -H 'Content-Type: application/json' -d '{}' http://localhost:3000/api/secrets/db/refresh
+docker compose -f docker-compose.yml -f docker-compose.observability.yml start aws-mock
+# notification console → Email: "[FIRING] Secure Notes: A credential could not be read from Secrets Manager"
+```
+
+[Chapter 7](learn/07-alerts-and-audit.md) explains each step, and the
+[alert catalogue](reference/alerts.md) lists every alert.
+
+## 11. Clean up
 
 ```bash
 docker compose down -v
