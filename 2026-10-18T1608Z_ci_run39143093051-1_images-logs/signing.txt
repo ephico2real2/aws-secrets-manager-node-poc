@@ -1,0 +1,6 @@
+signed + SBOM attested: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app@sha256:c08278abdb998aaa352976a704c1b80f99d6ac58643e86050b64bcf7a5bf6841
+signed + SBOM attested: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/aws-mock@sha256:e40682a0f9bcb54e1693e963b1491a5f7be75d1bb4598d86f9fa2d2a713c82cd
+verified signature + SBOM attestation: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app@sha256:c08278abdb998aaa352976a704c1b80f99d6ac58643e86050b64bcf7a5bf6841
+verified signature + SBOM attestation: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/aws-mock@sha256:e40682a0f9bcb54e1693e963b1491a5f7be75d1bb4598d86f9fa2d2a713c82cd
+public: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app:sha-b5404d6
+public: ghcr.io/ephico2real2/aws-secrets-manager-node-poc/aws-mock:sha-b5404d6
