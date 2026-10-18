@@ -3,10 +3,11 @@
 //
 //  1. Generates random passwords with GetRandomPassword.
 //  2. Stores them as secrets in the (mock) Secrets Manager:
-//       <prefix>/db            app login (least privilege on the notes table)
-//       <prefix>/db-admin      Postgres superuser (used only by the demo rotator)
-//       <prefix>/redis         Redis ACL user limited to notes:* keys
-//       <prefix>/redis-admin   Redis default user (used only by the demo rotator)
+//       db           app login (least privilege on the notes table)
+//       dbAdmin      Postgres superuser (used only by the demo rotator)
+//       redis        Redis ACL user limited to notes:* keys
+//       redisAdmin   Redis default user (used only by the demo rotator)
+//     named by the convention, e.g. /rds/dev/notes-db/app (docs/reference/secret-naming.md)
 //  3. Applies them to Postgres and Redis, then "burns" the bootstrap
 //     passwords by rotating the superusers to the new random admin values.
 //
@@ -23,6 +24,7 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { redisPasswordHash, scramSha256Verifier } from '../src/demo/crypto.js';
 import { NOTES_SCHEMA } from '../src/schema.js';
+import { resolveSecretIds } from '../src/secrets/naming.js';
 
 const env = process.env;
 const must = (k) => {
@@ -32,12 +34,14 @@ const must = (k) => {
 
 const sm = new SecretsManagerClient({ region: env.AWS_REGION ?? 'us-east-1', endpoint: must('AWS_MOCK_ENDPOINT') });
 
-const ids = {
-  db: must('DB_SECRET_ID'),
-  dbAdmin: must('DB_ADMIN_SECRET_ID'),
-  redis: must('REDIS_SECRET_ID'),
-  redisAdmin: must('REDIS_ADMIN_SECRET_ID'),
-};
+// The same names the app will look up: explicit IDs, or the naming convention.
+const naming = resolveSecretIds(env);
+if (naming.error) throw new Error(naming.error);
+const ids = naming.ids;
+for (const k of ['db', 'dbAdmin', 'redis', 'redisAdmin']) {
+  if (!ids[k]) throw new Error(`no secret name for ${k}: set SECRETS_ENV (naming convention) or the *_SECRET_ID variables`);
+}
+console.log(`[seed] secret names (${naming.pattern ?? 'explicit'}): ${Object.values(ids).join(', ')}`);
 
 const pgHost = env.SEED_PG_HOST ?? '127.0.0.1';
 const pgPort = Number(env.SEED_PG_PORT ?? 5432);

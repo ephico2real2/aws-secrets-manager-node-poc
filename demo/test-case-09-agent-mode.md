@@ -37,7 +37,7 @@ The app's debug log records where each token came from, masked:
 {
   "msg": "agent request: SSRF token from file, masked",
   "component": "agent",
-  "secretId": "secure-notes/local/db",
+  "secretId": "/rds/dev/notes-db/app",
   "agent": "http://127.0.0.1:2773",
   "tokenFile": "/var/run/awssm/token",
   "ssrfTokenMasked": "******** (43 chars, fp=5d3a5b56)",

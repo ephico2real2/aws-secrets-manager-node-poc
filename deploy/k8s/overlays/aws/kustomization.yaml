@@ -38,7 +38,11 @@ configMapGenerator:
       - DB_SSL=true
       - DB_SSL_CA_FILE=/etc/rds-ca/global-bundle.pem
       - DB_AUTO_MIGRATE=true
-      - REDIS_SECRET_ID=<REDIS_SECRET_ARN>
+      # The Redis secret follows the naming convention, so name the parts instead
+      # of pasting an ARN: /elasticache/<ENV>/<STACK_NAME>/app. (The RDS secret
+      # keeps its explicit ARN above: RDS names it rds!db-… itself.)
+      - SECRETS_ENV=<dev|uat|qa|prod>
+      - REDIS_SECRET_RESOURCE=<STACK_NAME>
       - REDIS_HOST=<ELASTICACHE_PRIMARY_ENDPOINT>
       - REDIS_PORT=6379
       - REDIS_TLS=true

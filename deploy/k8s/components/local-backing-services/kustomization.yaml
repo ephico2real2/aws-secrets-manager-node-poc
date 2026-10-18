@@ -36,7 +36,8 @@ configMapGenerator:
       # the signature. Real clusters use an IAM role (see the aws overlay).
       - AWS_ACCESS_KEY_ID=local-mock
       - AWS_SECRET_ACCESS_KEY=local-mock
-      - DB_SECRET_ID=secure-notes/local/db
-      - DB_ADMIN_SECRET_ID=secure-notes/local/db-admin
-      - REDIS_SECRET_ID=secure-notes/local/redis
-      - REDIS_ADMIN_SECRET_ID=secure-notes/local/redis-admin
+      # Secret names from the naming convention: /rds/dev/notes-db/app,
+      # /elasticache/dev/notes-cache/app and .../admin (docs/reference/secret-naming.md).
+      - SECRETS_ENV=dev
+      - DB_SECRET_RESOURCE=notes-db
+      - REDIS_SECRET_RESOURCE=notes-cache

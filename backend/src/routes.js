@@ -33,6 +33,11 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
     logLevel: config.logging.level,
     revealSecrets: config.logging.revealSecrets,
     secrets: Object.fromEntries(ALIASES.map((a) => [a, config.secretIds[a]])),
+    secretNaming: {
+      environment: config.secretNaming.environment ?? null,
+      pattern: config.secretNaming.pattern ?? null,
+      sources: config.secretNaming.sources,
+    },
   }));
 
   // ---- the actual application: notes with a Redis read-through cache --------

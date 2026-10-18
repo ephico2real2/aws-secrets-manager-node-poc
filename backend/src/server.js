@@ -36,11 +36,18 @@ logger.debug(
   {
     secretsMode: config.secretsMode,
     secretIds: config.secretIds,
+    secretIdSources: config.secretNaming.sources,
+    namingPattern: config.secretNaming.pattern,
     endpoint: config.awsEndpoint ?? (config.secretsMode === 'agent' ? config.agent.url : `secretsmanager.${config.region} (SDK default)`),
     logLevel: config.logging.level,
   },
   'credential sources: which secrets this process will consume',
 );
+logger.info(
+  { secretIds: config.secretIds, sources: config.secretNaming.sources, environment: config.secretNaming.environment, pattern: config.secretNaming.pattern },
+  'secret IDs resolved',
+);
+for (const w of config.secretNaming.warnings) logger.warn({}, `secret naming: ${w}`);
 if (config.logging.revealSecrets) {
   logger.warn(
     { logLevel: config.logging.level },

@@ -69,7 +69,7 @@ What a revealed line looks like (the value replaced here, of course):
 {
   "level": "debug",
   "component": "secrets",
-  "secretId": "secure-notes/local/db",
+  "secretId": "/rds/dev/notes-db/app",
   "msg": "secret consumed (values revealed)",
   "keys": [
     "username=no*****pp value=notes_app",

@@ -39,7 +39,7 @@ A secret loaded at startup:
 {
   "msg": "secret consumed",
   "component": "secrets",
-  "secretId": "secure-notes/local/redis",
+  "secretId": "/elasticache/dev/notes-cache/app",
   "versionId": "38bf9dd6-9518-4bc3-9a42-bdd7290693c7",
   "stages": [
     "AWSCURRENT"
@@ -62,7 +62,7 @@ Postgres and Redis logins, showing which secret key feeds which setting:
 {
   "msg": "postgres connecting with",
   "component": "db",
-  "secretId": "secure-notes/local/db",
+  "secretId": "/rds/dev/notes-db/app",
   "fingerprint": "243205d32c76",
   "host": "postgres",
   "port": 5432,
@@ -78,7 +78,7 @@ Postgres and Redis logins, showing which secret key feeds which setting:
 {
   "msg": "redis authenticating with",
   "component": "redis",
-  "secretId": "secure-notes/local/redis",
+  "secretId": "/elasticache/dev/notes-cache/app",
   "fingerprint": "0a0752e9903a",
   "host": "redis",
   "port": 6379,

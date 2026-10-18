@@ -595,7 +595,7 @@ Deleting the stack removes almost everything in about 15 minutes. Three small le
 3. **Redis secret.** Secrets Manager keeps deleted secrets in a recovery window before removing them. To reuse the same stack name sooner, delete it now:
 
    ```bash
-   aws secretsmanager delete-secret --secret-id $STACK/redis --force-delete-without-recovery
+   aws secretsmanager delete-secret --secret-id /elasticache/dev/$STACK/app --force-delete-without-recovery   # /elasticache/<Environment>/<stack>/app
    ```
 4. **S3 bucket** with the app zip:
 

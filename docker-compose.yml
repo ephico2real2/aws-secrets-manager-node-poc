@@ -24,10 +24,13 @@ x-mock-aws-env: &mock-aws-env
   # though the mock ignores them. On EC2 nothing like this is set.
   AWS_ACCESS_KEY_ID: local-mock
   AWS_SECRET_ACCESS_KEY: local-mock
-  DB_SECRET_ID: secure-notes/local/db
-  DB_ADMIN_SECRET_ID: secure-notes/local/db-admin
-  REDIS_SECRET_ID: secure-notes/local/redis
-  REDIS_ADMIN_SECRET_ID: secure-notes/local/redis-admin
+  # Secret names come from the naming convention (docs/reference/secret-naming.md):
+  # /{service}/{env}/{resource}/{name} -> /rds/dev/notes-db/app, /elasticache/dev/notes-cache/app
+  # (and .../admin for the demo rotator). The same settings with SECRETS_ENV=prod
+  # name the production secrets; the seed job creates these and the app reads them.
+  SECRETS_ENV: dev
+  DB_SECRET_RESOURCE: notes-db
+  REDIS_SECRET_RESOURCE: notes-cache
 
 services:
   aws-mock:

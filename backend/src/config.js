@@ -4,7 +4,12 @@
 // or a support ticket: secret IDs, hostnames, ports, feature flags.
 // Credentials themselves are fetched at runtime from AWS Secrets Manager.
 
+import { resolveSecretIds } from './secrets/naming.js';
+
 const env = process.env;
+// Secret IDs: explicit (DB_SECRET_ID…) or built from the naming convention
+// (SECRETS_ENV + pattern + resource), from env vars or APP_CONFIG_FILE.
+const naming = resolveSecretIds(env);
 
 const bool = (v, d = false) => (v === undefined || v === '' ? d : /^(1|true|yes|on)$/i.test(v));
 // Non-numeric values fall back to the default: in Kubernetes a Service named
@@ -54,8 +59,18 @@ export const config = Object.freeze({
   }),
 
   secretIds: Object.freeze({
-    db: env.DB_SECRET_ID,
-    redis: env.REDIS_SECRET_ID,
+    db: naming.ids.db,
+    redis: naming.ids.redis,
+  }),
+
+  // How the IDs were found, for the startup log and /api/config (names, never values).
+  secretNaming: Object.freeze({
+    environment: naming.env,
+    pattern: naming.pattern,
+    sources: Object.freeze({ ...naming.sources }),
+    configFile: env.APP_CONFIG_FILE,
+    warnings: Object.freeze([...naming.warnings]),
+    error: naming.error,
   }),
 
   db: Object.freeze({
@@ -85,8 +100,8 @@ export const config = Object.freeze({
   // refused in production; see assertSafeEnvironment().
   demo: Object.freeze({
     enabled: bool(env.DEMO_MODE),
-    dbAdminSecretId: env.DB_ADMIN_SECRET_ID,
-    redisAdminSecretId: env.REDIS_ADMIN_SECRET_ID,
+    dbAdminSecretId: naming.ids.dbAdmin,
+    redisAdminSecretId: naming.ids.redisAdmin,
   }),
 });
 
@@ -105,8 +120,12 @@ export function assertSafeEnvironment() {
     if (env[name]) problems.push(`${name} is set; credentials must come from Secrets Manager, not the environment`);
   }
 
-  if (!config.secretIds.db) problems.push('DB_SECRET_ID is required');
-  if (!config.secretIds.redis) problems.push('REDIS_SECRET_ID is required');
+  if (config.secretNaming.error) problems.push(config.secretNaming.error);
+  else {
+    const how = 'set DB_SECRET_ID/REDIS_SECRET_ID, or SECRETS_ENV for the naming convention (docs/reference/secret-naming.md)';
+    if (!config.secretIds.db) problems.push(`no database secret: ${how}`);
+    if (!config.secretIds.redis) problems.push(`no Redis secret: ${how}`);
+  }
   if (!['sdk', 'agent'].includes(config.secretsMode)) problems.push(`SECRETS_MODE must be 'sdk' or 'agent'`);
 
   if (config.nodeEnv === 'production') {

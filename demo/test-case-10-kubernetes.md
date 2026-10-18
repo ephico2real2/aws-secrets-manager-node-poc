@@ -78,6 +78,6 @@ Then the credential scan across the cluster:
 -- debug logging (LOG_LEVEL=debug)
   ok    app log names the secrets and keys it consumed                 6 line(s)
   ok    every password is shown as ******** (length, fingerprint)      yes
-        e.g. {"secretId":"secure-notes/local/redis","versionId":"77830568-80be-41f2-b8d1-17e03bf1ce9d","source":"sdk","keys":["host=redis","port=6379","username=no*****pp","password=******** (32 chars, fp=1a926a75)"]}
+        e.g. {"secretId":"/elasticache/dev/notes-cache/app","versionId":"77830568-80be-41f2-b8d1-17e03bf1ce9d","source":"sdk","keys":["host=redis","port=6379","username=no*****pp","password=******** (32 chars, fp=1a926a75)"]}
 credential-scan: no credential value found anywhere it must not be
 ```
