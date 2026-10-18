@@ -21,6 +21,8 @@ docker compose logs -f app        # in a second terminal: follow the app's log
 ```
 
 Wait for `secure-notes listening` in the log, then open <http://localhost:3000>.
+The same command starts a local stand-in for Amazon SNS with its own screen, the
+notification console, on <http://localhost:4575>; step 10 uses it.
 The Compose stack runs with `LOG_LEVEL=debug` by default, so the log also shows
 which credential keys the app uses (with the values masked; step 5).
 

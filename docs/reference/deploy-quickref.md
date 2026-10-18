@@ -67,6 +67,7 @@ scripts/kind-up.sh                                # the cluster
 scripts/images-build.sh                           # docker compose build, then load into kind
 scripts/k8s-deploy.sh deploy/k8s/overlays/kind    # apply and wait
 kubectl -n secure-notes port-forward svc/secure-notes 3000:80   # open http://localhost:3000
+kubectl -n secure-notes port-forward svc/sns-logger 4575:4575   # the notification console (another terminal)
 scripts/k8s-check.sh                              # evidence + smoke test (in another terminal)
 ```
 
@@ -109,8 +110,15 @@ aws cloudformation deploy \
       VpcId=vpc-xxxx AppSubnetId=subnet-app \
       DataSubnetIds=subnet-a,subnet-b \
       AppArtifactBucket=my-artifacts-bucket
+      # optional alerts: AlertEmail=you@example.com AlertPhone=+15555550100 AlertWebhookUrl=https://…
 # then run the stack's "OpenTheApp" output and browse to http://localhost:3000
 ```
+
+**Alerts:** each alert parameter subscribes you to up to three topics; confirm every
+confirmation email. The app's log goes to CloudWatch Logs (`EnableCloudWatchLogs=false` to
+skip), where generated metric filters and alarms watch it. To test delivery:
+`aws sns publish --topic-arn <OpsAlertsTopicArn output> --message test`. See
+[GUIDE C7b](../GUIDE.md#c7b--check-the-alerts-reach-you).
 
 The stack creates a KMS key, a Secrets Manager VPC endpoint, RDS Postgres with
 `ManageMasterUserPassword` (RDS creates and rotates the secret), ElastiCache for Redis

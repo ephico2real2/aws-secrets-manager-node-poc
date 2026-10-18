@@ -53,6 +53,8 @@ The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Eve
 
    The first run takes a few minutes while Docker downloads and builds. Wait until the log shows `secure-notes listening`.
 2. Open <http://localhost:3000> and try it: add a note, click **Rotate Postgres secret**, then **Drop connections**, then **Run leak attempts**. Watch the Credential timeline record each step.
+
+   Then try the alerts. In **Detection lab**, click **Read Redis secret as IAM user mallory**, and open the notification console at <http://localhost:4575> (or the **Open the notification console** link). The alert is there as an email, a text message and a chat post, the way on-call would receive it. Nothing is sent anywhere: the console is a local stand-in for Amazon SNS.
 3. Optional: in a second terminal, run the unit tests and the end-to-end check:
 
    ```bash
@@ -60,14 +62,14 @@ The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Eve
    scripts/compose-check.sh
    ```
 
-   **Check:** the tests end with `# pass 23` and `# fail 0`, and `compose-check.sh` ends with `All checks passed`.
+   **Check:** the tests end with `# fail 0`, and `compose-check.sh` ends with `All checks passed` and then a section of alert checks, each `ok`.
 4. Stop and reset. Press `Ctrl+C` in the first terminal, then:
 
    ```bash
    docker compose down -v
    ```
 
-   `-v` deletes the data, so the next start creates new random passwords. It also frees port 3000.
+   `-v` deletes the data, so the next start creates new random passwords. It also frees ports 3000 and 4575.
 
 **Optional: agent mode.** On EC2 the app can read its secrets through a local AWS agent instead of calling Secrets Manager itself (`SecretsMode=agent` in C4). To try that here, start the stack with a second file:
 
@@ -77,12 +79,21 @@ docker compose -f docker-compose.yml -f docker-compose.agent.yml up --build
 
 The dashboard looks the same, and **Secrets in memory** shows `mode: agent`. The agent only answers requests that carry its token, which only it and the app can read.
 
+**Optional: the log pipeline.** To see alerts raised from logs, as CloudWatch does on AWS, add the observability file. It starts four more containers (about 600 MB of images): an OpenTelemetry Collector, VictoriaLogs (the log store), vmalert (the alert rules) and Alertmanager.
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+```
+
+The log store's own screen is at <http://localhost:9428/select/vmui>, and the console's **Pipeline** tab shows the newest records and which rules are firing. To make one fire, follow [tutorial step 10](TUTORIAL.md#10-alerts-read-a-secret-as-an-intruder), or run `scripts/pipeline-check.sh`.
+
 **What that one command started:**
 
 | Container | Image | What it does |
 | --- | --- | --- |
 | `app` | `secure-notes-app:dev` (built here) | The Node.js app and dashboard |
-| `aws-mock` | `secure-notes-aws-mock:dev` (built here) | Stands in for Secrets Manager; local and CI only |
+| `aws-mock` | `secure-notes-aws-mock:dev` (built here) | Stands in for Secrets Manager, STS, CloudTrail and the stack's EventBridge alarm rule; local and CI only |
+| `sns-logger` | `secure-notes-aws-mock:dev` | Stands in for Amazon SNS and shows each delivery on <http://localhost:4575>; local and CI only |
 | `seed` | `secure-notes-app:dev` | Runs once: puts random passwords into Secrets Manager, applies them to Postgres and Redis, then disables the startup passwords |
 | `postgres` | `postgres:16` | The database |
 | `redis` | `redis:7-alpine` | The cache |
@@ -128,7 +139,11 @@ The base is hardened in every overlay: non-root, read-only root filesystem, all 
    kubectl -n secure-notes port-forward svc/secure-notes 3000:80
    ```
 
-   Then open <http://localhost:3000>. The header says **Node.js on Kubernetes**.
+   Then open <http://localhost:3000>. The header says **Node.js on Kubernetes**. For the notification console (the Detection lab's link), forward a second port in another terminal:
+
+   ```bash
+   kubectl -n secure-notes port-forward svc/sns-logger 4575:4575
+   ```
 5. In a second terminal, collect the evidence:
 
    ```bash
@@ -404,9 +419,11 @@ What the pieces mean:
     CreateSecretsManagerEndpoint=false ExistingSecretsManagerEndpointId=<vpce-id>
 ```
 
-**Want alerts?** Add any of these on the last line too. Each makes SNS send a message to
-confirm the subscription (for SMS, a new AWS account can only text numbers verified in
-the SMS sandbox):
+**Want alerts?** Add any of these on the last line too. There are three alert topics
+(unexpected secret reads, critical app alarms, and chat for warnings), and each one asks
+you to confirm separately. So `AlertEmail` brings up to three confirmation emails: confirm
+**every one**, or that topic sends you nothing. For SMS, a new AWS account can only text
+numbers verified in the SMS sandbox, and US numbers show no sender name:
 
 ```bash
     AlertEmail=you@example.com AlertPhone=+15555550100 AlertWebhookUrl=https://hooks.example.com/sns
@@ -525,6 +542,53 @@ Don't take the design on trust: these checks show there is no password on the se
 
    Expect rows whose user is your instance ID (`i-…`). Events can take up to 15 minutes to show up.
 
+### C7b — Check the alerts reach you
+
+Skip this if you set none of the alert parameters in C4. These checks are written from the
+template and proven locally; on a real account they are still to be verified (story S12.5),
+so tell us if one doesn't behave as described.
+
+1. **Every subscription is confirmed:**
+
+   ```bash
+   for t in SecretReadAlertTopicArn OpsAlertsTopicArn OpsChatTopicArn; do
+     arn=$(aws cloudformation describe-stacks --stack-name $STACK \
+       --query "Stacks[0].Outputs[?OutputKey=='$t'].OutputValue" --output text)
+     aws sns list-subscriptions-by-topic --topic-arn "$arn" \
+       --query 'Subscriptions[].[Protocol,SubscriptionArn]' --output text
+   done
+   ```
+
+   Expect an ARN on every line. `PendingConfirmation` means a confirmation email is still unanswered.
+2. **A test message arrives** by email, SMS and chat:
+
+   ```bash
+   OPS=$(aws cloudformation describe-stacks --stack-name $STACK \
+     --query "Stacks[0].Outputs[?OutputKey=='OpsAlertsTopicArn'].OutputValue" --output text)
+   aws sns publish --topic-arn "$OPS" --subject "Secure Notes test" --message "Test: the alert path works."
+   ```
+
+   (The dashboard's **Send a test alert** button is demo-only; production refuses demo mode.)
+3. **The app's log reaches CloudWatch Logs**, and the alarms exist:
+
+   ```bash
+   aws logs tail /secure-notes/$STACK/app --since 15m | tail -5
+   aws cloudwatch describe-alarms --alarm-name-prefix "$STACK-" \
+     --query 'MetricAlarms[].[AlarmName,StateValue]' --output table
+   ```
+
+   Expect JSON log lines with no passwords, and about a dozen alarms in `OK` or `INSUFFICIENT_DATA`.
+4. **An unexpected read raises the alarm.** Try to read the Redis secret yourself:
+
+   ```bash
+   aws secretsmanager get-secret-value --secret-id /elasticache/dev/$STACK/app --query Name
+   ```
+
+   Expect `AccessDenied`: the secret's policy allows only the app, rotation and the admin
+   role. CloudTrail records the attempt anyway, and the stack's rule matches any identity
+   other than the app's. Within a few minutes the alert arrives: *"Secure Notes: secret … was
+   read by arn:aws:…"*.
+
 ### C8 — Rotate the database password and watch the app keep working
 
 RDS rotates the database password on a schedule by itself (every 7 days by default). You can trigger one now to see the app handle it with no restart. Keep the tunnel from C6 open and the dashboard on screen.
@@ -614,7 +678,7 @@ Deleting the stack removes almost everything in about 15 minutes. Three small le
    aws s3 rb s3://$BUCKET --force
    ```
 
-The KMS key is scheduled for deletion automatically when the stack goes; you don't need to do anything.
+The two KMS keys (one for the secrets, one for the alert topics) are scheduled for deletion automatically when the stack goes, and the app's CloudWatch log group is deleted with it; you don't need to do anything.
 
 **Check:**
 
@@ -682,9 +746,11 @@ flowchart LR
 | --- | --- | --- |
 | `checks` | Part A, step 3 | Unit tests with the real Postgres, Redis and AWS SDK libraries; every script and workflow lints clean; every Kustomize overlay renders and matches its schema; `cfn-lint` passes on both CloudFormation templates |
 | `build` | `docker compose build` | Builds the two images once, lists every package in them (an SBOM) and fails if any has a critical vulnerability that already has a fix, then hands them to every later job |
-| `compose (sdk)`, `compose (agent)` | Part A | The stack starts, the startup passwords stop working, and the end-to-end test passes. It runs twice: once as normal, and once with the app reading its secrets through a local agent (agent mode), which must refuse any request without its token |
+| `compose (sdk)`, `compose (agent)` | Part A | The stack starts, the startup passwords stop working, and the end-to-end test passes. It runs twice: once as normal, and once with the app reading its secrets through a local agent (agent mode), which must refuse any request without its token. Both prove every alert path: an intruder's read raises the alarm by email, SMS and chat; the sdk leg also runs the log pipeline and turns a real failure into a page |
 | `kind` | B1 | The same under Pod Security `restricted`: who each container runs as, that no app credential is a Kubernetes Secret, that Postgres only received password hashes, and the end-to-end test |
 | mirror | B2, no internet | The mirror script copies all four images into a throwaway registry, and the overlay it generates pulls only from there |
+| `v0-leak` | [`versions/v0-env-file`](../versions/v0-env-file/README.md) | The original `.env` app still leaks its passwords (the "before" picture) |
+| `docs` | — | Every relative link resolves and every Mermaid diagram renders |
 | `images` | — | On `main` only: pushes the exact images that passed to `ghcr.io/ephico2real2/aws-secrets-manager-node-poc`, signs each one with cosign and attaches its SBOM as a signed attestation, then checks both without logging in |
 
 **The screenshots.** In the compose and kind jobs, a Playwright browser walks the dashboard: first load, a Postgres rotation and recovery, a Redis rotation, the leak test, and a phone-width view. Each page lists the text it must show, so a screenshot of a broken page fails the job. The pictures go to the [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures) branch, one folder per run and job, and appear on the run's summary page. The same pattern as cilium-implementation-poc.
