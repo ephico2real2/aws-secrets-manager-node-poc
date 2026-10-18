@@ -104,6 +104,15 @@ report() { # location, count, [allowed-when-revealed]
   fi
 }
 hits() { grep -o -F -f "$VALS" 2>/dev/null | wc -l | tr -d ' '; } # occurrences on stdin
+# scan <location> <command...>: like report, but a source that can't be read
+# fails instead of passing as "clean" (an empty answer proves nothing).
+scan() {
+  local where=$1 out; shift
+  if ! out=$("$@" 2>/dev/null); then
+    printf '  FAIL  %-62s could not be read\n' "$where"; fails=$((fails + 1)); return
+  fi
+  report "$where" "$(printf '%s' "$out" | hits)"
+}
 
 if [ "$TARGET" = compose ]; then
   echo "-- containers"
@@ -123,12 +132,12 @@ if [ "$TARGET" = compose ]; then
   done
   applog=$(dc logs --no-color app 2>/dev/null)
   echo "-- alerting (deliveries, audit records, the log store)"
-  report "sns-logger: every delivery (email, SMS and chat bodies)" "$(dc exec -T sns-logger wget -qO- http://127.0.0.1:4575/_sns/export 2>/dev/null | hits)"
-  report "aws-mock: CloudTrail records" "$(dc exec -T aws-mock wget -qO- http://127.0.0.1:4566/_mock/cloudtrail 2>/dev/null | hits)"
+  scan "sns-logger: every delivery (email, SMS and chat bodies)" dc exec -T sns-logger wget -qO- http://127.0.0.1:4575/_sns/export
+  scan "aws-mock: CloudTrail records" dc exec -T aws-mock wget -qO- http://127.0.0.1:4566/_mock/cloudtrail
   if dc ps --services --status running 2>/dev/null | grep -qx victorialogs; then
     # Revealed lab lines never reach the log store, so this must be clean even with LOG_REVEAL_SECRETS=true.
-    report "VictoriaLogs: every stored record" "$(curl -fsS 'http://127.0.0.1:9428/select/logsql/query?query=*&limit=1000000' | hits)"
-    report "Alertmanager: alerts" "$(curl -fsS http://127.0.0.1:9093/api/v2/alerts | hits)"
+    scan "VictoriaLogs: every stored record" curl -fsS 'http://127.0.0.1:9428/select/logsql/query?query=*&limit=1000000'
+    scan "Alertmanager: alerts" curl -fsS http://127.0.0.1:9093/api/v2/alerts
   fi
 else
   echo "-- Kubernetes objects"
@@ -143,8 +152,8 @@ else
   report "postgres pod: data directory (plaintext passwords?)" "$($K -n "$NS" exec -i deploy/postgres -- sh -c 'grep -rhoF -f - /var/lib/postgresql/data 2>/dev/null' < "$VALS" | wc -l | tr -d ' ')"
   report "redis pod: data and ACL files (plaintext passwords?)" "$($K -n "$NS" exec -i deploy/redis -- sh -c 'grep -rhoF -f - /data /etc 2>/dev/null' < "$VALS" | wc -l | tr -d ' ')"
   echo "-- alerting (deliveries, audit records)"
-  report "sns-logger: every delivery (email, SMS and chat bodies)" "$($K -n "$NS" exec deploy/sns-logger -- wget -qO- http://127.0.0.1:4575/_sns/export 2>/dev/null | hits)"
-  report "aws-mock: CloudTrail records" "$($K -n "$NS" exec deploy/aws-mock -- wget -qO- http://127.0.0.1:4566/_mock/cloudtrail 2>/dev/null | hits)"
+  scan "sns-logger: every delivery (email, SMS and chat bodies)" "$K" -n "$NS" exec deploy/sns-logger -- wget -qO- http://127.0.0.1:4575/_sns/export
+  scan "aws-mock: CloudTrail records" "$K" -n "$NS" exec deploy/aws-mock -- wget -qO- http://127.0.0.1:4566/_mock/cloudtrail
   echo "-- logs (every container, current and previous)"
   for pod in $($K -n "$NS" get pods -o name); do
     allowed=no; [[ "$pod" == pod/secure-notes-* ]] && allowed=yes

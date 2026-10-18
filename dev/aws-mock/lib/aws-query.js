@@ -4,6 +4,9 @@
 export const xmlEscape = (s) =>
   String(s ?? '').replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 
+export const xmlUnescape = (s) =>
+  String(s ?? '').replace(/&(lt|gt|amp|apos|quot);/g, (_, e) => ({ lt: '<', gt: '>', amp: '&', apos: "'", quot: '"' })[e]);
+
 /** Form body -> plain object of strings. */
 export function parseForm(body) {
   return Object.fromEntries(new URLSearchParams(body));

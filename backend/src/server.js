@@ -35,6 +35,7 @@ const shipper = config.logging.otlpEndpoint
   : undefined;
 
 const redactor = new Redactor();
+const fileSink = config.logging.file ? createFileSink(config.logging.file) : undefined;
 const logger = createLogger({
   redactor,
   ringSize: 2000,
@@ -42,7 +43,7 @@ const logger = createLogger({
   revealSecrets: config.logging.revealSecrets && config.nodeEnv !== 'production',
   base: { app: 'secure-notes' },
   format: config.logging.format === 'pretty' ? 'pretty' : 'json',
-  sinks: [shipper, config.logging.file ? createFileSink(config.logging.file) : undefined].filter(Boolean),
+  sinks: [shipper, fileSink].filter(Boolean),
 });
 
 // Exit after giving the log shipper a moment, so the line that explains the
@@ -82,8 +83,9 @@ logger.info(
 );
 for (const w of config.secretNaming.warnings) logger.warn({}, `secret naming: ${w}`);
 if (config.logging.revealSecrets) {
+  // The alert event only when the flag has an effect (LOG_LEVEL=debug).
   logger.warn(
-    { logLevel: config.logging.level, event: 'secrets.reveal.enabled' },
+    { logLevel: config.logging.level, ...(config.logging.level === 'debug' ? { event: 'secrets.reveal.enabled' } : {}) },
     config.logging.level === 'debug'
       ? 'LOG_REVEAL_SECRETS=true: secret values will be written to this log. Lab use only; never in production.'
       : 'LOG_REVEAL_SECRETS=true has no effect unless LOG_LEVEL=debug',
@@ -115,10 +117,11 @@ async function warmUp() {
   for (let attempt = 1; ; attempt++) {
     try {
       await Promise.all([provider.get(config.secretIds.db), provider.get(config.secretIds.redis)]);
+      provider.startupDone();
       return;
     } catch (err) {
       if (attempt >= 8) throw err;
-      logger.warn({ attempt, err }, 'could not load secrets yet; retrying');
+      logger.warn({ attempt, err }, 'could not load secrets yet; retrying'); // no event: only the give-up below alerts
       await sleep(Math.min(500 * 2 ** attempt, 8_000));
     }
   }
@@ -146,7 +149,7 @@ const rotator = config.demo.enabled
   : undefined;
 
 const router = createRouter();
-registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper, notifier });
+registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper, fileSink, notifier });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const server = createHttpServer({

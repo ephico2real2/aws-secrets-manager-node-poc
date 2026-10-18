@@ -3,6 +3,7 @@
 // rules, the AWS alarms and the docs can't disagree:
 //
 //   deploy/observability/vmalert-rules.yaml          vmalert, LogsQL on VictoriaLogs (local)
+//   deploy/observability/alertmanager.yml (block)    routing and re-notify intervals (local)
 //   infra/cloudformation.yaml (marked block)         CloudWatch Logs metric filters + alarms (AWS)
 //   docs/reference/alerts.md (marked block)          the alert table
 //
@@ -11,7 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
-import { ALERTS, PATTERN_ALERTS, PLATFORM_ALERTS, NOTIFICATIONS, seconds } from '../backend/src/alerts/catalogue.js';
+import { ALERTS, PATTERN_ALERTS, PLATFORM_ALERTS, NOTIFICATIONS, RUNBOOK_BASE, channelsFor, seconds } from '../backend/src/alerts/catalogue.js';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const check = process.argv.includes('--check');
@@ -33,12 +34,11 @@ function vmalertRules() {
         `        expr: ${yamlString(`service.name:="secure-notes" ${filter} _time:${a.when.window} | stats count() as n | filter n:>=${a.when.count}`)}`,
         `        labels:`,
         `          severity: ${a.severity}`,
-        `          channels: ${yamlString(a.channels.join(','))}`,
         `        annotations:`,
         `          title: ${yamlString(a.title)}`,
         `          action: ${yamlString(a.action)}`,
         `          rule: ${yamlString(`at least ${a.when.count} in ${a.when.window}`)}`,
-        `          runbook: ${yamlString(`docs/reference/alerts.md#${name.replace(/\./g, '')}`)}`,
+        `          runbook: ${yamlString(`${RUNBOOK_BASE}#${name.replace(/\./g, '')}`)}`,
       ].join('\n'),
     );
   }
@@ -93,20 +93,44 @@ function cloudFormationBlock() {
       `      ComparisonOperator: GreaterThanOrEqualToThreshold`,
       `      TreatMissingData: notBreaching`,
       `      AlarmActions: [!Ref ${topic}]`,
-      `      OKActions: [!Ref ${topic}]`,
+      // Recovery is news, not a page: OK goes to chat only.
+      `      OKActions: [!Ref OpsChatTopic]`,
     );
   }
   out.push('  # ---- END generated alarms');
   return out.join('\n');
 }
 
+// ------------------------------------------------------- Alertmanager ----
+function alertmanagerRoutes() {
+  const all = { ...ALERTS, ...PATTERN_ALERTS };
+  return [
+    `# ---- BEGIN generated routes: ${HEADER}`,
+    '# One route per alert: the receiver follows the severity (critical pages,',
+    '# the rest goes to chat) and repeat_interval is the catalogue\'s "repeat".',
+    'route:',
+    '  receiver: sns-chat',
+    '  group_by: [alertname]',
+    '  group_wait: 5s',
+    '  group_interval: 1m',
+    '  repeat_interval: 1h',
+    '  routes:',
+    ...Object.entries(all).flatMap(([name, a]) => [
+      `    - matchers: ['alertname="${name}"']`,
+      `      receiver: ${a.severity === 'critical' ? 'sns-alerts' : 'sns-chat'}`,
+      `      repeat_interval: ${a.repeat}`,
+    ]),
+    '# ---- END generated routes',
+  ].join('\n');
+}
+
 // ---------------------------------------------------------------- docs ----
 function docsTable() {
   const row = (name, a, how) =>
-    `| \`${name}\` | ${a.severity} | ${a.title} | ${a.source ?? 'the app'} | ${a.channels.join(', ')} | ${how} | ${a.repeat} |`;
+    `| \`${name}\` | ${a.severity} | ${a.title} | ${a.source ?? 'the app'} | ${channelsFor(a).join(', ')} | ${how} | ${a.repeat} |`;
   const lines = [
     `<!-- BEGIN generated: ${HEADER} -->`,
-    '| Event | Severity | Means | Raised by | Channels | Fires when | Re-notify at most every |',
+    '| Event | Severity | Means | Raised by | Channels | Fires when | Re-notify at most every (local) |',
     '| --- | --- | --- | --- | --- | --- | --- |',
     ...Object.entries(PLATFORM_ALERTS).map(([n, a]) => row(n, a, 'each matching read')),
     ...Object.entries(ALERTS).map(([n, a]) => row(n, a, `${a.when.count} in ${a.when.window}`)),
@@ -139,16 +163,25 @@ function write(file, content) {
 
 function replaceBlock(file, begin, end, block) {
   const p = path.join(root, file);
-  if (!existsSync(p)) return;
+  if (!existsSync(p)) {
+    if (check) stale.push(`${file} (missing)`);
+    return;
+  }
   const s = readFileSync(p, 'utf8');
   const a = s.indexOf(begin);
   const b = s.indexOf(end, a);
-  if (a < 0 || b < 0) return; // no markers yet: nothing to generate there
+  if (a < 0 || b < 0) {
+    // Deleting the markers must not switch the check off.
+    if (check) stale.push(`${file} (markers missing)`);
+    else console.error(`warning: ${file} has no markers; nothing generated there`);
+    return;
+  }
   const lineEnd = s.indexOf('\n', b);
   write(file, s.slice(0, a) + block + s.slice(lineEnd < 0 ? s.length : lineEnd));
 }
 
 write('deploy/observability/vmalert-rules.yaml', vmalertRules());
+replaceBlock('deploy/observability/alertmanager.yml', '# ---- BEGIN generated routes', '# ---- END generated routes', alertmanagerRoutes());
 replaceBlock('infra/cloudformation.yaml', '  # ---- BEGIN generated alarms', '  # ---- END generated alarms', cloudFormationBlock());
 replaceBlock('docs/reference/alerts.md', '<!-- BEGIN generated', '<!-- END generated -->', docsTable());
 

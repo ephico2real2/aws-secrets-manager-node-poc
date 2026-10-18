@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { createSns, SnsError } from '../lib/sns.js';
-import { parseForm, queryMap, queryKeyValues, xmlEscape, xmlResponse, xmlError } from '../lib/aws-query.js';
+import { parseForm, queryMap, queryKeyValues, xmlEscape, xmlUnescape, xmlResponse, xmlError } from '../lib/aws-query.js';
 import { principalOf } from '../lib/principals.js';
 import { createOtlpShipper } from '../../../backend/src/logship/otlp.js';
 import { maskEndpoint } from '../../../backend/src/alerts/recipients.js';
@@ -62,8 +62,9 @@ for (const spec of (process.env.SNS_LOGGER_SUBSCRIPTIONS ?? '').split(';').map((
   }
 }
 
+// Endpoints are masked here too: recipients never leave this process in full.
 const subXml = (s, topicArn) =>
-  `<member><SubscriptionArn>${xmlEscape(s.arn)}</SubscriptionArn><Owner>000000000000</Owner><Protocol>${s.protocol}</Protocol><Endpoint>${xmlEscape(s.endpoint)}</Endpoint><TopicArn>${xmlEscape(topicArn)}</TopicArn></member>`;
+  `<member><SubscriptionArn>${xmlEscape(s.arn)}</SubscriptionArn><Owner>000000000000</Owner><Protocol>${xmlEscape(s.protocol)}</Protocol><Endpoint>${xmlEscape(maskEndpoint(s.protocol, s.endpoint))}</Endpoint><TopicArn>${xmlEscape(topicArn)}</TopicArn></member>`;
 
 /** One SNS action. `p` holds Query-style parameters. Returns the inner XML of <ActionResult>. */
 function action(name, p, caller) {
@@ -77,7 +78,7 @@ function action(name, p, caller) {
     case 'GetTopicAttributes': {
       const t = sns.topic(p.TopicArn);
       const attrs = { ...t.attributes, TopicArn: t.arn, Owner: '000000000000', SubscriptionsConfirmed: String(t.subs.length), SubscriptionsPending: '0' };
-      return `<Attributes>${Object.entries(attrs).map(([k, v]) => `<entry><key>${k}</key><value>${xmlEscape(v)}</value></entry>`).join('')}</Attributes>`;
+      return `<Attributes>${Object.entries(attrs).map(([k, v]) => `<entry><key>${xmlEscape(k)}</key><value>${xmlEscape(v)}</value></entry>`).join('')}</Attributes>`;
     }
     case 'SetTopicAttributes':
       sns.setTopicAttribute(p.TopicArn, p.AttributeName, p.AttributeValue ?? '');
@@ -170,11 +171,12 @@ async function pipeline() {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost');
   const requestId = randomUUID();
-  const send = (status, body, type, extra = {}) => {
-    res.writeHead(status, { 'Content-Type': type, 'x-amzn-RequestId': requestId, ...extra });
+  // Every response carries the security headers, API answers included.
+  const send = (status, body, type) => {
+    res.writeHead(status, { 'Content-Type': type, 'x-amzn-RequestId': requestId, ...SECURITY_HEADERS });
     res.end(body);
   };
-  const json = (status, obj) => send(status, JSON.stringify(obj), 'application/json', SECURITY_HEADERS);
+  const json = (status, obj) => send(status, JSON.stringify(obj), 'application/json');
 
   try {
     if (req.method === 'GET') {
@@ -187,7 +189,7 @@ const server = http.createServer(async (req, res) => {
       }
       if (url.pathname === '/_sns/pipeline') return json(200, await pipeline());
       if (url.pathname === '/_sns/export') {
-        return send(200, sns.deliveries(0).map((d) => JSON.stringify(d)).join('\n'), 'application/x-ndjson', SECURITY_HEADERS);
+        return send(200, sns.deliveries(0).map((d) => JSON.stringify(d)).join('\n'), 'application/x-ndjson');
       }
       if (url.pathname === '/unsubscribe') {
         const arn = url.searchParams.get('SubscriptionArn') ?? '';
@@ -197,14 +199,21 @@ const server = http.createServer(async (req, res) => {
         } catch {
           ok = false;
         }
-        return send(200, `<!doctype html><title>Unsubscribe</title><p>${ok ? 'Subscription removed (local sns-logger).' : 'No such subscription.'}</p><p><a href="/">Back</a></p>`, 'text/html; charset=utf-8', SECURITY_HEADERS);
+        return send(200, `<!doctype html><title>Unsubscribe</title><p>${ok ? 'Subscription removed (local sns-logger).' : 'No such subscription.'}</p><p><a href="/">Back</a></p>`, 'text/html; charset=utf-8');
       }
       const file = STATIC[url.pathname];
-      if (file) return send(200, readFileSync(path.resolve(here, file[0])), file[1], SECURITY_HEADERS);
+      if (file) return send(200, readFileSync(path.resolve(here, file[0])), file[1]);
       return json(404, { message: 'not found' });
     }
 
     if (req.method !== 'POST') return json(405, { message: 'method not allowed' });
+    // Only API clients may call the API: SDKs and Alertmanager sign their
+    // requests and send no Origin. A web page can't sign, and a browser always
+    // sends Origin on a cross-site POST, so a malicious page can't drive this
+    // console (create topics, read subscriptions) from the reader's browser.
+    if (req.headers.origin || !String(req.headers.authorization ?? '').startsWith('AWS4-HMAC-SHA256 ')) {
+      return send(403, xmlError({ code: 'AccessDenied', message: 'Requests must be signed (SigV4) and must not come from a browser page.', requestId }), 'text/xml');
+    }
     const caller = principalOf(req.headers);
     const body = await readBody(req);
     const target = req.headers['x-amz-target'] ?? '';
@@ -214,8 +223,18 @@ const server = http.createServer(async (req, res) => {
     if (isJson) {
       name = target.split('.')[1];
       params = body ? JSON.parse(body) : {};
+      params = { ...params };
+      // JSON maps -> the Query protocol's entry.N form, so one code path serves both.
+      for (const key of ['Attributes']) {
+        if (params[key] && typeof params[key] === 'object') {
+          Object.entries(params[key]).forEach(([k, v], i) => {
+            params[`${key}.entry.${i + 1}.key`] = k;
+            params[`${key}.entry.${i + 1}.value`] = String(v);
+          });
+          delete params[key];
+        }
+      }
       if (params.MessageAttributes) {
-        params = { ...params };
         const attrs = params.MessageAttributes;
         delete params.MessageAttributes;
         Object.entries(attrs).forEach(([k, v], i) => {
@@ -230,7 +249,7 @@ const server = http.createServer(async (req, res) => {
     }
     try {
       const inner = action(name, params, caller);
-      if (isJson) return send(200, JSON.stringify(Object.fromEntries([...inner.matchAll(/<(\w+)>([^<]*)<\/\1>/g)].map((m) => [m[1], m[2]]))), 'application/x-amz-json-1.0');
+      if (isJson) return send(200, JSON.stringify(Object.fromEntries([...inner.matchAll(/<(\w+)>([^<]*)<\/\1>/g)].map((m) => [m[1], xmlUnescape(m[2])]))), 'application/x-amz-json-1.0');
       return send(200, xmlResponse(name, inner, requestId), 'text/xml');
     } catch (err) {
       if (!(err instanceof SnsError)) throw err;

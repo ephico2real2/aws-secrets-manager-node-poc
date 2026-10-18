@@ -14,7 +14,7 @@ for OpenShift and EKS to pull. Nothing is rebuilt between the test and the publi
 
 ## A. Run locally with Docker Compose
 
-Needs only Docker.
+Needs only Docker to run. The check scripts (`scripts/*-check.sh`) also need Node.js 22, `curl` and `jq`.
 
 ```bash
 docker compose up --build        # then open http://localhost:3000

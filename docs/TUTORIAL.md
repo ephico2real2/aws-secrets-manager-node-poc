@@ -267,17 +267,20 @@ the AWS mock runs the CloudFormation stack's own unexpected-read rule.
    it, from `Secure Notes security <no-reply@sns.amazonaws.com>`, with the recipient
    masked. **SMS** shows the same text split into parts, and **Chat and webhooks** shows
    the JSON body SNS would POST.
-3. Click **Read DB secret by name (known gap)**. The read is recorded, but no alarm
-   fires, because the rule matches that secret by ARN.
-4. Click **Send a test alert**. The app's notifier reaches email, SMS and chat.
+3. Click **Read DB secret as role ops-admin**. Another role session raises the same alarm.
+4. Click **Read DB secret by name (known gap)**. The read is recorded, but no alarm
+   fires, because the rule can match that RDS-named secret by full ARN only.
+5. Click **Send a test alert**. The app's notifier reaches email, SMS and chat. It
+   allows one test a minute, because each one pages by SMS.
 
 To check every path from the command line: `scripts/alerts-check.sh compose`.
 
-With the log pipeline (`docker-compose.observability.yml`), stop the mock and force a
-refresh. A minute later a critical alert arrives, raised by a rule on the log store
-rather than by the app:
+With the log pipeline, stop the mock and force a refresh. A minute later a critical alert
+arrives, raised by a rule on the log store rather than by the app. The pipeline is an
+overlay of four more containers (about 600 MB of images), so start it first:
 
 ```bash
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build -d
 docker compose -f docker-compose.yml -f docker-compose.observability.yml stop aws-mock
 curl -s -X POST -H 'Content-Type: application/json' -d '{}' http://localhost:3000/api/secrets/db/refresh
 docker compose -f docker-compose.yml -f docker-compose.observability.yml start aws-mock

@@ -1,18 +1,41 @@
 // Append each (redacted) JSON log line to a file, for a log agent to ship
 // (on EC2: the CloudWatch agent tails /var/log/secure-notes/app.jsonl).
 // Like every sink, it gets exactly the line stdout gets, never a revealed one.
-// Rotation: logrotate with copytruncate; the stream appends (O_APPEND).
-import { createWriteStream } from 'node:fs';
+//
+// Writes are synchronous on purpose: the line that explains an exit
+// (config.unsafe, secrets.load.fatal) must be on disk before process.exit(),
+// or the alarm that reads this file can never fire. A JSON line is small and
+// the file is local, so the cost is a few microseconds per line.
+// Rotation: logrotate with copytruncate; the descriptor is opened with O_APPEND.
+import { openSync, writeSync } from 'node:fs';
 
 export function createFileSink(path) {
-  const stream = createWriteStream(path, { flags: 'a', mode: 0o640 });
+  let fd;
   let errors = 0;
-  stream.on('error', () => {
-    errors++; // never log through the logger from here (it would loop)
-  });
+  let lastError;
+  const open = () => {
+    // The file's mode is 0640 before the umask; systemd's UMask decides the rest.
+    fd = openSync(path, 'a', 0o640);
+  };
+  try {
+    open();
+  } catch (err) {
+    errors++;
+    lastError = err.code ?? err.message;
+  }
   return {
-    write: (line) => stream.write(`${line}\n`),
-    drain: () => new Promise((resolve) => (stream.writableNeedDrain ? stream.once('drain', resolve) : resolve())),
-    stats: () => ({ path, errors }),
+    write(line) {
+      try {
+        if (fd === undefined) open();
+        writeSync(fd, `${line}\n`);
+      } catch (err) {
+        // Never log through the logger from here (it would loop); the count is
+        // reported by stats() in /api/config and the security posture.
+        errors++;
+        lastError = err.code ?? err.message;
+      }
+    },
+    drain: () => Promise.resolve(),
+    stats: () => ({ path, errors, lastError }),
   };
 }

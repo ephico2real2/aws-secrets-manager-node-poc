@@ -306,6 +306,15 @@ Evidence: [backend/src/logship/otlp.js](../../backend/src/logship/otlp.js), [bac
 
 Evidence: [backend/src/logfmt.js](../../backend/src/logfmt.js)
 
+**S8.4 · An alarm can't be lost or misfire because of its log line** · S · ✅ · [#112](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/112)
+*As an on-call engineer, I want every line an alarm depends on to reach the log store, and no line to page for nothing, so that I can trust the pages I get.*
+- [x] The file sink writes synchronously: the `config.unsafe` line is on disk before the process exits; write errors are counted and shown by a posture check.
+- [x] Startup retries log no alert event; only `secrets.load.fatal` pages. An agent 403 is reported at once, even while a cached value is served.
+- [x] `secrets.reveal.enabled` alerts only when the flag has an effect (debug); a forced refresh that fails says whether a cached value is still served.
+- [x] A unit test scans every dotted string literal: each event the code uses is catalogued, and each catalogued alert is emitted.
+
+Evidence: [backend/src/logship/file.js](../../backend/src/logship/file.js), [backend/src/secrets/provider.js](../../backend/src/secrets/provider.js), [backend/test/logging.test.js](../../backend/test/logging.test.js)
+
 ### E9 — Notifications through SNS, and a local SNS console
 
 [#64](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/64) · ✅ · **Outcome:** The app can notify through Amazon SNS; locally an SNS-compatible sns-logger shows each email, SMS and webhook delivery on a screen like the dashboard. Docs: [plan E8–E15](plan-e8-e15.md)
@@ -343,11 +352,20 @@ Evidence: [backend/src/alerts/notifier.js](../../backend/src/alerts/notifier.js)
 
 Evidence: [backend/src/alerts/recipients.js](../../backend/src/alerts/recipients.js)
 
+**S9.5 · Harden the local SNS console** · S · ✅ · [#113](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/113)
+*As a security engineer, I want the dev-only console unusable from a web page and free of full recipients, so that running it on a laptop is safe.*
+- [x] `ListSubscriptions(ByTopic)` return masked endpoints; `alerts-check.sh` checks them.
+- [x] Every response carries the security headers; attribute keys are escaped.
+- [x] POSTs must be SigV4-signed and carry no `Origin`, so a cross-site form can't drive the API.
+- [x] The test alert is limited to one a minute (it pages by SMS).
+
+Evidence: [dev/aws-mock/sns-logger/server.js](../../dev/aws-mock/sns-logger/server.js), [scripts/alerts-check.sh](../../scripts/alerts-check.sh)
+
 ### E10 — Local log pipeline: OpenTelemetry, VictoriaLogs, vmalert, Alertmanager
 
-[#71](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/71) · ✅ · **Outcome:** Logs first, then alerts, locally: the same shape as CloudWatch Logs, metric filters, alarms and SNS on AWS. Docs: [plan E8–E15](plan-e8-e15.md)
+[#71](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/71) · 🔜 · **Outcome:** Logs first, then alerts, locally: the same shape as CloudWatch Logs, metric filters, alarms and SNS on AWS. Docs: [plan E8–E15](plan-e8-e15.md)
 
-#### F10.1 · Log store and rules · ✅ · [#72](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/72)
+#### F10.1 · Log store and rules · 🔜 · [#72](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/72)
 
 **S10.1 · OpenTelemetry Collector and VictoriaLogs overlay** · M · ✅ · [#73](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/73)
 *As a developer, I want `docker-compose.observability.yml` to run a collector and VictoriaLogs, so that I can search every service's logs.*
@@ -368,6 +386,12 @@ Evidence: [scripts/sync-alert-rules.js](../../scripts/sync-alert-rules.js), [dep
 - [x] `sns_configs` with `api_url` → sns-logger, dummy SigV4 keys; an email template like a CloudWatch alarm email.
 
 Evidence: [deploy/observability/alertmanager.yml](../../deploy/observability/alertmanager.yml)
+
+**S10.5 · Pipeline check covers the chat route and a pattern rule** · S · 🔜 · [#114](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/114)
+*As an on-call engineer, I want CI to prove a warning reaches chat only, so that the second route is as tested as the first.*
+- [ ] Trigger `app.errors.burst` (or `secrets.fetch.stale`) in CI; assert one chat delivery and no page.
+
+Evidence: [plan E8–E15](plan-e8-e15.md)
 
 **S10.4 · Pipeline pane in sns-logger** · S · ✅ · [#76](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/76)
 *As a presenter, I want to see log lines arrive and turn into alerts, so that the whole path is visible.*
@@ -390,9 +414,9 @@ Evidence: [dev/aws-mock/lib/principals.js](../../dev/aws-mock/lib/principals.js)
 
 **S11.2 · EventBridge pattern evaluator fed by the stack's own rule** · M · ✅ · [#80](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/80)
 *As a security engineer, I want the local alarm to use the exact rule from `infra/cloudformation.yaml`, so that a rule that can't fire on AWS can't fire locally either.*
-- [x] `scripts/sync-event-pattern.js --check` extracts EventPattern, State and InputTransformer.
-- [x] Operators: exact, arrays, nesting, $or, anything-but, prefix, exists; unknown operators fail.
-- [x] Same fixtures run against the mock and against `aws events test-event-pattern`.
+- [x] `scripts/sync-event-pattern.py --check` extracts EventPattern, State and InputTransformer.
+- [x] Operators: exact, arrays, nesting, $or, anything-but, prefix, exists; arrays of objects are flattened; unknown operators and malformed arguments fail.
+- [x] The rule matches the Redis secret by name, full ARN and partial ARN (a prefix), and names the secret of a batch read.
 
 Evidence: [dev/aws-mock/lib/event-pattern.js](../../dev/aws-mock/lib/event-pattern.js), [scripts/sync-event-pattern.py](../../scripts/sync-event-pattern.py), [dev/aws-mock/rules/secret-read-alert.json](../../dev/aws-mock/rules/secret-read-alert.json)
 
@@ -439,17 +463,17 @@ Evidence: [infra/cloudformation.yaml](../../infra/cloudformation.yaml)
 
 #### F12.2 · Logs to CloudWatch, alarms from logs · 🔜 · [#88](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/88)
 
-**S12.2 · CloudWatch agent ships the app's journald logs** · M · ✅ built · 🔎 verify on AWS · [#89](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/89)
+**S12.2 · CloudWatch agent ships the app's log file** · M · ✅ built · 🔎 verify on AWS · [#89](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/89)
 *As an operator, I want the app's logs in CloudWatch Logs, so that they survive the instance and can raise alarms.*
-- [x] Pinned agent with checksum; journald unit `secure-notes`; 30-day log group; ParseJSON transformer.
-- [x] Fallback documented: file collection.
+- [x] The app writes its redacted JSON lines to `LOG_FILE` synchronously, so the line explaining an exit is never lost.
+- [x] Set up before the app starts, only with `EnableCloudWatchLogs=true`; 30-day log group; logrotate timer enabled.
 - [ ] Verified on a real AWS account (S12.5).
 
 Evidence: [infra/cloudformation.yaml](../../infra/cloudformation.yaml), [backend/src/logship/file.js](../../backend/src/logship/file.js), [infra/systemd/secure-notes.service](../../infra/systemd/secure-notes.service)
 
 **S12.3 · Metric filters and alarms generated from the catalogue** · M · ✅ built · 🔎 verify on AWS · [#90](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/90)
 *As an on-call engineer, I want each catalogued event to raise a CloudWatch alarm, so that AWS alerts match the local ones.*
-- [x] Filters on transformed logs; alarms notify on ALARM and OK; missing data is not breaching.
+- [x] One filter and alarm per catalogued alert; ALARM pages (critical) or posts to chat (warning); OK goes to chat; missing data is not breaching.
 - [ ] Verified on a real AWS account (S12.5).
 
 Evidence: [scripts/sync-alert-rules.js](../../scripts/sync-alert-rules.js), [alert catalogue](../reference/alerts.md)
@@ -459,6 +483,14 @@ Evidence: [scripts/sync-alert-rules.js](../../scripts/sync-alert-rules.js), [ale
 - [ ] A denied read by the deploy role publishes to the secret-read topic.
 - [ ] A test log event trips an alarm.
 - [ ] TestEventPattern fixtures match the mock.
+- [ ] A batch read's alert text names the secret (`secretIdList[0]` in the InputTransformer).
+
+Evidence: [plan E8–E15](plan-e8-e15.md)
+
+**S12.6 · Close the by-name gap for the RDS-managed secret** · S · 🔜 · [#115](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/115)
+*As a security engineer, I want a read of the RDS secret by name or partial ARN to alarm too, so that the documented gap goes away.*
+- [ ] Check on AWS whether Secrets Manager's CloudTrail records carry `resources[].ARN`; if so, match on it.
+- [ ] The mock records `resources` the same way; the detection lab's gap button then alarms.
 
 Evidence: [plan E8–E15](plan-e8-e15.md)
 
@@ -561,9 +593,9 @@ Evidence: [.github/workflows/milestone.yaml](../../.github/workflows/milestone.y
 
 ### E14 — Tutorial: alerts and audit
 
-[#96](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/96) · 🔜 · **Outcome:** Learners see the logs-first alerting design, locally and on AWS, one demo at a time. Docs: [plan E8–E15](plan-e8-e15.md)
+[#96](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/96) · ✅ · **Outcome:** Learners see the logs-first alerting design, locally and on AWS, one demo at a time. Docs: [plan E8–E15](plan-e8-e15.md)
 
-#### F14.1 · Chapter, demos and reference · 🔜 · [#97](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/97)
+#### F14.1 · Chapter, demos and reference · ✅ · [#97](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/97)
 
 **S14.1 · Chapter 7: alerts and audit** · M · ✅ · [#98](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/98)
 *As a junior engineer, I want a chapter on logs-first alerting, so that I understand the path from a log line to an SMS.*
@@ -572,11 +604,11 @@ Evidence: [.github/workflows/milestone.yaml](../../.github/workflows/milestone.y
 
 Evidence: [chapter 7: Alerts and audit](../learn/07-alerts-and-audit.md)
 
-**S14.2 · Demo test cases 13–18 with captures** · M · 🔜 · [#99](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/99)
+**S14.2 · Demo test cases 13–18 with captures** · M · ✅ · [#99](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/99)
 *As a presenter, I want one page per alert demo with the CI screenshot, so that I can show each one.*
-- [ ] sns-logger email, SMS and chat; pipeline pane; detection lab; vmui.
+- [x] sns-logger email, SMS and chat; pipeline pane; detection lab; vmui.
 
-Evidence: [plan E8–E15](plan-e8-e15.md)
+Evidence: [demo test cases 13–18](../../demo/README.md), [scripts/capture/alerts.yaml](../../scripts/capture/alerts.yaml)
 
 **S14.3 · Reference and navigation updates** · S · ✅ · [#100](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/100)
 *As a reader, I want the alert catalogue and the docs kept in step with the code, so that nothing is stale.*

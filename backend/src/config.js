@@ -5,6 +5,7 @@
 // Credentials themselves are fetched at runtime from AWS Secrets Manager.
 
 import { resolveSecretIds } from './secrets/naming.js';
+import { RUNBOOK_BASE } from './alerts/catalogue.js';
 
 const env = process.env;
 // Secret IDs: explicit (DB_SECRET_ID…) or built from the naming convention
@@ -114,7 +115,7 @@ export const config = Object.freeze({
     endpoint: env.SNS_ENDPOINT || undefined,
     senderId: env.ALERTS_SENDER_ID ?? 'SECNOTES',
     environment: naming.env ?? env.NODE_ENV ?? 'development',
-    runbookBase: env.ALERTS_RUNBOOK_URL ?? 'https://github.com/ephico2real2/aws-secrets-manager-node-poc/blob/main/docs/reference/alerts.md',
+    runbookBase: env.ALERTS_RUNBOOK_URL ?? RUNBOOK_BASE,
     // Where people read delivered alerts locally (linked from the dashboard).
     inboxUrl: env.ALERTS_INBOX_URL || undefined,
   }),

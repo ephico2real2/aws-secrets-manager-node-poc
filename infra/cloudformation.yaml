@@ -43,7 +43,7 @@ Parameters:
   AlertEmail:
     Type: String
     Default: ''
-    Description: Optional email for the alert topics (secret reads and critical app alarms; you confirm the subscription by email).
+    Description: Optional email for the alert topics. You get one confirmation email per topic (secret reads, critical alarms, and chat if no webhook is set); confirm each one, or that topic sends you nothing.
   AlertPhone:
     Type: String
     Default: ''
@@ -156,6 +156,11 @@ Resources:
             Principal: { AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root' }
             Action: kms:*
             Resource: '*'
+          # Who may publish is decided by the topic policies (SourceAccount and,
+          # for alarms, SourceArn). The key only lets these two services encrypt
+          # for SNS; it carries no condition because the services don't document
+          # passing the source keys to KMS, and a condition that never matches
+          # would silently stop every alarm (the S4.2 bug, again).
           - Sid: EventBridgeAndAlarmsMayPublish
             Effect: Allow
             Principal: { Service: [events.amazonaws.com, cloudwatch.amazonaws.com] }
@@ -695,6 +700,9 @@ Resources:
             Condition:
               StringEquals:
                 aws:SourceAccount: !Ref AWS::AccountId
+              # only this stack's alarms (confused-deputy protection)
+              ArnLike:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudwatch:${AWS::Region}:${AWS::AccountId}:alarm:${AWS::StackName}-*
 
   OpsAlertsEmail:
     Type: AWS::SNS::Subscription
@@ -757,7 +765,7 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref OpsAlertsTopic]
-      OKActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsChatTopic]
   SecretsLoadFatalFilter:
     Type: AWS::Logs::MetricFilter
     Condition: MakeLogs
@@ -785,7 +793,7 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref OpsAlertsTopic]
-      OKActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsChatTopic]
   SecretsFetchFailedFilter:
     Type: AWS::Logs::MetricFilter
     Condition: MakeLogs
@@ -803,7 +811,7 @@ Resources:
     DependsOn: SecretsFetchFailedFilter
     Properties:
       AlarmName: !Sub ${AWS::StackName}-secrets.fetch.failed
-      AlarmDescription: '[critical] A credential could not be read from Secrets Manager. The app has no cached value to fall back on. Check IAM, the VPC endpoint, KMS and the secret name in the log line.'
+      AlarmDescription: '[critical] A credential could not be read from Secrets Manager. Check IAM, the VPC endpoint, KMS and the secret name in the log line. If the line says cached=true (a forced refresh failed), the app keeps serving the value it holds until that is SECRET_MAX_STALE_SECONDS old; with cached=false, requests that need this credential are failing now.'
       Namespace: !Sub SecureNotes/${AWS::StackName}
       MetricName: SecretsFetchFailed
       Statistic: Sum
@@ -813,7 +821,7 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref OpsAlertsTopic]
-      OKActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsChatTopic]
   SecretsFetchStaleFilter:
     Type: AWS::Logs::MetricFilter
     Condition: MakeLogs
@@ -859,7 +867,7 @@ Resources:
     DependsOn: AgentForbiddenFilter
     Properties:
       AlarmName: !Sub ${AWS::StackName}-agent.forbidden
-      AlarmDescription: '[critical] The local credentials agent refused the app. The agent answered 403: the app is not sending its SSRF token, or the token file is unreadable. Check the token file and group membership.'
+      AlarmDescription: '[critical] The local credentials agent refused the app. The agent answered 403: the app is not sending its SSRF token, or the token file is unreadable. Check the token file and group membership. Logged at once, even while a cached value is still served.'
       Namespace: !Sub SecureNotes/${AWS::StackName}
       MetricName: AgentForbidden
       Statistic: Sum
@@ -869,7 +877,7 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref OpsAlertsTopic]
-      OKActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsChatTopic]
   DbAuthRejectedFilter:
     Type: AWS::Logs::MetricFilter
     Condition: MakeLogs
@@ -953,7 +961,7 @@ Resources:
       ComparisonOperator: GreaterThanOrEqualToThreshold
       TreatMissingData: notBreaching
       AlarmActions: [!Ref OpsAlertsTopic]
-      OKActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsChatTopic]
   SecretsRevealEnabledFilter:
     Type: AWS::Logs::MetricFilter
     Condition: MakeLogs
@@ -1054,8 +1062,11 @@ Resources:
         # (GetSecretValue names one secret in secretId; BatchGetSecretValue lists
         # them in secretIdList) x (a role session other than the app and rotation
         # roles, or a user or root, which has no role session at all).
-        # The RDS secret is matched by ARN: a read that names it by name or partial
-        # ARN is still in CloudTrail but doesn't raise this alarm.
+        # The Redis secret is matched by name and by ARN prefix (so its full ARN and
+        # its partial ARN, without the -AbCdEf suffix, both match). The RDS secret
+        # is named by RDS (rds!db-...), so it is matched by full ARN only: a read
+        # that names it by name or partial ARN is still in CloudTrail but doesn't
+        # raise this alarm (the documented gap).
         detail:
           eventSource: [secretsmanager.amazonaws.com]
           eventName: [GetSecretValue, BatchGetSecretValue]
@@ -1063,7 +1074,7 @@ Resources:
           - requestParameters:
               secretId:
                   - !GetAtt Database.MasterUserSecret.SecretArn
-                  - !Ref RedisAppSecret
+                  - prefix: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/elasticache/${Environment}/${AWS::StackName}/app
                   - !Sub /elasticache/${Environment}/${AWS::StackName}/app
             userIdentity:
               sessionContext:
@@ -1073,14 +1084,14 @@ Resources:
           - requestParameters:
               secretId:
                   - !GetAtt Database.MasterUserSecret.SecretArn
-                  - !Ref RedisAppSecret
+                  - prefix: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/elasticache/${Environment}/${AWS::StackName}/app
                   - !Sub /elasticache/${Environment}/${AWS::StackName}/app
             userIdentity:
               type: [IAMUser, Root, FederatedUser, IdentityCenterUser]
           - requestParameters:
               secretIdList:
                   - !GetAtt Database.MasterUserSecret.SecretArn
-                  - !Ref RedisAppSecret
+                  - prefix: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/elasticache/${Environment}/${AWS::StackName}/app
                   - !Sub /elasticache/${Environment}/${AWS::StackName}/app
             userIdentity:
               sessionContext:
@@ -1090,7 +1101,7 @@ Resources:
           - requestParameters:
               secretIdList:
                   - !GetAtt Database.MasterUserSecret.SecretArn
-                  - !Ref RedisAppSecret
+                  - prefix: !Sub arn:${AWS::Partition}:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:/elasticache/${Environment}/${AWS::StackName}/app
                   - !Sub /elasticache/${Environment}/${AWS::StackName}/app
             userIdentity:
               type: [IAMUser, Root, FederatedUser, IdentityCenterUser]
@@ -1100,10 +1111,12 @@ Resources:
           InputTransformer:
             InputPathsMap:
               secret: $.detail.requestParameters.secretId
+              # BatchGetSecretValue names its secrets in a list: show the first
+              first: $.detail.requestParameters.secretIdList[0]
               who: $.detail.userIdentity.arn
               from: $.detail.sourceIPAddress
               when: $.detail.eventTime
-            InputTemplate: '"Secure Notes: secret <secret> was read by <who> from <from> at <when>. If this was not you, investigate."'
+            InputTemplate: '"Secure Notes: secret <secret><first> was read by <who> from <from> at <when>. If this was not you, investigate."'
 
   # Optional trail, only for accounts without one recording read management events.
   TrailBucket:
@@ -1288,13 +1301,39 @@ Resources:
             REDIS_HOST=${CacheHost}
             REDIS_PORT=${CachePort}
             REDIS_TLS=true
-            # Notifications (the app's own) and the log copy the CloudWatch agent ships.
+            # Notifications: the app's own (rotations to chat, the test alert).
             SNS_TOPIC_ARN=${OpsAlertsTopic}
             SNS_CHAT_TOPIC_ARN=${OpsChatTopic}
-            LOG_FILE=/var/log/secure-notes/app.jsonl
             ENV
             chown root:securenotes /etc/secure-notes/app.env
             chmod 640 /etc/secure-notes/app.env
+
+            # Logs first, then alerts: the CloudWatch agent ships the app's redacted
+            # JSON log to CloudWatch Logs, where metric filters raise the alarms.
+            # Set up before the app starts, so its first lines (and a refusal to
+            # start, config.unsafe) are in the file the agent reads. Without
+            # CloudWatch Logs there is no file at all: journald keeps the log.
+            if [ "${EnableCloudWatchLogs}" = "true" ]; then
+              dnf install -y amazon-cloudwatch-agent logrotate
+              echo 'LOG_FILE=/var/log/secure-notes/app.jsonl' >> /etc/secure-notes/app.env
+              cat > /opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json <<'CWA'
+            {
+              "agent": { "run_as_user": "root" },
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      { "file_path": "/var/log/secure-notes/app.jsonl", "log_group_name": "/secure-notes/${AWS::StackName}/app", "log_stream_name": "{instance_id}" }
+                    ]
+                  }
+                }
+              }
+            }
+            CWA
+              printf '/var/log/secure-notes/app.jsonl {\n  daily\n  rotate 3\n  compress\n  missingok\n  copytruncate\n}\n' > /etc/logrotate.d/secure-notes
+              systemctl enable --now logrotate.timer
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json
+            fi
 
             cp /opt/secure-notes/infra/systemd/secure-notes.service /etc/systemd/system/
             if [ "${SecretsMode}" = "agent" ]; then
@@ -1304,28 +1343,6 @@ Resources:
             systemctl daemon-reload
             systemctl enable --now secure-notes
 
-            # Logs first, then alerts: the CloudWatch agent ships the app's redacted
-            # JSON log to CloudWatch Logs, where metric filters raise the alarms.
-            if [ "${EnableCloudWatchLogs}" = "true" ]; then
-              dnf install -y amazon-cloudwatch-agent logrotate
-              cat > /opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json <<'CWA'
-            {
-              "agent": { "run_as_user": "root" },
-              "logs": {
-                "logs_collected": {
-                  "files": {
-                    "collect_list": [
-                      { "file_path": "/var/log/secure-notes/app.jsonl", "log_group_name": "/secure-notes/STACK/app", "log_stream_name": "{instance_id}" }
-                    ]
-                  }
-                }
-              }
-            }
-            CWA
-              sed -i "s|/secure-notes/STACK/app|/secure-notes/${AWS::StackName}/app|" /opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json
-              printf '/var/log/secure-notes/app.jsonl {\n  daily\n  rotate 3\n  compress\n  missingok\n  copytruncate\n}\n' > /etc/logrotate.d/secure-notes
-              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json
-            fi
           - DbSecretArn: !GetAtt Database.MasterUserSecret.SecretArn
             DbHost: !GetAtt Database.Endpoint.Address
             DbPort: !GetAtt Database.Endpoint.Port
@@ -1349,7 +1366,7 @@ Outputs:
   KmsKeyArn:
     Value: !GetAtt SecretsKey.Arn
   OpsAlertsTopicArn:
-    Description: Critical app alarms and the test alert (email, SMS, chat)
+    Description: Critical app alarms (email, SMS, chat). To test delivery, aws sns publish --topic-arn <this> --message test (the dashboard's test button is demo-only)
     Value: !Ref OpsAlertsTopic
   OpsChatTopicArn:
     Description: Warnings and the app's notifications (chat; email if no webhook)

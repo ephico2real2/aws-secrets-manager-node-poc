@@ -11,3 +11,4 @@ captures/
 images.tar.gz
 image-ids.txt
 deploy/k8s/overlays/mirror/
+__pycache__/

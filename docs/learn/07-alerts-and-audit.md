@@ -127,9 +127,15 @@ Building that simulation found **two bugs** in the AWS version, which could neve
    can't use that key, so their publishes fail. The alert topics now use a
    customer-managed key that allows both services.
 
-There is also one **known gap**, shown on purpose. The rule matches the RDS-managed secret
-by ARN, so a read that names it by its name is recorded but not alarmed. The detection
-lab's "Read DB secret by name" button demonstrates it.
+A secret can be named three ways in a read: by name, by full ARN, or by *partial* ARN
+(the ARN without its random `-AbCdEf` suffix). The rule matches the Redis secret by name
+and by ARN prefix, which covers all three.
+
+There is one **known gap**, shown on purpose. RDS names its own secret (`rds!db-…`), so
+the template only knows that secret's full ARN. A read that names it by name or by partial
+ARN is recorded but not alarmed. The detection lab's "Read DB secret by name" button
+demonstrates it. Closing the gap would mean matching on the event's `resources` field
+instead, which has to be checked against real CloudTrail records first (story S12.5).
 
 ## 7.5 A rotation, told to chat
 
@@ -151,12 +157,19 @@ sequenceDiagram
 A single rejection that recovers doesn't page anyone. Three rejections in five minutes
 mean the secret and the database disagree, and the `db.auth.rejected` rule raises a warning.
 
+The same idea applies at startup. Failed fetches while the app starts are expected (the
+network or the mock may still be coming up), so they are logged at debug and retried. Only
+the final give-up, `secrets.load.fatal`, pages.
+
 ## 7.6 Who gets what
+
+Locally the topics have these names; on AWS CloudFormation generates the names, and the
+stack outputs give the ARNs.
 
 | Topic | Receives | Email | SMS | Chat |
 | --- | --- | --- | --- | --- |
 | `secure-notes-secret-read-alert` | unexpected reads | ✓ | ✓ | ✓ |
-| `secure-notes-ops-alerts` | critical alarms, test alert | ✓ | ✓ | ✓ |
+| `secure-notes-ops-alerts` | critical alarms, the test alert (demo) | ✓ | ✓ | ✓ |
 | `secure-notes-ops-chat` | warnings, notifications | (only if no chat endpoint) | | ✓ |
 
 Each notification the app publishes has three bodies in one SNS message
@@ -185,8 +198,12 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up --bu
 In the dashboard's **Detection lab**:
 - "Read Redis secret as IAM user mallory" raises the alarm; the email, the SMS and the chat
   post appear on the console a second later.
+- "Read DB secret as role ops-admin" raises it too: a role session that isn't the app's
+  or rotation's is just as unexpected as a user.
 - "Read DB secret by name" shows the known gap: the read is recorded, but no alarm fires.
-- "Send a test alert" goes through the app's notifier.
+- "Send a test alert" goes through the app's notifier (at most once a minute: it pages by SMS).
+  On AWS the button doesn't exist (production refuses demo mode); test a topic with
+  `aws sns publish --topic-arn <OpsAlertsTopicArn> --message test`.
 
 To see the log path, stop the mock (`docker compose stop aws-mock`) and press **Refresh
 now** on the database secret. The failure is logged with `event=secrets.fetch.failed`,

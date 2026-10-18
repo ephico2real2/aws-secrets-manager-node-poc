@@ -38,6 +38,16 @@ export class SecretsProvider extends EventEmitter {
     return this.#fetcher.kind;
   }
 
+  // While the app is starting, a failed fetch is expected (the network or a
+  // mock still coming up): the caller retries, and only its final give-up
+  // (secrets.load.fatal) is an alert. Without this, a blip on attempt 1 would page.
+  #starting = true;
+
+  /** Called once the first load succeeded: from now on a failed fetch is an alert. */
+  startupDone() {
+    this.#starting = false;
+  }
+
   /** Returns a SecretValue. Call .reveal() only where the credential is used. */
   async get(secretId) {
     const e = this.#entries.get(secretId);
@@ -113,15 +123,25 @@ export class SecretsProvider extends EventEmitter {
       return entry.value;
     } catch (err) {
       const age = prev ? Date.now() - prev.fetchedAt : Infinity;
-      if (!force && prev && age < this.#maxStaleMs) {
-        prev.lastError = `${err.name}: ${err.message}`;
-        prev.expiresAt = Date.now() + Math.min(30_000, this.#ttlMs); // retry soon
+      const servable = !force && prev && age < this.#maxStaleMs;
+      if (prev) prev.lastError = `${err.name}: ${err.message}`;
+      // A 403 from the agent is a broken deployment (wrong token), not a blip:
+      // say so at once, even while a cached value is still being served.
+      if (err?.code === 'AGENT_HTTP_403') {
+        this.#log.error({ secretId, err, reason, cached: Boolean(servable), event: 'agent.forbidden' }, 'the secrets agent refused the request');
+      } else if (servable) {
         this.#log.warn({ secretId, err, ageSeconds: Math.round(age / 1000), event: 'secrets.fetch.stale' }, 'secret fetch failed, serving last good value');
+      } else if (this.#starting && !prev) {
+        this.#log.debug({ secretId, err, reason }, 'secret fetch failed during startup (the caller retries)');
+      } else {
+        // cached: the app still holds a value (e.g. a forced refresh failed) and
+        // keeps serving it until it is too old; without one, requests fail.
+        this.#log.error({ secretId, err, reason, cached: Boolean(prev), event: 'secrets.fetch.failed' }, 'secret fetch failed');
+      }
+      if (servable) {
+        prev.expiresAt = Date.now() + Math.min(30_000, this.#ttlMs); // retry soon
         return prev.value;
       }
-      if (prev) prev.lastError = `${err.name}: ${err.message}`;
-      const event = err?.code === 'AGENT_HTTP_403' ? 'agent.forbidden' : 'secrets.fetch.failed';
-      this.#log.error({ secretId, err, reason, event }, 'secret fetch failed');
       throw err;
     }
   }

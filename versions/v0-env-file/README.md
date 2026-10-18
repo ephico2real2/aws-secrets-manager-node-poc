@@ -11,8 +11,8 @@ the redesign, in which credentials are fetched at runtime from AWS Secrets Manag
 | Version | Where | Credentials come from |
 | --- | --- | --- |
 | **v0** (this folder) | `versions/v0-env-file/` | `v0.env`: plain values, pasted into each service that needs them |
-| **v1** (tag `v1-secrets-manager`) | the repository root | AWS Secrets Manager at runtime; nothing in env, files, images or logs |
-| **v2** (tag `v2-alerts`) | the repository root | as v1, plus logs-first alerting and the detection lab |
+| **v1** (tag `v1-secrets-manager`, once the milestone is released) | the repository root | AWS Secrets Manager at runtime; nothing in env, files, images or logs |
+| **v2** (tag `v2-alerts`, once released) | the repository root | as v1, plus logs-first alerting and the detection lab |
 
 ## Run it and find the passwords
 
@@ -23,7 +23,9 @@ docker compose up --build -d     # http://localhost:3001
 docker compose down -v
 ```
 
-`leak.sh` looks in nine places. All the values are fake (`Example-Only-…`).
+`leak.sh` looks in nine places and passes when it finds the passwords in at least eight. All the values are fake (`Example-Only-…`).
+The ninth, `ps` inside the Redis container, usually comes up empty: Redis rewrites its
+process title, so the command-line password shows up through `inspect` instead.
 
 | Place | Why it leaks |
 | --- | --- |

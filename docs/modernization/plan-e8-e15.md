@@ -4,6 +4,23 @@
 
 The approved plan for the next epics. Status lives in the [backlog](backlog.md) and the GitHub issues; this page records the design.
 
+## As built: where the build differs from this plan
+
+The plan below is kept as approved. These are the places where the build went another way, and why:
+
+| Plan | As built | Why |
+| --- | --- | --- |
+| journald → CloudWatch agent → `AWS::Logs::Transformer` (ParseJSON) | The app also writes its redacted JSON lines to `/var/log/secure-notes/app.jsonl` (`LOG_FILE`, written synchronously); the CloudWatch agent collects that file; logrotate with `copytruncate` | Plain JSON with no journald wrapper, and no Transformer to prove on AWS first. The agent comes from the Amazon Linux repository, not a pinned RPM |
+| `scripts/sync-event-pattern.js` (js-yaml) and `AWSEvents.TestEventPattern` parity fixtures | `scripts/sync-event-pattern.py` (PyYAML); the parity fixtures are unit tests in `dev/aws-mock/test` | PyYAML was already on the runner; TestEventPattern needs AWS, and moves to S12.5 |
+| `/api/demo/alerts` | `/api/demo/detections` (rule matches and deliveries) | The name says what it returns |
+| `secrets.load.fatal` inhibits `fetch.failed`; `*.auth.rejected` only if no `*.recovered` within 2 min | Startup retries don't log an alert event at all, so only `load.fatal` pages; `*.auth.rejected` fires at 3 in 5 minutes | Simpler, and the same on AWS (CloudWatch has no inhibition) |
+| One `OpsAlertsTopic` with filter policies | Three topics (secret-read, ops-alerts, ops-chat), routed by severity | CloudWatch alarms carry no message attributes, so a filter policy would drop them |
+| The catalogue's `channels` per alert | Channels follow the severity (critical pages; warnings go to chat); `repeat` drives generated Alertmanager routes | Each topic's subscribers decide the channels; per-alert channels would need a topic per combination |
+| A recorded Alertmanager 0.34.1 request body as a fixture | A hand-written Query-protocol body in the same shape; the real Alertmanager runs in CI's pipeline check | The pipeline check exercises the real one end to end |
+| Alarm `OKActions` on the same topic | `OKActions` go to the chat topic; locally `send_resolved: false` | A recovery is news, not a page |
+
+The unexpected-read rule also matches the Redis secret by ARN prefix, which closes a partial-ARN gap that the review found. The RDS-named DB secret keeps its documented gap.
+
 ## Context
 
 The goal of this round of work:

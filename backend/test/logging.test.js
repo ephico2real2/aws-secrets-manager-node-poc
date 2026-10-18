@@ -96,18 +96,25 @@ test('every event name used in the code is in the catalogue', () => {
   const files = [];
   const walk = (d) => readdirSync(d).forEach((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : f.endsWith('.js') && files.push(join(d, f))));
   walk(src);
+  // Every dotted string literal in an event namespace counts, wherever it is
+  // (a field, a ternary, a helper argument): no syntax can slip past.
+  const namespaces = new Set([...ALL_EVENTS].map((e) => e.split('.')[0]));
   const used = new Set();
   for (const f of files) {
     if (f.endsWith('catalogue.js')) continue;
     const text = readFileSync(f, 'utf8');
-    for (const m of text.matchAll(/event(?:Name)?\s*[:=]\s*(?:[^'"\n]*\?\s*)?'([a-z]+(?:\.[a-z]+)+)'(?:\s*:\s*'([a-z]+(?:\.[a-z]+)+)')?/g)) {
-      used.add(m[1]);
-      if (m[2]) used.add(m[2]);
+    for (const m of text.matchAll(/['"`]([a-z]+(?:\.[a-z]+)+)['"`]/g)) {
+      const parts = m[1].split('.');
+      const fileName = ['env', 'json', 'yaml', 'yml', 'js'].includes(parts.at(-1)); // e.g. 'config.env'
+      if (namespaces.has(parts[0]) && !fileName) used.add(m[1]);
     }
   }
   assert.ok(used.size >= 10, `found ${used.size} event names`);
   const unknown = [...used].filter((e) => !ALL_EVENTS.has(e));
-  assert.deepEqual(unknown, []);
+  assert.deepEqual(unknown, [], 'every event the code uses is in the catalogue');
+  // ...and the other way: each catalogued alert is actually logged somewhere.
+  const missing = Object.keys(ALERTS).filter((e) => !used.has(e));
+  assert.deepEqual(missing, [], 'every catalogued alert is emitted by the code');
   for (const a of [...Object.values(ALERTS), ...Object.values(PATTERN_ALERTS)]) {
     assert.ok(seconds(a.when.window), `window ${a.when.window}`);
     assert.ok(a.title.length < 80, a.title);
@@ -159,4 +166,36 @@ test('notifier: dedup within the repeat window, redacted bodies, an alert-sent l
   assert.equal(sentLine['messaging.message.id'], 'm-1');
   assert.equal(sentLine['messaging.system'], 'aws.sns');
   assert.ok(lines.some((l) => l.event === 'alerting.notification.suppressed'));
+});
+
+test('file sink: the line is on disk before the call returns (an exit right after keeps it)', async () => {
+  const { mkdtempSync, readFileSync: read } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { createFileSink } = await import('../src/logship/file.js');
+  const path = join(mkdtempSync(join(tmpdir(), 'sink-')), 'app.jsonl');
+  const sink = createFileSink(path);
+  sink.write('{"event":"config.unsafe"}');
+  assert.equal(read(path, 'utf8'), '{"event":"config.unsafe"}\n', 'written synchronously');
+  assert.deepEqual(sink.stats(), { path, errors: 0, lastError: undefined });
+  const broken = createFileSink('/nonexistent-dir/app.jsonl');
+  broken.write('x');
+  assert.ok(broken.stats().errors >= 1, 'errors are counted, never thrown');
+});
+
+test('notifier: the test alert is limited to one a minute', async () => {
+  const { createNotifier } = await import('../src/alerts/notifier.js');
+  const redactor = new Redactor();
+  const logger = createLogger({ redactor, out: captureSink() });
+  let t = 0;
+  const client = { send: async () => ({ MessageId: 'm' }) };
+  const notifier = createNotifier({
+    config: { region: 'us-east-1', alerts: { topicArn: 'arn:aws:sns:us-east-1:000000000000:ops', senderId: 'SECNOTES', environment: 'dev', runbookBase: 'x' } },
+    logger, redactor, client, now: () => t,
+  });
+  assert.equal(notifier.retryAfterMs('alerting.test'), 0);
+  assert.equal(await notifier.notify('alerting.test', {}), 'm');
+  t = 20_000;
+  assert.equal(notifier.retryAfterMs('alerting.test'), 40_000);
+  t = 61_000;
+  assert.equal(notifier.retryAfterMs('alerting.test'), 0);
 });

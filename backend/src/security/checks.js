@@ -33,7 +33,7 @@ async function probeImds() {
   }
 }
 
-export async function runSecurityChecks({ config, redactor, provider }) {
+export async function runSecurityChecks({ config, redactor, provider, logSinks = {} }) {
   const out = [];
   const add = (id, title, status, detail) => out.push({ id, title, status, detail });
   const mock = Boolean(config.awsEndpoint);
@@ -138,6 +138,17 @@ export async function runSecurityChecks({ config, redactor, provider }) {
     add('reveal-flag', 'Secret values kept out of logs', 'pass', `Debug logs (LOG_LEVEL=${config.logging?.level ?? 'info'}) show key names and masked values only.`);
   }
   add('redaction', 'Log and response redaction active', redactor.size > 0 ? 'pass' : 'warn', `${redactor.size} secret value encodings registered; every log line and API response is scrubbed.`);
+
+  // Log delivery: alarms are raised from shipped logs, so a sink that can't
+  // write means alerts that can't fire. Shown only when a sink is configured.
+  const { otlp, file } = logSinks;
+  if (otlp || file) {
+    const problems = [];
+    if (file?.errors) problems.push(`${file.errors} write error(s) on ${file.path} (${file.lastError})`);
+    if (otlp?.dropped || otlp?.lastError) problems.push(`OTLP: ${otlp.dropped} dropped${otlp.lastError ? `, last error ${otlp.lastError}` : ''}`);
+    const where = [file && `file ${file.path}`, otlp && `OTLP ${otlp.endpoint}`].filter(Boolean).join(' and ');
+    add('log-delivery', 'Logs reach the alerting pipeline', problems.length ? 'warn' : 'pass', problems.length ? `${problems.join('; ')}. Alerts raised from logs may not fire.` : `Every line goes to ${where}, after redaction.`);
+  }
 
   return out;
 }

@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { inspect } from 'node:util';
 import { HttpError } from './http.js';
 import { runSecurityChecks } from './security/checks.js';
@@ -6,7 +5,7 @@ import { runSecurityChecks } from './security/checks.js';
 const NOTES_CACHE_KEY = 'notes:list';
 const ALIASES = ['db', 'redis'];
 
-export function registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper, notifier }) {
+export function registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper, fileSink, notifier }) {
   const log = logger.child({ component: 'api' });
 
   // ---- health -------------------------------------------------------------
@@ -37,6 +36,7 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
     logFormat: config.logging.format,
     alerts: { enabled: Boolean(notifier?.enabled), inboxUrl: config.alerts.inboxUrl ?? null, stats: notifier?.stats() ?? null },
     logShipping: shipper ? shipper.stats() : null,
+    logFile: fileSink ? fileSink.stats() : null,
     secretNaming: {
       environment: config.secretNaming.environment ?? null,
       pattern: config.secretNaming.pattern ?? null,
@@ -114,7 +114,7 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
 
   router.get('/api/events', async (ctx) => ({ events: events.list(Number(ctx.query.get('since') ?? 0)) }));
 
-  router.get('/api/security/checks', async () => ({ checks: await runSecurityChecks({ config, redactor, provider }) }));
+  router.get('/api/security/checks', async () => ({ checks: await runSecurityChecks({ config, redactor, provider, logSinks: { otlp: shipper?.stats(), file: fileSink?.stats() } }) }));
 
   // ---- demo-only endpoints ---------------------------------------------------
   if (!config.demo.enabled) return;
@@ -141,7 +141,10 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
   // ---- detection lab: alerts, end to end, on a laptop ------------------------
   router.post('/api/demo/alerts/test', async () => {
     if (!notifier?.enabled) throw new HttpError(409, 'notifications are off: set SNS_TOPIC_ARN');
-    const messageId = await notifier.notify('alerting.test', { requestedFrom: 'dashboard' }, { dedupKey: randomUUID() });
+    // A test pages by SMS, so at most one a minute (the catalogue's repeat).
+    const wait = notifier.retryAfterMs('alerting.test');
+    if (wait) throw new HttpError(429, `a test alert was sent less than a minute ago; try again in ${Math.ceil(wait / 1000)} s`);
+    const messageId = await notifier.notify('alerting.test', { requestedFrom: 'dashboard' });
     if (!messageId) throw new HttpError(502, 'the test alert could not be published; see the log');
     events.record('alerts', 'test', `Sent a test alert through SNS (message ${messageId.slice(0, 8)})`);
     return { messageId };

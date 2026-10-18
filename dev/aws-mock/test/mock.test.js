@@ -22,7 +22,10 @@ function bound(node) {
     if ('Fn::GetAtt' in node) {
       return { 'Database.MasterUserSecret.SecretArn': DB_ARN, 'AppRole.Arn': roleArn('secure-notes-app'), 'RedisRotationRole.Arn': roleArn('secure-notes-redis-rotation') }[node['Fn::GetAtt']];
     }
-    if ('Fn::Sub' in node) return node['Fn::Sub'].replace('${Environment}', 'dev').replace('${AWS::StackName}', 'notes-cache');
+    if ('Fn::Sub' in node) {
+      const subs = { Environment: 'dev', 'AWS::StackName': 'notes-cache', 'AWS::Partition': 'aws', 'AWS::Region': 'us-east-1', 'AWS::AccountId': '000000000000' };
+      return node['Fn::Sub'].replace(/\$\{([^}]+)\}/g, (_, n) => subs[n]);
+    }
     return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, bound(v)]));
   }
   return node;
@@ -42,6 +45,7 @@ test('the stack rule: the app and rotation are quiet; users, other roles and bat
   assert.equal(matches(pattern, read('local-intruder-user', REDIS_ARN)), true);
   assert.equal(matches(pattern, read('local-intruder-role', DB_ARN)), true);
   assert.equal(matches(pattern, read('local-intruder-user', '/elasticache/dev/notes-cache/app')), true, 'Redis secret by name');
+  assert.equal(matches(pattern, read('local-intruder-user', REDIS_ARN.replace(/-AbCdEf$/, ''))), true, 'Redis secret by partial ARN');
   assert.equal(matches(pattern, read('local-intruder-user', '/rds/dev/notes-db/app')), false, 'known gap: the DB secret is matched by ARN only');
   assert.equal(matches(pattern, read('local-intruder-user', REDIS_ARN, 'BatchGetSecretValue')), true);
   assert.equal(matches(pattern, read('local-intruder-user', REDIS_ARN, 'DescribeSecret')), false);
@@ -56,6 +60,17 @@ test('the stack rule receives read-only events (the S4.2 fix)', () => {
 test('input transformer builds the alert text from the record', () => {
   const msg = transformInput(rule.target.inputTransformer, read('local-intruder-user', REDIS_ARN));
   assert.match(msg, /^"Secure Notes: secret .*elasticache.* was read by arn:aws:iam::000000000000:user\/mallory from 10\.0\.0\.5 at /);
+  const batch = transformInput(rule.target.inputTransformer, read('local-intruder-user', REDIS_ARN, 'BatchGetSecretValue'));
+  assert.ok(batch.includes(`secret ${REDIS_ARN} was read`), batch);
+});
+
+test('pattern: arrays of objects are flattened; malformed operator arguments fail', () => {
+  assert.ok(matches({ a: { b: [1], c: [2] } }, { a: [{ b: 1 }, { c: 2 }] }));
+  assert.ok(matches({ resources: { ARN: [{ prefix: 'arn:x' }] } }, { resources: [{ ARN: 'arn:y' }, { ARN: 'arn:x:1' }] }));
+  assert.ok(!matches({ a: { b: [3] } }, { a: [{ b: 1 }, { b: 2 }] }));
+  assert.throws(() => matches({ a: [{ prefix: { 'equals-ignore-case': 'x' } }] }, { a: 'x' }), /unsupported prefix/);
+  assert.throws(() => matches({ a: [{ numeric: ['>', '1'] }] }, { a: 2 }), /unsupported numeric/);
+  assert.throws(() => matches({ a: [{ exists: 'yes' }] }, { a: 2 }), /unsupported exists/);
 });
 
 test('pattern operators: exists, prefix, anything-but with prefix, numeric; unknown operators fail', () => {
@@ -99,6 +114,8 @@ test('SNS: per-protocol bodies, masked recipients, filter policies, AWS validati
   assert.throws(() => sns.publish({ TopicArn: t.arn, Message: '{"email":"x"}', MessageStructure: 'json' }), /No default entry/);
   assert.throws(() => sns.publish({ TopicArn: t.arn, Message: 'x', Subject: 'x'.repeat(100) }), /Subject/);
   assert.throws(() => sns.publish({ TopicArn: 'arn:aws:sns:us-east-1:000000000000:nope', Message: 'x' }), /Topic does not exist/);
+  assert.throws(() => sns.publish({ TopicArn: t.arn, Message: 'x'.repeat(262145) }), /Message too long/, '256 KiB per message');
+  assert.throws(() => sns.publish({ PhoneNumber: '+15555550100', Message: 'x'.repeat(1601) }), /1600 bytes/, 'a direct SMS publish');
   assert.throws(() => sns.publish({ PhoneNumber: '+15555550100', Message: 'x'.repeat(1601) }), /1600/);
 });
 

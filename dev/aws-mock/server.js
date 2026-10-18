@@ -231,6 +231,7 @@ const SUBS = {
   'AWS::StackName': process.env.MOCK_RULE_STACK_NAME ?? 'notes-cache',
   'AWS::Region': REGION,
   'AWS::AccountId': ACCOUNT,
+  'AWS::Partition': 'aws',
 };
 const BINDINGS = {
   'Fn::GetAtt:Database.MasterUserSecret.SecretArn': arnOfSecret(process.env.MOCK_RULE_DB_SECRET ?? '/rds/dev/notes-db/app'),

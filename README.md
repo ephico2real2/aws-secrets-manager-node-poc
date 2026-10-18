@@ -20,8 +20,8 @@ a secret as an intruder to see the alarm arrive.
 | Version | What changes | Where |
 | --- | --- | --- |
 | **v0** | Passwords in a `.env` file: works, and leaks | [`versions/v0-env-file`](versions/v0-env-file/README.md) |
-| **v1** | Credentials from AWS Secrets Manager at runtime; rotation without restart; nothing in env, files, images or logs | tag `v1-secrets-manager` |
-| **v2** | Logs first, then alerts: structured logs, SNS notifications, the unexpected-read alarm simulated end to end | this branch (tag `v2-alerts`) |
+| **v1** | Credentials from AWS Secrets Manager at runtime; rotation without restart; nothing in env, files, images or logs | tag `v1-secrets-manager` (created by the [milestone workflow](.github/workflows/milestone.yaml)) |
+| **v2** | Logs first, then alerts: structured logs, SNS notifications, the unexpected-read alarm simulated end to end | this branch; tag `v2-alerts` when released |
 
 ## Read the story
 

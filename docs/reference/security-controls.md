@@ -13,7 +13,7 @@ or the stack, and the checklist for running it for real.
 | **IMDSv2 required, hop limit 1** | `infra/cloudformation.yaml` | Blocks the SSRF attack that reads role credentials from `169.254.169.254`. |
 | **Least-privilege IAM, bound to the VPC endpoint** | `AppRole`, `infra/iam-policy.example.json` | Read-only, two secret ARNs, only via `aws:SourceVpce`; `kms:Decrypt` only through Secrets Manager. |
 | **Secrets only in memory** | `backend/src/secrets/provider.js` | Never in files, env vars, CLI args, Kubernetes Secrets or ConfigMaps. |
-| **Refuse unsafe config** | `backend/src/config.js` | Startup fails if `DB_PASSWORD`, `PGPASSWORD`, `DATABASE_URL`, `REDIS_URL` etc. are set; in production also on static AWS keys, demo mode, a mock endpoint or `LOG_REVEAL_SECRETS`. The image defaults to production. |
+| **Refuse unsafe config** | `backend/src/config.js` | Startup fails if `DB_PASSWORD`, `PGPASSWORD`, `DATABASE_URL`, `REDIS_URL` etc. are set; in production also on static AWS keys, demo mode, a mock Secrets Manager or SNS endpoint (`SNS_ENDPOINT`), `LOG_FORMAT=pretty` or `LOG_REVEAL_SECRETS`. The image defaults to production. |
 | **Cache: TTL, single-flight, stale-on-error** | `provider.js` | Few API calls, no thundering herd, survives a brief Secrets Manager outage. |
 | **Rotation-aware clients** | `backend/src/clients/` | `pg.Pool` reads the password per new connection; on `28P01`/`WRONGPASS` the app force-refreshes and retries, so rotation needs no restart. |
 | **`SecretValue` wrapper** | `backend/src/secrets/SecretValue.js` | `JSON.stringify`, `console.log` and template strings print `[REDACTED]`; values only through a greppable `.reveal()`. |

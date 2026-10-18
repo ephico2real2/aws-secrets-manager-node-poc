@@ -12,7 +12,7 @@
 // body is passed through the redactor before it leaves the process.
 import { randomUUID } from 'node:crypto';
 import os from 'node:os';
-import { NOTIFICATIONS, seconds } from './catalogue.js';
+import { NOTIFICATIONS, channelsFor, seconds } from './catalogue.js';
 
 const SEVERITY_WORD = { critical: 'CRITICAL', warning: 'WARNING', info: 'INFO' };
 
@@ -75,7 +75,7 @@ export function createNotifier({ config, logger, redactor, client, now = () => D
 
   if (!topicArn) {
     log.info('notifications off: SNS_TOPIC_ARN is not set');
-    return { enabled: false, notify: async () => undefined, stats: () => ({ ...stats, enabled: false }) };
+    return { enabled: false, notify: async () => undefined, retryAfterMs: () => 0, stats: () => ({ ...stats, enabled: false }) };
   }
 
   let sns = client;
@@ -100,7 +100,7 @@ export function createNotifier({ config, logger, redactor, client, now = () => D
       log.info({ event: 'alerting.notification.suppressed', 'alert.name': name, 'alert.dedup_key': dedupKey, 'alert.repeat': def.repeat }, `notification suppressed: ${name} was sent less than ${def.repeat} ago`);
       return undefined;
     }
-    last.set(dedupKey, now());
+    if (windowMs) last.set(dedupKey, now()); // nothing to remember without a window
 
     const alertId = randomUUID();
     const { subject, bodies } = composeMessage({
@@ -123,7 +123,7 @@ export function createNotifier({ config, logger, redactor, client, now = () => D
       'alert.severity': def.severity,
       'alert.id': alertId,
       'alert.subject': subject,
-      'alert.channels': def.channels,
+      'alert.channels': channelsFor(def),
       'sms.segments': smsSegments,
     };
     try {
@@ -154,5 +154,13 @@ export function createNotifier({ config, logger, redactor, client, now = () => D
     }
   }
 
-  return { enabled: true, notify, stats: () => ({ ...stats, enabled: true, topic: topicArn.split(':').pop() }) };
+  /** Milliseconds until `name` may be sent again for this key (0: now). */
+  function retryAfterMs(name, dedupKey = name) {
+    const def = NOTIFICATIONS[name];
+    const windowMs = (seconds(def?.repeat) ?? 0) * 1000;
+    const prev = last.get(dedupKey);
+    return windowMs && prev !== undefined ? Math.max(0, windowMs - (now() - prev)) : 0;
+  }
+
+  return { enabled: true, notify, retryAfterMs, stats: () => ({ ...stats, enabled: true, topic: topicArn.split(':').pop() }) };
 }
