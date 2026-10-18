@@ -9,6 +9,8 @@ import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 const SUSPICIOUS_NAME = /(PASSWORD|PASSWD|SECRET|TOKEN|PRIVATE_KEY|API_KEY|CREDENTIAL)/i;
 // Names that look sensitive but only hold identifiers, paths or settings.
 const BENIGN_NAME = /(_ID|_ARN|_FILE|_PATH|_SECONDS|_TTL|_MODE)$/i;
+// A switch is not a credential: LOG_REVEAL_SECRETS=false names a secret but holds none.
+const SWITCH_VALUE = /^(true|false|yes|no|on|off|0|1)$/i;
 
 async function exists(p) {
   try {
@@ -62,7 +64,7 @@ export async function runSecurityChecks({ config, redactor, provider }) {
 
   // 3. Secrets in environment variables
   const flagged = Object.entries(env)
-    .filter(([k, v]) => v && !k.startsWith('AWS_') && (redactor.contains(v) || (SUSPICIOUS_NAME.test(k) && !BENIGN_NAME.test(k))))
+    .filter(([k, v]) => v && !k.startsWith('AWS_') && (redactor.contains(v) || (SUSPICIOUS_NAME.test(k) && !BENIGN_NAME.test(k) && !SWITCH_VALUE.test(v))))
     .map(([k]) => k);
   if (flagged.length) {
     add('env-secrets', 'No credentials in environment variables', 'fail', `Suspicious variables: ${flagged.join(', ')}. Env vars leak through /proc/<pid>/environ, child processes and crash reports.`);
