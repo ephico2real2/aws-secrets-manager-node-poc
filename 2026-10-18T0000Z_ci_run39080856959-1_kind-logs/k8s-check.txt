@@ -1,0 +1,47 @@
+== who each container runs as (OpenShift-style arbitrary UIDs show up here)
+  secure-notes  uid=1000(node) gid=1000(node) groups=1000(node)
+  aws-mock      uid=1000(node) gid=1000(node) groups=1000(node)
+  postgres      uid=999(postgres) gid=999(postgres) groups=999(postgres),101(ssl-cert)
+  redis         uid=999(redis) gid=1000(redis) groups=1000(redis)
+  ok    no pod asks for UID 0
+== Pod Security admission on the namespace
+  ok    enforce=restricted: the API server rejects non-compliant pods
+== Kubernetes Secrets in the namespace (Opaque ones; names and keys only)
+  local-bootstrap-f9hmh2c6g8: pg-password redis-password 
+  ok    the only Secret is the one-time bootstrap; the app's credentials are not stored in Kubernetes
+== the bootstrap passwords were burned by the seed job
+  ok    Redis rejects the bootstrap password
+  ok    Postgres rejects the bootstrap password
+== the app's environment holds IDs and hostnames, no credentials
+  AWS_ACCESS_KEY_ID AWS_MOCK_ENDPOINT AWS_REGION AWS_SECRET_ACCESS_KEY DB_ADMIN_SECRET_ID DB_SECRET_ID DEMO_MODE
+   HOME HOST HOSTNAME KUBERNETES_PORT KUBERNETES_PORT_443_TCP KUBERNETES_PORT_443_TCP_ADDR KUBERNETES_PORT_443_T
+  CP_PORT KUBERNETES_PORT_443_TCP_PROTO KUBERNETES_SERVICE_HOST KUBERNETES_SERVICE_PORT KUBERNETES_SERVICE_PORT_
+  HTTPS LOG_LEVEL NODE_ENV NODE_VERSION PATH PORT PWD REDIS_ADMIN_SECRET_ID REDIS_SECRET_ID SECRETS_MODE SHLVL S
+  TATIC_DIR YARN_VERSION 
+  ok    no credential-named variables
+== Postgres statement log: new passwords arrived as SCRAM verifiers
+  ALTER ROLE notes_app WITH LOGIN PASSWORD 'SCRAM-SHA-256$4096:0db10
+  ALTER ROLE "postgres" WITH PASSWORD 'SCRAM-SHA-256$4096:0kXrB
+  ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:T7ooV
+  ok    every ALTER ROLE in the log carries a SCRAM verifier
+== NetworkPolicies
+  app-to-local-mock
+  backing-services-from-app
+  default-deny
+  secure-notes
+  seed
+== end-to-end smoke test against http://localhost:3000
+Smoke test against http://localhost:3000
+  mode: sdk (local mock)
+  ok    health: postgres and redis reachable
+  ok    notes: write to postgres, read through redis  (postgres -> redis)
+  ok    rotate db secret (createSecret -> setSecret -> testSecret -> finishSecret)  (new version 99eb0bd1)
+  ok    rotate redis secret (createSecret -> setSecret -> testSecret -> finishSecret)  (new version 062a7953)
+  ok    drop connections, then app recovers with the rotated credentials  (recovered: db, redis)
+  ok    secrets dashboard shows the new versions in cache
+  ok    leak test: no attempt exposes the password  (6 attempts, 0 leaks)
+  ok    security checks run  (12 checks, 0 fail)
+
+All checks passed
+
+k8s-check: all checks passed
