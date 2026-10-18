@@ -355,8 +355,8 @@ jobs:
           done
           [ "$ok" = 1 ] || { echo "::error::the app is not answering on localhost:3000 (NodePort 30080)"; exit 1; }
           echo "app:     http://localhost:3000 answers"
-          curl -fsS --max-time 3 http://localhost:4575/health && echo "console: http://localhost:4575 answers" \
-            || { echo "::error::the notification console is not answering on localhost:4575 (NodePort 30575)"; exit 1; }
+          if curl -fsS --max-time 3 http://localhost:4575/health; then echo; echo "console: http://localhost:4575 answers"
+          else echo "::error::the notification console is not answering on localhost:4575 (NodePort 30575)"; exit 1; fi
 
       - name: Walk the dashboard — captures
         uses: ./.github/actions/browser-walk
