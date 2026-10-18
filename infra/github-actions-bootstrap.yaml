@@ -183,10 +183,14 @@ Resources:
                 Resource:
                   - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:rds!*
                   - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:${StackPrefix}*
+                  # the naming convention: /elasticache/<env>/<stack>/app
+                  - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:/elasticache/*/${StackPrefix}*
               - Sid: CleanUpLeftoverSecrets
                 Effect: Allow
                 Action: secretsmanager:DeleteSecret
-                Resource: !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:${StackPrefix}*
+                Resource:
+                  - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:${StackPrefix}*
+                  - !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:/elasticache/*/${StackPrefix}*
               - Sid: ReadOnlyLookups
                 Effect: Allow
                 Action:

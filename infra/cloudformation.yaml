@@ -25,6 +25,37 @@ Parameters:
     AllowedValues: [sdk, agent]
     Default: sdk
     Description: sdk = AWS SDK in the app; agent = AWS Workload Credentials Provider on localhost:2773.
+  Environment:
+    Type: String
+    AllowedValues: [dev, uat, qa, prod]
+    Default: dev
+    Description: >-
+      The {env} part of the secret naming convention: the Redis secret is named
+      /elasticache/<Environment>/<stack name>/app (docs/reference/secret-naming.md).
+  SecretAdminRoleArn:
+    Type: String
+    Default: ''
+    Description: >-
+      Optional role (arn:aws:iam::ACCOUNT:role/NAME) that may also read the Redis secret:
+      a break-glass admin, or the CloudFormation service role if you deploy with one (it
+      reads the secret when an update re-creates the cache user). Everyone else except
+      the app and its rotation function is denied.
+  AlertEmail:
+    Type: String
+    Default: ''
+    Description: Optional email for the "unexpected secret read" alarm (you confirm the subscription by email).
+  CreateTrail:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: >-
+      The alarm needs CloudTrail recording management (read) events. Most accounts already
+      have such a trail; set true only if yours does not.
+  EnableConfigRules:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: true adds AWS Config rules for secret rotation and IMDSv2 (needs a Config recorder in the account).
   LogLevel:
     Type: String
     AllowedValues: [info, debug]
@@ -64,6 +95,10 @@ Parameters:
 
 Conditions:
   MakeEndpoint: !Equals [!Ref CreateSecretsManagerEndpoint, 'true']
+  HasSecretAdmin: !Not [!Equals [!Ref SecretAdminRoleArn, '']]
+  HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+  MakeTrail: !Equals [!Ref CreateTrail, 'true']
+  MakeConfigRules: !Equals [!Ref EnableConfigRules, 'true']
 
 Resources:
   # ---------------------------------------------------------------- KMS ----
@@ -168,7 +203,9 @@ Resources:
   RedisAppSecret:
     Type: AWS::SecretsManager::Secret
     Properties:
-      Name: !Sub ${AWS::StackName}/redis
+      # Naming convention /{service}/{env}/{resource}/{name}: IAM can grant a whole
+      # environment with secret:/elasticache/prod/*, and the app builds the same name.
+      Name: !Sub /elasticache/${Environment}/${AWS::StackName}/app
       Description: ElastiCache RBAC user for the app
       KmsKeyId: !Ref SecretsKey
       GenerateSecretString:
@@ -467,6 +504,211 @@ Resources:
       RotationRules:
         ScheduleExpression: !Sub rate(${RedisRotationDays} days)
 
+  # ------------------------------------- E4 hardening: who may read secrets --
+  # S4.1 A resource policy on the Redis secret: only the app role, the rotation
+  # function and an optional break-glass role may read it, and the app only
+  # through the VPC endpoint. Created AFTER the cache user, because CloudFormation
+  # reads the secret once (as the deploying principal) to set that user's password.
+  # (The RDS-managed secret keeps the app role's own IAM limits and the S4.2 alarm.)
+  RedisSecretPolicy:
+    Type: AWS::SecretsManager::ResourcePolicy
+    DependsOn: CacheAppUser
+    Properties:
+      SecretId: !Ref RedisAppSecret
+      BlockPublicPolicy: true
+      ResourcePolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: OnlyTheAppTheRotationFunctionAndBreakGlassMayRead
+            Effect: Deny
+            Principal: '*'
+            Action: secretsmanager:GetSecretValue
+            Resource: '*'
+            Condition:
+              ArnNotEquals:
+                aws:PrincipalArn: !If
+                  - HasSecretAdmin
+                  - [!GetAtt AppRole.Arn, !GetAtt RedisRotationRole.Arn, !Ref SecretAdminRoleArn]
+                  - [!GetAtt AppRole.Arn, !GetAtt RedisRotationRole.Arn]
+              # A later stack update that re-creates the cache user reads the secret
+              # through CloudFormation, with the deployer's own IAM permissions. That
+              # read is still recorded, and the S4.2 alarm reports it.
+              ForAllValues:StringNotEquals:
+                aws:CalledVia: [cloudformation.amazonaws.com]
+          - Sid: TheAppOnlyThroughTheVpcEndpoint
+            Effect: Deny
+            Principal: '*'
+            Action: secretsmanager:GetSecretValue
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                aws:PrincipalArn: !GetAtt AppRole.Arn
+              StringNotEquals:
+                aws:SourceVpce: !If [MakeEndpoint, !Ref SecretsManagerEndpoint, !Ref ExistingSecretsManagerEndpointId]
+
+  # S4.2 Alarm when anyone other than the app or the rotation function reads
+  # either secret: CloudTrail -> EventBridge -> SNS (email if AlertEmail is set).
+  SecretReadAlertTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Secure Notes secret read alert
+      KmsMasterKeyId: alias/aws/sns
+
+  SecretReadAlertTopicPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref SecretReadAlertTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EventBridgeMayPublish
+            Effect: Allow
+            Principal: { Service: events.amazonaws.com }
+            Action: sns:Publish
+            Resource: !Ref SecretReadAlertTopic
+            Condition:
+              ArnEquals:
+                aws:SourceArn: !GetAtt SecretReadAlertRule.Arn
+
+  SecretReadAlertEmail:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties:
+      TopicArn: !Ref SecretReadAlertTopic
+      Protocol: email
+      Endpoint: !Ref AlertEmail
+
+  SecretReadAlertRule:
+    Type: AWS::Events::Rule
+    DependsOn: CacheAppUser # starts after the stack's own one-time read of the Redis secret
+    Properties:
+      Description: A Secure Notes secret was read by someone other than the app or its rotation function
+      EventPattern:
+        source: [aws.secretsmanager]
+        detail-type: [AWS API Call via CloudTrail]
+        detail:
+          eventSource: [secretsmanager.amazonaws.com]
+          eventName: [GetSecretValue, BatchGetSecretValue]
+          requestParameters:
+            secretId:
+              - !GetAtt Database.MasterUserSecret.SecretArn
+              - !Ref RedisAppSecret
+              - !Sub /elasticache/${Environment}/${AWS::StackName}/app
+          userIdentity:
+            sessionContext:
+              sessionIssuer:
+                arn:
+                  - anything-but: [!GetAtt AppRole.Arn, !GetAtt RedisRotationRole.Arn]
+      Targets:
+        - Id: alert
+          Arn: !Ref SecretReadAlertTopic
+          InputTransformer:
+            InputPathsMap:
+              secret: $.detail.requestParameters.secretId
+              who: $.detail.userIdentity.arn
+              from: $.detail.sourceIPAddress
+              when: $.detail.eventTime
+            InputTemplate: '"Secure Notes: secret <secret> was read by <who> from <from> at <when>. If this was not you, investigate."'
+
+  # Optional trail, only for accounts without one recording read management events.
+  TrailBucket:
+    Type: AWS::S3::Bucket
+    Condition: MakeTrail
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: expire-trail-logs
+            Status: Enabled
+            ExpirationInDays: 90
+
+  TrailBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Condition: MakeTrail
+    Properties:
+      Bucket: !Ref TrailBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: CloudTrailAclCheck
+            Effect: Allow
+            Principal: { Service: cloudtrail.amazonaws.com }
+            Action: s3:GetBucketAcl
+            Resource: !GetAtt TrailBucket.Arn
+            Condition:
+              StringEquals:
+                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${AWS::StackName}-trail
+          - Sid: CloudTrailWrite
+            Effect: Allow
+            Principal: { Service: cloudtrail.amazonaws.com }
+            Action: s3:PutObject
+            Resource: !Sub ${TrailBucket.Arn}/AWSLogs/${AWS::AccountId}/*
+            Condition:
+              StringEquals:
+                s3:x-amz-acl: bucket-owner-full-control
+                aws:SourceArn: !Sub arn:${AWS::Partition}:cloudtrail:${AWS::Region}:${AWS::AccountId}:trail/${AWS::StackName}-trail
+          - Sid: TlsOnly
+            Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource: [!GetAtt TrailBucket.Arn, !Sub '${TrailBucket.Arn}/*']
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  Trail:
+    Type: AWS::CloudTrail::Trail
+    Condition: MakeTrail
+    DependsOn: TrailBucketPolicy
+    Properties:
+      TrailName: !Sub ${AWS::StackName}-trail
+      S3BucketName: !Ref TrailBucket
+      IsLogging: true
+      IsMultiRegionTrail: false
+      EnableLogFileValidation: true
+      IncludeGlobalServiceEvents: true
+      EventSelectors:
+        - ReadWriteType: All
+          IncludeManagementEvents: true
+
+  # S4.3 AWS Config managed rules (needs a Config recorder in the account).
+  RotationEnabledRule:
+    Type: AWS::Config::ConfigRule
+    Condition: MakeConfigRules
+    Properties:
+      ConfigRuleName: !Sub ${AWS::StackName}-secretsmanager-rotation-enabled
+      Description: Every secret has rotation enabled
+      Scope: { ComplianceResourceTypes: [AWS::SecretsManager::Secret] }
+      Source: { Owner: AWS, SourceIdentifier: SECRETSMANAGER_ROTATION_ENABLED_CHECK }
+
+  RotationSucceededRule:
+    Type: AWS::Config::ConfigRule
+    Condition: MakeConfigRules
+    Properties:
+      ConfigRuleName: !Sub ${AWS::StackName}-secretsmanager-rotation-succeeded
+      Description: The last scheduled rotation of every secret succeeded
+      Scope: { ComplianceResourceTypes: [AWS::SecretsManager::Secret] }
+      Source: { Owner: AWS, SourceIdentifier: SECRETSMANAGER_SCHEDULED_ROTATION_SUCCESS_CHECK }
+
+  ImdsV2Rule:
+    Type: AWS::Config::ConfigRule
+    Condition: MakeConfigRules
+    Properties:
+      ConfigRuleName: !Sub ${AWS::StackName}-ec2-imdsv2
+      Description: EC2 instances require IMDSv2 (session tokens)
+      Scope: { ComplianceResourceTypes: [AWS::EC2::Instance] }
+      Source: { Owner: AWS, SourceIdentifier: EC2_IMDSV2_CHECK }
+
   # ------------------------------------------------------------ instance ----
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
@@ -543,7 +785,11 @@ Resources:
             DB_AUTO_MIGRATE=true
             DB_SSL=true
             DB_SSL_CA_FILE=/opt/secure-notes/rds-global-bundle.pem
-            REDIS_SECRET_ID=${RedisAppSecret}
+            # The Redis secret's name is built from the naming convention:
+            # /elasticache/${Environment}/${AWS::StackName}/app. The RDS secret keeps
+            # its explicit ARN, because RDS names it (rds!db-…) itself.
+            SECRETS_ENV=${Environment}
+            REDIS_SECRET_RESOURCE=${AWS::StackName}
             REDIS_HOST=${CacheHost}
             REDIS_PORT=${CachePort}
             REDIS_TLS=true
@@ -580,3 +826,6 @@ Outputs:
     Value: !Ref RedisAppSecret
   KmsKeyArn:
     Value: !GetAtt SecretsKey.Arn
+  SecretReadAlertTopicArn:
+    Description: Subscribe here (email, chat, pager) to hear about unexpected secret reads
+    Value: !Ref SecretReadAlertTopic

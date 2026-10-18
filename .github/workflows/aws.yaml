@@ -14,7 +14,8 @@
 #   3. set these environment variables from its outputs and your network:
 #      AWS_REGION, AWS_DEPLOY_ROLE_ARN, AWS_CFN_EXEC_ROLE_ARN, AWS_ARTIFACT_BUCKET,
 #      AWS_VPC_ID, AWS_APP_SUBNET_ID, AWS_DATA_SUBNET_IDS (comma-separated, 2+ AZs)
-#   optional: AWS_EXISTING_SM_ENDPOINT_ID (vpce-…) if the VPC already has one
+#   optional: AWS_EXISTING_SM_ENDPOINT_ID (vpce-…) if the VPC already has one,
+#             AWS_ALERT_EMAIL for the unexpected-secret-read alarm
 name: aws (Part C)
 
 on:
@@ -52,6 +53,8 @@ jobs:
     environment: aws
     env:
       STACK: ${{ inputs.stack_name }}
+      # {env} in the secret naming convention: the Redis secret is /elasticache/$SECRETS_ENV/$STACK/app
+      SECRETS_ENV: dev
       AWS_REGION: ${{ vars.AWS_REGION }}
       BUCKET: ${{ vars.AWS_ARTIFACT_BUCKET }}
     steps:
@@ -106,8 +109,8 @@ jobs:
           fi
           if [ "$status" = NONE ] || [ "$status" = ROLLBACK_COMPLETE ]; then
             # A deleted stack leaves its Redis secret in its recovery window; the same name would collide.
-            if aws secretsmanager delete-secret --secret-id "$STACK/redis" --force-delete-without-recovery >/dev/null 2>&1; then
-              echo "removed a leftover $STACK/redis secret"
+            if aws secretsmanager delete-secret --secret-id "/elasticache/$SECRETS_ENV/$STACK/app" --force-delete-without-recovery >/dev/null 2>&1; then
+              echo "removed a leftover /elasticache/$SECRETS_ENV/$STACK/app secret"
             fi
           fi
 
@@ -136,6 +139,9 @@ jobs:
                 AppArtifactBucket="$BUCKET" \
                 AppArtifactKey="$KEY" \
                 SecretsMode="${{ inputs.secrets_mode }}" \
+                Environment="$SECRETS_ENV" \
+                SecretAdminRoleArn="${{ vars.AWS_CFN_EXEC_ROLE_ARN }}" \
+                AlertEmail="${{ vars.AWS_ALERT_EMAIL }}" \
                 "${extra[@]}"; then
             aws cloudformation describe-stack-events --stack-name "$STACK" \
               --query "StackEvents[?contains(ResourceStatus,'FAILED')].[LogicalResourceId,ResourceStatusReason]" --output text \
@@ -272,7 +278,7 @@ jobs:
               aws rds delete-db-snapshot --db-snapshot-identifier "$s" >/dev/null && echo "deleted final snapshot $s"
             done
           fi
-          aws secretsmanager delete-secret --secret-id "$STACK/redis" --force-delete-without-recovery >/dev/null 2>&1 || true
+          aws secretsmanager delete-secret --secret-id "/elasticache/$SECRETS_ENV/$STACK/app" --force-delete-without-recovery >/dev/null 2>&1 || true
           aws s3 rm "s3://$BUCKET/secure-notes/$STACK/" --recursive --quiet || true
           echo "## Torn down: $STACK, its final snapshot, its Redis secret and its artifacts" >> "$GITHUB_STEP_SUMMARY"
 
