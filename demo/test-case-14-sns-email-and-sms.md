@@ -4,7 +4,7 @@
 
 **What it proves:** the local SNS (sns-logger) shows each message the way a subscriber would get it. Email has the sender, subject and unsubscribe footer. SMS shows GSM-7 or UCS-2 encoding and how many parts the text is split into. Recipients are masked in every view, and the test alert reaches every channel.
 
-**Catalogue IDs:** N2, N5, N6, N12, N13 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `kind`, `checks` · **Evidence from:** [CI run 39140499800](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39140499800), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
+**Catalogue IDs:** N2, N5, N6, N12, N13 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `kind`, `checks` · **Evidence from:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 
 ## Steps
 
@@ -25,7 +25,7 @@
 
 ```
   ok    the test alert reached email, SMS and chat
-  ok    recipients are masked in every delivery
+  ok    recipients are masked in every delivery and in the subscription lists
 ```
 
 The unit tests (`backend/test/logging.test.js` and `dev/aws-mock/test/mock.test.js`) cover SNS's own rules:

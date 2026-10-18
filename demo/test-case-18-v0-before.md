@@ -4,7 +4,7 @@
 
 **What it proves:** the starting point is real. `versions/v0-env-file` is the app before the redesign: passwords in a `.env` file, passed in as environment variables, and Redis given its password on the command line. Running the same kinds of checks against it finds the passwords almost everywhere, which is the "before" picture for test case 6.
 
-**Catalogue IDs:** N14 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `v0-leak` · **Evidence from:** [CI run 39140499800](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39140499800), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
+**Catalogue IDs:** N14 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `v0-leak` · **Evidence from:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 
 ## Steps
 

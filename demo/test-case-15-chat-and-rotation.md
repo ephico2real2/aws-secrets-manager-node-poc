@@ -4,7 +4,7 @@
 
 **What it proves:** when the app switches to a rotated credential, it posts a notification to the chat-only topic (`secure-notes-ops-chat`): no email, no SMS. The chat body uses the Amazon Q Developer custom-notification format, which is how an SNS topic reaches Slack or Teams on AWS.
 
-**Catalogue IDs:** N4 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `compose (agent)`, `kind` · **Evidence from:** [CI run 39140499800](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39140499800), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
+**Catalogue IDs:** N4 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `compose (agent)`, `kind` · **Evidence from:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 
 ## Steps
 
@@ -28,5 +28,5 @@ A notification is sent once per secret per 10 minutes. A single rejected passwor
 ## Evidence from the run
 
 ```
-  ok    the smoke test's rotations sent a notification to the chat-only topic (it tells, it doesn't page)
+  ok    the smoke test's rotations sent a notification to the chat-only topic, not the paging one (it tells, it doesn't page)
 ```

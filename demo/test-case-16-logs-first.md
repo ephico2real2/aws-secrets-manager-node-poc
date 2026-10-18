@@ -4,7 +4,7 @@
 
 **What it proves:** the app doesn't page anyone itself. It writes a log line with `event=secrets.fetch.failed`, shipped as OpenTelemetry to VictoriaLogs. A vmalert rule generated from the alert catalogue fires, and Alertmanager publishes it to SNS. On AWS, the same chain runs through CloudWatch Logs, a metric filter and an alarm generated from the same catalogue.
 
-**Catalogue IDs:** N8–N10 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)` (with the observability overlay), `checks` · **Evidence from:** [CI run 39140499800](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39140499800), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
+**Catalogue IDs:** N8–N10 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)` (with the observability overlay), `checks` · **Evidence from:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 
 ## Steps
 

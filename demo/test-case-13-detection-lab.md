@@ -4,7 +4,7 @@
 
 **What it proves:** a read of a secret by an identity that shouldn't read it raises the CloudFormation stack's own EventBridge rule, and on-call gets an email, a text and a chat post within a second. The app's own reads, rotation and tooling never trip it. One known gap stays visible: a read that names the DB secret by its name is recorded but not alarmed.
 
-**Catalogue IDs:** N1–N3, N7 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `compose (agent)`, `kind`, `checks` · **Evidence from:** [CI run 39140499800](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39140499800), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
+**Catalogue IDs:** N1–N3, N7 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `compose (agent)`, `kind`, `checks` · **Evidence from:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 
 ## Steps
 
@@ -30,12 +30,12 @@ How it works: the AWS mock treats the dummy access key as the caller (`local-int
 
 ```
 == alerts: the local SNS, the stack's unexpected-read rule, the app's notifications
-  ok    no unexpected-read alert before the test: the app, rotation and tooling reads are all expected
-  ok    the smoke test's rotations sent a notification to the chat-only topic (it tells, it doesn't page)
+  ok    no unexpected-read alert except the lab's intruders: the app, rotation and tooling reads are all expected
+  ok    the smoke test's rotations sent a notification to the chat-only topic, not the paging one (it tells, it doesn't page)
   ok    reading the Redis secret as IAM user mallory raised the alarm: email, SMS and chat delivered
   ok    reading the DB secret by name is audited but not alarmed (the documented gap)
   ok    the test alert reached email, SMS and chat
-  ok    recipients are masked in every delivery
+  ok    recipients are masked in every delivery and in the subscription lists
 ```
 
 Building this simulation found two bugs in the AWS version, which meant the alarm could never fire there:

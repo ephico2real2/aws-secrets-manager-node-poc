@@ -13,4 +13,12 @@
 
 Proving it on AWS is S12.5, still open.
 
-**Evidence:** [CI run RUN_ID](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/RUN_ID), with all jobs green, and the [ci-captures](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures) branch. Start with chapter 7 of the learning path, [Alerts and audit](https://github.com/ephico2real2/aws-secrets-manager-node-poc/blob/v2-alerts/docs/learn/07-alerts-and-audit.md), and demo test cases 13–18.
+**Hardened after an independent review:**
+- the line explaining a refusal to start now reaches the log file CloudWatch reads;
+- a read of the Redis secret by partial ARN now alarms;
+- startup retries and alarm recoveries no longer page;
+- the local SNS console no longer shows full recipients through its API, and refuses unsigned or browser requests.
+
+One known gap stays documented: a read of the RDS-named DB secret by name (story S12.6).
+
+**Evidence:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), with all jobs green, and the [ci-captures](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures) branch. Start with chapter 7 of the learning path, [Alerts and audit](https://github.com/ephico2real2/aws-secrets-manager-node-poc/blob/v2-alerts/docs/learn/07-alerts-and-audit.md), and demo test cases 13–18.

@@ -4,7 +4,7 @@
 
 **What it proves:** alerting adds new places a value could land: the log store, Alertmanager, the SNS deliveries and the audit records. The credential scan searches each of them for every real password (every version) and finds none, including when the lab-only reveal flag is on.
 
-**Catalogue IDs:** N6, N11, N12, C1–C16 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `kind`, unit tests · **Evidence from:** [CI run 39140499800](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39140499800), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
+**Catalogue IDs:** N6, N11, N12, C1–C16 ([TEST-CASES.md](../docs/TEST-CASES.md)) · **Proven in CI by:** `compose (sdk)`, `kind`, unit tests · **Evidence from:** [CI run 39142364657](https://github.com/ephico2real2/aws-secrets-manager-node-poc/actions/runs/39142364657), published on [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 
 ## Steps
 
