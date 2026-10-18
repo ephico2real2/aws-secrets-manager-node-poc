@@ -414,6 +414,7 @@ jobs:
       - name: Sign the pushed images and attach their SBOMs (cosign, keyless)
         run: |
           set -euo pipefail
+          [ "$(wc -l < digests.env)" = 2 ] || { echo "::error::expected 2 pushed digests to sign"; cat digests.env; exit 1; }
           while IFS='=' read -r name ref; do
             cosign sign --yes "$ref"
             cosign attest --yes --type cyclonedx --predicate "output/supply-chain/sbom-$name.cdx.json" "$ref"
@@ -425,6 +426,7 @@ jobs:
           docker logout ghcr.io
           # Anyone can check the signature and the SBOM: only this workflow, on main, could have made them.
           id="https://github.com/${{ github.repository }}/.github/workflows/ci.yaml@${{ github.ref }}"
+          [ "$(wc -l < digests.env)" = 2 ] || { echo "::error::nothing to verify"; exit 1; }
           while IFS='=' read -r name ref; do
             if cosign verify --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" > /dev/null \
                && cosign verify-attestation --type cyclonedx --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" > /dev/null; then

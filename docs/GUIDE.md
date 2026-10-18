@@ -60,7 +60,7 @@ The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Eve
    scripts/compose-check.sh
    ```
 
-   **Check:** the tests end with `# pass 11` and `# fail 0`, and `compose-check.sh` ends with `All checks passed`.
+   **Check:** the tests end with `# pass 15` and `# fail 0`, and `compose-check.sh` ends with `All checks passed`.
 4. Stop and reset. Press `Ctrl+C` in the first terminal, then:
 
    ```bash
@@ -68,6 +68,14 @@ The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Eve
    ```
 
    `-v` deletes the data, so the next start creates new random passwords. It also frees port 3000.
+
+**Optional: agent mode.** On EC2 the app can read its secrets through a local AWS agent instead of calling Secrets Manager itself (`SecretsMode=agent` in C4). To try that here, start the stack with a second file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.agent.yml up --build
+```
+
+The dashboard looks the same, and **Secrets in memory** shows `mode: agent`. The agent only answers requests that carry its token, which only it and the app can read.
 
 **What that one command started:**
 
@@ -159,7 +167,14 @@ When you're done: `kind delete cluster --name secure-notes`.
 
    **Check:** the last line is `k8s-check: all checks passed`.
 
-**Cluster can't reach ghcr.io?** Copy the two images, `ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app` and `/aws-mock`, into a registry it can reach, then change the two `images:` entries in `deploy/k8s/overlays/openshift/kustomization.yaml` to point there.
+**Cluster can't reach ghcr.io or Docker Hub?** Copy the four images into a registry it can reach. Log in to that registry first (`skopeo login`, `podman login` or `oc registry login`), then:
+
+```bash
+scripts/mirror-images.sh <your-registry>/<path>
+KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/mirror
+```
+
+The script copies the app, the stand-in, Postgres and Redis with `skopeo` (or `oc image mirror` if you set `MIRROR_TOOL=oc`), writes the `mirror` overlay, and checks that every image in it comes from your registry. If the registry needs a login to pull, also create a pull secret and link it to the `secure-notes` and `default` service accounts.
 
 Why no fixed user IDs: OpenShift's restricted-v2 policy starts every container as a random high user ID with group 0, and rejects pods that ask for a specific one. CI tests the Kubernetes deployment on kind (B1), which runs the same base and backing services; this overlay only adds the Route and the published image names, and leaves the user IDs to OpenShift. The check in step 3 confirms it on your cluster.
 
@@ -214,6 +229,7 @@ One CloudFormation template creates every piece for you:
 | KMS key | Encryption key | Encrypts the secrets, the database disk and the cache |
 | VPC endpoint | Private door to Secrets Manager | Secret requests never cross the public internet |
 | Security groups | Firewalls | Only the server can reach the database and cache |
+| Rotation function | A small Lambda function | Changes the Redis password every 30 days; RDS rotates the database one |
 
 ```mermaid
 flowchart LR
@@ -225,6 +241,8 @@ flowchart LR
     redis[("ElastiCache Redis")]
   end
   ec2 -->|"read 2 secrets"| vpce --> sm["Secrets Manager<br/>2 secrets, KMS-encrypted"]
+  rot["Rotation function<br/>(every 30 days)"] -.->|"new Redis password"| sm
+  rot -.-> redis
   ec2 -->|TLS| rds
   ec2 -->|TLS| redis
 ```
@@ -515,6 +533,16 @@ RDS rotates the database password on a schedule by itself (every 7 days by defau
 
 **Check:** the card returns to green **current** with a new version ID, and the Credential timeline shows `new-version`. If a new connection had hit the old password first, the timeline would show `auth-failed`, then `new-version`, then `recovered`, with no error for the user.
 
+**The Redis password rotates too.** The stack's rotation function changes it every 30 days (the `RedisRotationDays` parameter). To try it now, run the same command on the Redis secret:
+
+```bash
+export REDIS_SECRET=$(aws cloudformation describe-stacks --stack-name $STACK \
+  --query "Stacks[0].Outputs[?OutputKey=='RedisSecretArn'].OutputValue" --output text)
+aws secretsmanager rotate-secret --secret-id "$REDIS_SECRET"
+```
+
+It takes about 5 to 10 minutes, because ElastiCache applies each password change slowly. The function adds the new password next to the old one, switches the secret, then removes the old password. Then click **Refresh now** on the Redis card: it shows a new version, and notes keep loading.
+
 ### C9 — Update the app after code changes
 
 The install script only runs on the server's first boot, so after a code change you upload a new zip and pull it onto the server yourself.
@@ -587,7 +615,7 @@ Expect an error saying the stack does not exist.
 
 ### C11 — Run Part C from GitHub Actions (optional)
 
-Once your AWS account is ready, the manual workflow `aws (Part C)` does C3 to C10 for you in one click: it deploys the stack, checks the server, rotates the database password, takes screenshots of the real dashboard, and then deletes everything. It never runs on its own, so it costs nothing until you start it.
+Once your AWS account is ready, the manual workflow `aws (Part C)` does C3 to C10 for you in one click: it deploys the stack, checks the server, rotates the database and Redis passwords, takes screenshots of the real dashboard, and then deletes everything. It never runs on its own, so it costs nothing until you start it.
 
 No AWS keys are stored in GitHub. The job runs in a protected GitHub environment called `aws` and gets short-lived AWS credentials through GitHub's OIDC sign-in, the same idea as the EC2 instance role. Its role can deploy and rotate but cannot read any secret, so the run proves rotation without ever seeing a password.
 
@@ -630,20 +658,23 @@ Every push to the repository runs Part A and Part B1 (kind) on a GitHub runner, 
 
 ```mermaid
 flowchart LR
-  checks["checks<br/>unit tests, lint,<br/>schemas, cfn-lint"] --> build["build<br/>docker compose build, once"]
-  build --> compose["compose<br/>Part A on the runner"]
+  checks["checks<br/>unit tests, lint,<br/>schemas, cfn-lint"] --> build["build<br/>compose build, once<br/>SBOM + CVE scan"]
+  build --> compose["compose (sdk, agent)<br/>Part A, both secrets modes"]
   build --> kind["kind<br/>B1 · Pod Security restricted"]
-  compose --> images["images<br/>main only: push the tested images"]
+  build --> mirror["mirror<br/>all images to another registry"]
+  compose --> images["images<br/>main only: push,<br/>sign, attest SBOM"]
   kind --> images
+  mirror --> images
 ```
 
 | Job | Same as | What it proves |
 | --- | --- | --- |
 | `checks` | Part A, step 3 | Unit tests with the real Postgres, Redis and AWS SDK libraries; every script and workflow lints clean; every Kustomize overlay renders and matches its schema; `cfn-lint` passes on both CloudFormation templates |
-| `build` | `docker compose build` | Builds the two images once and hands them to every later job |
-| `compose` | Part A | The stack starts, the startup passwords stop working, and the end-to-end test passes |
+| `build` | `docker compose build` | Builds the two images once, lists every package in them (an SBOM) and fails if any has a critical vulnerability that already has a fix, then hands them to every later job |
+| `compose (sdk)`, `compose (agent)` | Part A | The stack starts, the startup passwords stop working, and the end-to-end test passes. It runs twice: once as normal, and once with the app reading its secrets through a local agent (agent mode), which must refuse any request without its token |
 | `kind` | B1 | The same under Pod Security `restricted`: who each container runs as, that no app credential is a Kubernetes Secret, that Postgres only received password hashes, and the end-to-end test |
-| `images` | — | On `main` only: pushes the exact images that passed to `ghcr.io/ephico2real2/aws-secrets-manager-node-poc` |
+| mirror | B2, no internet | The mirror script copies all four images into a throwaway registry, and the overlay it generates pulls only from there |
+| `images` | — | On `main` only: pushes the exact images that passed to `ghcr.io/ephico2real2/aws-secrets-manager-node-poc`, signs each one with cosign and attaches its SBOM as a signed attestation, then checks both without logging in |
 
 **The screenshots.** In the compose and kind jobs, a Playwright browser walks the dashboard: first load, a Postgres rotation and recovery, a Redis rotation, the leak test, and a phone-width view. Each page lists the text it must show, so a screenshot of a broken page fails the job. The pictures go to the [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures) branch, one folder per run and job, and appear on the run's summary page. The same pattern as cilium-implementation-poc.
 
