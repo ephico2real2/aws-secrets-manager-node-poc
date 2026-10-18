@@ -23,6 +23,10 @@ done
 root=$("$K" -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.securityContext.runAsUser}{"\n"}{end}' | awk '$2=="0"')
 [ -z "$root" ] && pass "no pod asks for UID 0" || fail "pods running as root: $root"
 
+echo "== the app never restarted (startup and rotation recover in-process)"
+restarts=$("$K" -n "$NS" get pods -l app.kubernetes.io/name=secure-notes -o jsonpath='{range .items[*]}{.status.containerStatuses[0].restartCount}{"\n"}{end}' | awk '{s+=$1} END {print s+0}')
+[ "$restarts" = 0 ] && pass "restartCount 0" || fail "the app container restarted $restarts time(s); see secure-notes.previous.log"
+
 echo "== Pod Security admission on the namespace"
 psa=$("$K" get ns "$NS" -o jsonpath='{.metadata.labels.pod-security\.kubernetes\.io/enforce}')
 if [ "$psa" = restricted ]; then

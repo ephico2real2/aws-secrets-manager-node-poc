@@ -67,17 +67,21 @@ export async function createCache({ provider, secretId, config, logger, events }
     }
   });
 
-  // The very first credential can already be stale (e.g. the agent's cache
-  // still holds a pre-rotation value), so startup gets the same refresh path.
+  // The very first credential can already be stale (the agent's cache still
+  // holds a pre-rotation value, or a bootstrap job is still applying the user),
+  // so startup gets the same refresh path. When Redis rejects AUTH, ioredis
+  // closes the socket and connect() rejects with "Connection is closed." rather
+  // than the auth error itself; the reconnect it schedules uses the refreshed
+  // options, so wait for that instead of failing startup.
   logUse('first connection');
   try {
     await client.connect();
   } catch (err) {
-    if (!isAuthError(err)) throw err;
+    if (!isAuthError(err) && !recovering) throw err;
     await (refreshing ?? refreshCredentials('redis-auth-failure'));
     if (client.status !== 'ready') {
       await new Promise((resolve, reject) => {
-        const t = setTimeout(() => reject(new Error('redis not ready after credential refresh')), 10_000);
+        const t = setTimeout(() => reject(new Error('redis not ready 30 s after a credential refresh')), 30_000);
         client.once('ready', () => {
           clearTimeout(t);
           resolve();
