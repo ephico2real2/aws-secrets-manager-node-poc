@@ -6,15 +6,16 @@ viewport: {width: 1280, height: 900}
 
 pages:
   # 10. The detection lab: an intruder read, matched by the stack's own rule.
+  #     (Match visible text: the page shows tags in upper case through CSS.)
   - name: 10-detection-lab
     url: ${BASE}/
     fullPage: true
     actions:
       - click: Read Redis secret as IAM user mallory
-      - waitForText: alarm sent
+      - waitForText: published to SNS
       - wait: 3000
     expect:
-      text: [Detection lab, rule receives reads, alarm sent, user/mallory]
+      text: [Detection lab, rule receives reads, published to SNS, user/mallory]
 
   # 11. What the on-call engineer gets by email.
   - name: 11-sns-email
