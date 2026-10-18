@@ -66,7 +66,7 @@ export function createDb({ provider, secretId, config, logger, events }) {
       return await pool.query(text, params);
     } catch (err) {
       if (AUTH_FAILED.has(err.code)) {
-        log.warn({ code: err.code }, 'database rejected cached credential; refreshing from Secrets Manager');
+        log.warn({ code: err.code, event: 'db.auth.rejected' }, 'database rejected cached credential; refreshing from Secrets Manager');
         events.record('db', 'auth-failed', 'Postgres rejected the cached password, so the app force-refreshed the secret');
 
         const fresh = (await provider.refresh(secretId, 'db-auth-failure')).reveal();
@@ -78,6 +78,7 @@ export function createDb({ provider, secretId, config, logger, events }) {
         }
         const result = await (await getPool()).query(text, params);
         events.record('db', 'recovered', 'Reconnected to Postgres with the rotated credential and retried the query');
+        log.info({ event: 'db.auth.recovered' }, 'database accepted the refreshed credential');
         return result;
       }
       if (CONNECTION_DROPPED.has(err.code)) {

@@ -1,4 +1,5 @@
 import { fileURLToPath } from 'node:url';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { config, assertSafeEnvironment } from './config.js';
 import { createLogger } from './log.js';
@@ -9,6 +10,27 @@ import { createCache } from './clients/cache.js';
 import { createHttpServer, createRouter } from './http.js';
 import { registerRoutes } from './routes.js';
 import { NOTES_SCHEMA } from './schema.js';
+import { createOtlpShipper } from './logship/otlp.js';
+
+const version = (() => {
+  try {
+    return JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
+  } catch {
+    return undefined;
+  }
+})();
+
+// Optional copy of every (redacted) record to an OpenTelemetry Collector.
+const shipper = config.logging.otlpEndpoint
+  ? createOtlpShipper({
+      endpoint: config.logging.otlpEndpoint,
+      resource: {
+        'service.name': 'secure-notes',
+        'service.version': version,
+        'deployment.environment.name': config.secretNaming.environment ?? config.nodeEnv,
+      },
+    })
+  : undefined;
 
 const redactor = new Redactor();
 const logger = createLogger({
@@ -17,19 +39,28 @@ const logger = createLogger({
   level: config.logging.level,
   revealSecrets: config.logging.revealSecrets && config.nodeEnv !== 'production',
   base: { app: 'secure-notes' },
+  format: config.logging.format === 'pretty' ? 'pretty' : 'json',
+  sinks: shipper ? [shipper] : [],
 });
+
+// Exit after giving the log shipper a moment, so the line that explains the
+// exit reaches the log store (and can raise its alert).
+async function exitAfterLogs(code) {
+  await logger.drain(2000);
+  process.exit(code);
+}
 
 process.on('unhandledRejection', (err) => logger.error({ err }, 'unhandled rejection'));
 process.on('uncaughtException', (err) => {
   logger.error({ err }, 'uncaught exception; exiting');
-  process.exit(1);
+  void exitAfterLogs(1);
 });
 
 try {
   assertSafeEnvironment();
 } catch (err) {
-  logger.error(err.message);
-  process.exit(78); // EX_CONFIG: systemd will not hot-loop on a config error with RestartPreventExitStatus=78
+  logger.error({ event: 'config.unsafe', fatal: true }, err.message);
+  await exitAfterLogs(78); // EX_CONFIG: systemd will not hot-loop on a config error with RestartPreventExitStatus=78
 }
 
 logger.debug(
@@ -50,7 +81,7 @@ logger.info(
 for (const w of config.secretNaming.warnings) logger.warn({}, `secret naming: ${w}`);
 if (config.logging.revealSecrets) {
   logger.warn(
-    { logLevel: config.logging.level },
+    { logLevel: config.logging.level, event: 'secrets.reveal.enabled' },
     config.logging.level === 'debug'
       ? 'LOG_REVEAL_SECRETS=true: secret values will be written to this log. Lab use only; never in production.'
       : 'LOG_REVEAL_SECRETS=true has no effect unless LOG_LEVEL=debug',
@@ -90,8 +121,8 @@ async function warmUp() {
 try {
   await warmUp();
 } catch (err) {
-  logger.error({ err }, 'unable to load secrets from Secrets Manager; exiting');
-  process.exit(1);
+  logger.error({ err, event: 'secrets.load.fatal', fatal: true }, 'unable to load secrets from Secrets Manager; exiting');
+  await exitAfterLogs(1);
 }
 
 const db = createDb({ provider, secretId: config.secretIds.db, config, logger, events });
@@ -109,7 +140,7 @@ const rotator = config.demo.enabled
   : undefined;
 
 const router = createRouter();
-registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator });
+registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const server = createHttpServer({
@@ -131,7 +162,7 @@ async function shutdown(signal) {
   logger.info({ signal }, 'shutting down');
   server.close();
   await Promise.allSettled([db.close(), cache.close()]);
-  process.exit(0);
+  await exitAfterLogs(0);
 }
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));

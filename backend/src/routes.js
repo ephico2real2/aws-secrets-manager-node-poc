@@ -5,7 +5,7 @@ import { runSecurityChecks } from './security/checks.js';
 const NOTES_CACHE_KEY = 'notes:list';
 const ALIASES = ['db', 'redis'];
 
-export function registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator }) {
+export function registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper }) {
   const log = logger.child({ component: 'api' });
 
   // ---- health -------------------------------------------------------------
@@ -33,6 +33,8 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
     logLevel: config.logging.level,
     revealSecrets: config.logging.revealSecrets,
     secrets: Object.fromEntries(ALIASES.map((a) => [a, config.secretIds[a]])),
+    logFormat: config.logging.format,
+    logShipping: shipper ? shipper.stats() : null,
     secretNaming: {
       environment: config.secretNaming.environment ?? null,
       pattern: config.secretNaming.pattern ?? null,

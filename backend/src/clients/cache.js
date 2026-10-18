@@ -53,8 +53,8 @@ export async function createCache({ provider, secretId, config, logger, events }
 
   client.on('error', (err) => {
     if (isAuthError(err)) {
-      log.warn('redis rejected cached credential; refreshing from Secrets Manager');
-      refreshCredentials('redis-auth-failure').catch((e) => log.error({ err: e }, 'credential refresh failed'));
+      log.warn({ event: 'cache.auth.rejected' }, 'redis rejected cached credential; refreshing from Secrets Manager');
+      refreshCredentials('redis-auth-failure').catch((e) => log.error({ err: e, event: 'cache.refresh.failed' }, 'credential refresh failed'));
     } else {
       log.warn({ err }, 'redis connection error');
     }
@@ -63,6 +63,7 @@ export async function createCache({ provider, secretId, config, logger, events }
     log.info('redis connection ready');
     if (recovering) {
       recovering = false;
+      log.info({ event: 'cache.auth.recovered' }, 'redis accepted the refreshed credential');
       events.record('redis', 'recovered', 'Reconnected to Redis with the rotated credential');
     }
   });

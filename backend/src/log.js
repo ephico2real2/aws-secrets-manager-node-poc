@@ -4,10 +4,16 @@
 // keys) and once on the final serialized line (registered secret values).
 // The last-mile pass is what makes redaction hold even when a secret ends up
 // somewhere unexpected, like an error message built by a library.
+//
+// Sinks (e.g. the OTLP shipper) receive exactly the redacted line that stdout
+// gets, never a revealed one. format 'pretty' changes only what stdout shows;
+// the ring buffer and the sinks always get JSON.
+
+import { prettyLine } from './logfmt.js';
 
 const LEVELS = { debug: 20, info: 30, warn: 40, error: 50 };
 
-export function createLogger({ redactor, level = 'info', ringSize = 300, base = {}, out = process.stdout, revealSecrets = false }) {
+export function createLogger({ redactor, level = 'info', ringSize = 300, base = {}, out = process.stdout, revealSecrets = false, format = 'json', sinks = [] }) {
   const ring = [];
   const min = LEVELS[level] ?? LEVELS.info;
 
@@ -26,7 +32,8 @@ export function createLogger({ redactor, level = 'info', ringSize = 300, base = 
     }
     const record = { time: new Date().toISOString(), level: levelName, ...bindings, ...fields, msg };
     const line = redactor.scrubString(JSON.stringify(redactor.scrub(record)));
-    out.write(`${line}\n`);
+    out.write(`${format === 'pretty' ? prettyLine(JSON.parse(line)) : line}\n`);
+    for (const sink of sinks) sink.write(line);
     ring.push(line);
     if (ring.length > ringSize) ring.shift();
     return line;
@@ -42,8 +49,8 @@ export function createLogger({ redactor, level = 'info', ringSize = 300, base = 
       revealed: true, warning: 'secret values in this line are NOT masked (LOG_REVEAL_SECRETS=true)',
     };
     const line = JSON.stringify(record);
-    out.write(`${line}\n`);
-    return line; // not kept in the ring: /api/logs never serves revealed lines
+    out.write(`${format === 'pretty' ? prettyLine(record) : line}\n`);
+    return line; // not kept in the ring and never given to a sink: /api/logs and the log store never get revealed lines
   }
 
   function make(bindings) {
@@ -58,6 +65,8 @@ export function createLogger({ redactor, level = 'info', ringSize = 300, base = 
       isDebug: LEVELS.debug >= min,
       /** Most recent (already redacted) log lines, newest last. */
       recent: (n = 100) => ring.slice(-n),
+      /** Send what the sinks have buffered (before exiting). */
+      drain: (ms) => Promise.allSettled(sinks.map((s) => s.drain?.(ms))),
     };
   }
 

@@ -116,11 +116,12 @@ export class SecretsProvider extends EventEmitter {
       if (!force && prev && age < this.#maxStaleMs) {
         prev.lastError = `${err.name}: ${err.message}`;
         prev.expiresAt = Date.now() + Math.min(30_000, this.#ttlMs); // retry soon
-        this.#log.warn({ secretId, err, ageSeconds: Math.round(age / 1000) }, 'secret fetch failed, serving last good value');
+        this.#log.warn({ secretId, err, ageSeconds: Math.round(age / 1000), event: 'secrets.fetch.stale' }, 'secret fetch failed, serving last good value');
         return prev.value;
       }
       if (prev) prev.lastError = `${err.name}: ${err.message}`;
-      this.#log.error({ secretId, err, reason }, 'secret fetch failed');
+      const event = err?.code === 'AGENT_HTTP_403' ? 'agent.forbidden' : 'secrets.fetch.failed';
+      this.#log.error({ secretId, err, reason, event }, 'secret fetch failed');
       throw err;
     }
   }

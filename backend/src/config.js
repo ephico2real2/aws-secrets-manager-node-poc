@@ -94,6 +94,11 @@ export const config = Object.freeze({
     // Lab troubleshooting only: debug credential lines also print the real
     // values. Refused in production (assertSafeEnvironment).
     revealSecrets: bool(env.LOG_REVEAL_SECRETS),
+    // json (default) | pretty (one readable line per record; development only).
+    format: env.LOG_FORMAT ?? 'json',
+    // Optional: also ship each (redacted) record to an OpenTelemetry Collector,
+    // e.g. http://otel-collector:4318. stdout stays the primary log.
+    otlpEndpoint: env.LOG_OTLP_ENDPOINT || undefined,
   }),
 
   // Demo-only features (rotation lab, leak test, log tail). Off by default and
@@ -127,6 +132,7 @@ export function assertSafeEnvironment() {
     if (!config.secretIds.redis) problems.push(`no Redis secret: ${how}`);
   }
   if (!['sdk', 'agent'].includes(config.secretsMode)) problems.push(`SECRETS_MODE must be 'sdk' or 'agent'`);
+  if (!['json', 'pretty'].includes(config.logging.format)) problems.push(`LOG_FORMAT must be 'json' or 'pretty'`);
 
   if (config.nodeEnv === 'production') {
     // Long-term access keys on an EC2 host defeat the purpose of the instance role.
@@ -136,6 +142,7 @@ export function assertSafeEnvironment() {
     if (config.awsEndpoint) problems.push('AWS_MOCK_ENDPOINT must not be set in production');
     if (config.demo.enabled) problems.push('DEMO_MODE must not be enabled in production');
     if (config.logging.revealSecrets) problems.push('LOG_REVEAL_SECRETS must not be enabled in production: it writes secret values to the log');
+    if (config.logging.format !== 'json') problems.push('LOG_FORMAT must be json in production: log stores and alert rules read JSON');
   }
 
   if (problems.length) {

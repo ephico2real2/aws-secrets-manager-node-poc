@@ -198,7 +198,7 @@ export function createRotator({ config, redactor, logger, events }) {
           .send(new UpdateSecretVersionStageCommand({ SecretId: secretId, VersionStage: 'AWSPENDING', RemoveFromVersionId: token }))
           .catch(() => {});
       }
-      log.error({ err, alias }, 'demo rotation failed');
+      log.error({ err, alias, event: 'rotation.demo.failed' }, 'demo rotation failed');
       throw new HttpError(502, `rotation failed at step ${steps.length + 1}: ${err.message}`, 'rotation_failed');
     } finally {
       busy = false;
