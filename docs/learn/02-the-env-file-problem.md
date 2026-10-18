@@ -21,8 +21,8 @@ API_KEY=sk_test_EXAMPLE_ONLY_4f9a2c7e
 Start a container with it, headless (`-d`) and removed when it stops (`--rm`):
 
 ```console
-$ podman run -d --rm --name envdemo --env-file demo/env-file-demo/generic-app.env docker.io/library/alpine:3.20 sleep 600
-3bd8d96433f9255eeb409ef9d61678cb6b4b98b09303bd32c280213840f9924f
+$ podman run -q -d --rm --name envdemo --env-file demo/env-file-demo/generic-app.env docker.io/library/alpine:3.20 sleep 600
+7281d243072d5283a84de7633ead5bf7ba2e1a188cc2cff6582631e5ad182feb
 ```
 
 ## 2.2 Four ways to read the password
@@ -101,14 +101,17 @@ all processes", so using them for secrets "is therefore not recommended"
 
 ## 2.4 The same lookups on Secure Notes
 
-Secure Notes gets an env file too, but it says only **where** the secrets are:
+Secure Notes gets an env file too, but it says only **where** the secrets are: the
+database secret by ARN, the Redis secret by the parts of its name
+([naming convention](../reference/secret-naming.md): `/elasticache/prod/secure-notes/app`):
 
 ```console
-$ podman run -d --rm --name sndemo --env-file demo/env-file-demo/secure-notes.env secure-notes-app:dev sleep 600
+$ podman run -q -d --rm --name sndemo --env-file demo/env-file-demo/secure-notes.env secure-notes-app:dev sleep 600
 $ podman exec sndemo env | grep -Ei 'pass|secret|token|key|url'
-REDIS_SECRET_ID=arn:aws:secretsmanager:us-east-1:111122223333:secret:secure-notes/redis-AbCdEf
 SECRETS_MODE=sdk
+REDIS_SECRET_RESOURCE=secure-notes
 DB_SECRET_ID=arn:aws:secretsmanager:us-east-1:111122223333:secret:rds!db-0a1b2c3d-AbCdEf
+SECRETS_ENV=prod
 ```
 
 Nothing to steal. The app fetches the passwords at runtime, keeps them in memory, and

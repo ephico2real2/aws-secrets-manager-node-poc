@@ -22,7 +22,10 @@ them; they were never rotated, and nobody could tell who had read them
 ## How the work is organized
 
 Epics hold features; features hold user stories with acceptance criteria. The full list,
-with status and evidence, is in the [backlog](backlog.md).
+with status and evidence, is in the [backlog](backlog.md), and every item is a
+[GitHub issue](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues?q=is%3Aissue+label%3Atype%3Aepic)
+with its features and stories as sub-issues. Open work:
+[`is:open`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues?q=is%3Aissue+is%3Aopen).
 
 ```mermaid
 flowchart LR
@@ -41,9 +44,9 @@ flowchart LR
 | --- | --- | --- |
 | E0 Discovery | The initial design reviewed; requirements R1–R6 | ✅ [Source review](01-source-review.md) |
 | E1 Select a secrets manager for AWS | Decision with criteria and consequences | ✅ [ADR-001](02-adr-001-secrets-manager-selection.md) |
-| E2 Application changes | The app fetches, caches, refreshes and redacts secrets | ✅ |
+| E2 Application changes | The app fetches, caches, refreshes and redacts secrets; names follow a convention | ✅ |
 | E3 Platform on AWS | Identity, network path, encryption, managed rotation | ✅ |
-| E4 Security hardening | Resource policies, unexpected-read alarm, Config rules; more planned | ✅ top three · 🔜 rest |
+| E4 Security hardening | Resource policy, unexpected-read alarm, Config rules; least-privilege DB user, IAM auth, multi-region next | ✅ top three (🔎 verify on AWS) · 🔜 rest |
 | E5 Delivery and automation | One build, CI, supply chain, keyless deploys | ✅ |
 | E6 Verification and evidence | Every claim has a test that fails if it stops being true | ✅ |
 | E7 Documentation and enablement | A learning path a junior engineer can follow | ✅ |
