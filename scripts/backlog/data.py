@@ -448,6 +448,11 @@ _E["E5"]["children"].append(
       ["`scripts/bootstrap/linux.sh`: kind at its pin, checked against the release's SHA-256; kubectl if missing; used by CI.",
        "`scripts/bootstrap/macos.sh`: Homebrew formulae and Docker Desktop, then the preflight; changes no settings.",
        "Run end to end on a real MacBook: Compose and kind (the owner)."]),
+    S("S5.4", "Local captures, checked like CI's", "S",
+      "As a presenter, I want to photograph the lab on my own machine with the checks CI applies, so that a local screenshot of a broken page fails instead of reaching a demo page.",
+      ["`scripts/capture-local.sh compose|kind|alerts|reveal` runs `scripts/capture/walk.js` with CI's specs and labels; Playwright and js-yaml at the pins in `scripts/versions.env`, in `.tmp/pw`.",
+       "Proven on Podman: the Compose dashboard walk met every page's expectations (6 pages); the kind walk against Compose failed with exit 2 (`no SA token · restricted PSA` not on the page)."],
+      evidence=[d("scripts/capture-local.sh"), d("scripts/capture/walk.js")], status="done"),
     S("S5.3", "OpenShift: Routes for the app and the console; images built on the cluster", "M",
       "As an OpenShift user, I want to open the app and the notification console through Routes, and to build the images on the cluster, so that the lab runs on OpenShift Local on any Mac.",
       ["Routes `secure-notes` and `sns-logger` (edge TLS); a NetworkPolicy lets the router reach the console; `k8s-deploy.sh` points the console link at its Route.",
@@ -483,6 +488,7 @@ _EVIDENCE = {
     "S10.2": [d("scripts/sync-alert-rules.js"), d("deploy/observability/vmalert-rules.yaml")],
     "S10.3": [d("deploy/observability/alertmanager.yml")],
     "S10.4": [d("scripts/pipeline-check.sh")],
+    "S10.5": [d("scripts/pipeline-check.sh"), d("demo/test-case-16-logs-first.md", "test case 16: N17"), "CI run 39174954533, job `compose (sdk)`"],
     "S11.1": [d("dev/aws-mock/lib/principals.js"), d("dev/aws-mock/lib/cloudtrail.js")],
     "S11.2": [d("dev/aws-mock/lib/event-pattern.js"), d("scripts/sync-event-pattern.py"), d("dev/aws-mock/rules/secret-read-alert.json")],
     "S11.3": [d("backend/src/routes.js"), d("frontend/index.html", "dashboard: Detection lab")],
@@ -541,6 +547,8 @@ for _it in _all_items():
             (1, "`scripts/podman.env` sets both variables, in bash or zsh, on macOS."),
             (1, "CI job `compose (podman)` runs Part A on rootless Podman on Linux: docker CLI 28.0.4 to Podman 4.9.3, `compose-check.sh` passed (run 39173929084).")]
         _it["evidence"] += [d("demo/test-case-10-kubernetes.md", "test case 10: the lab on Podman"), d("docs/GUIDE.md", "GUIDE B1: Podman instead of Docker")]
+    if _it["id"] == "S5.4":   # both measured on the owner's MacBook, 2026-10-18
+        _it["criteria"] = [(1, t) for _, t in _it["criteria"]]
     # Parked by the owner on 2026-10-18: CRC was deleted on their Mac on 2026-10-13 and is restored later.
     if _it["id"] == "S5.3":
         _it["parked"] = True

@@ -6,7 +6,8 @@ should see, the screenshot and the real output from a CI run.** The pictures and
 outputs come from the CI captures on the
 [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 branch, so they show the app as it actually ran. The exceptions are labelled: test cases 10
-and 14 also show the lab on a MacBook, on Podman instead of Docker.
+and 14 also show the lab on a MacBook, on Podman instead of Docker. To take your own,
+with the same checks on each page as CI's: `scripts/capture-local.sh compose` (or `kind`, `alerts`, `reveal`).
 
 Do them **in order**: test case 6 searches for the passwords that test cases 2–4
 created and leaked into the logs, and test cases 9 and 10 change which stack is
@@ -38,7 +39,7 @@ test case 12 `skopeo` (or `oc`) and a registry you can push to. Test case 16 nee
 | 13 | [An intruder reads a secret: the alarm fires](test-case-13-detection-lab.md) | Click **Read Redis secret as IAM user mallory**: the stack's own EventBridge rule matches, and email, SMS and chat are delivered | N1–N3, N7 |
 | 14 | [What on-call receives: email and SMS](test-case-14-sns-email-and-sms.md) | The notification console: the email with its footer, the SMS split into parts, recipients masked | N2, N5, N6, N12, N13 |
 | 15 | [Chat: a rotation tells, it doesn't page](test-case-15-chat-and-rotation.md) | **The app switched to a rotated credential** on the chat-only topic | N4 |
-| 16 | [Logs first, then alerts](test-case-16-logs-first.md) | Secrets Manager stopped: the log line → VictoriaLogs → vmalert → Alertmanager → a critical page | N8–N10 |
+| 16 | [Logs first, then alerts](test-case-16-logs-first.md) | Secrets Manager stopped: the log line → VictoriaLogs → vmalert → Alertmanager → a critical page | N8–N10, N17 |
 | 17 | [No credential in the alerting path](test-case-17-alerting-path-clean.md) | The scan adds the deliveries, CloudTrail records, the log store and Alertmanager: all `clean` | N6, N11, N12 |
 | 18 | [Before: the original `.env` app leaks everywhere](test-case-18-v0-before.md) | `versions/v0-env-file/leak.sh`: the passwords in 8 of 9 places | N14 |
 

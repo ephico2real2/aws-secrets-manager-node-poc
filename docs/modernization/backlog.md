@@ -276,6 +276,13 @@ Evidence: [deploy/kind/cluster.yaml](../../deploy/kind/cluster.yaml), [scripts/p
 
 Evidence: [scripts/bootstrap/macos.sh](../../scripts/bootstrap/macos.sh), [scripts/bootstrap/linux.sh](../../scripts/bootstrap/linux.sh), [test case 10: the lab on Podman](../../demo/test-case-10-kubernetes.md), [GUIDE B1: Podman instead of Docker](../GUIDE.md)
 
+**S5.4 · Local captures, checked like CI's** · S · ✅ · [#123](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/123)
+*As a presenter, I want to photograph the lab on my own machine with the checks CI applies, so that a local screenshot of a broken page fails instead of reaching a demo page.*
+- [x] `scripts/capture-local.sh compose|kind|alerts|reveal` runs `scripts/capture/walk.js` with CI's specs and labels; Playwright and js-yaml at the pins in `scripts/versions.env`, in `.tmp/pw`.
+- [x] Proven on Podman: the Compose dashboard walk met every page's expectations (6 pages); the kind walk against Compose failed with exit 2 (`no SA token · restricted PSA` not on the page).
+
+Evidence: [scripts/capture-local.sh](../../scripts/capture-local.sh), [scripts/capture/walk.js](../../scripts/capture/walk.js)
+
 **S5.3 · OpenShift: Routes for the app and the console; images built on the cluster** · M · ⏸️ parked · [#119](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/119)
 *As an OpenShift user, I want to open the app and the notification console through Routes, and to build the images on the cluster, so that the lab runs on OpenShift Local on any Mac.*
 - [x] Routes `secure-notes` and `sns-logger` (edge TLS); a NetworkPolicy lets the router reach the console; `k8s-deploy.sh` points the console link at its Route.
@@ -394,9 +401,9 @@ Evidence: [dev/aws-mock/sns-logger/server.js](../../dev/aws-mock/sns-logger/serv
 
 ### E10 — Local log pipeline: OpenTelemetry, VictoriaLogs, vmalert, Alertmanager
 
-[#71](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/71) · 🔜 · **Outcome:** Logs first, then alerts, locally: the same shape as CloudWatch Logs, metric filters, alarms and SNS on AWS. Docs: [plan E8–E15](plan-e8-e15.md)
+[#71](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/71) · ✅ · **Outcome:** Logs first, then alerts, locally: the same shape as CloudWatch Logs, metric filters, alarms and SNS on AWS. Docs: [plan E8–E15](plan-e8-e15.md)
 
-#### F10.1 · Log store and rules · 🔜 · [#72](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/72)
+#### F10.1 · Log store and rules · ✅ · [#72](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/72)
 
 **S10.1 · OpenTelemetry Collector and VictoriaLogs overlay** · M · ✅ · [#73](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/73)
 *As a developer, I want `docker-compose.observability.yml` to run a collector and VictoriaLogs, so that I can search every service's logs.*
@@ -418,11 +425,11 @@ Evidence: [scripts/sync-alert-rules.js](../../scripts/sync-alert-rules.js), [dep
 
 Evidence: [deploy/observability/alertmanager.yml](../../deploy/observability/alertmanager.yml)
 
-**S10.5 · Pipeline check covers the chat route and a pattern rule** · S · 🔜 · [#114](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/114)
+**S10.5 · Pipeline check covers the chat route and a pattern rule** · S · ✅ · [#114](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/114)
 *As an on-call engineer, I want CI to prove a warning reaches chat only, so that the second route is as tested as the first.*
-- [ ] Trigger `app.errors.burst` (or `secrets.fetch.stale`) in CI; assert one chat delivery and no page.
+- [x] Trigger `app.errors.burst` (or `secrets.fetch.stale`) in CI; assert one chat delivery and no page.
 
-Evidence: [plan E8–E15](plan-e8-e15.md)
+Evidence: [scripts/pipeline-check.sh](../../scripts/pipeline-check.sh), [test case 16: N17](../../demo/test-case-16-logs-first.md), CI run 39174954533, job `compose (sdk)`
 
 **S10.4 · Pipeline pane in sns-logger** · S · ✅ · [#76](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/76)
 *As a presenter, I want to see log lines arrive and turn into alerts, so that the whole path is visible.*

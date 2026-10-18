@@ -2,8 +2,8 @@
 
 **Read this file first, then follow it.** It holds everything a new AI agent (Claude Code or
 any other) needs to pick the work up where it stopped. The last session ended on
-2026-10-18; the last code change is commit `74ce332` (the MacBook lab on Podman), with every CI
-job green (run 39172252685).
+2026-10-18. The Podman work is in commits `74ce332` to `d35bcd4`; the last green run is
+39174954533 (every job, including `compose (podman)` and the chat-route check).
 
 Paste this into a new session to start:
 
@@ -139,7 +139,7 @@ Open stories at handover:
 | --- | --- | --- |
 | #91 | **S12.5 Prove it on AWS**: a denied read raises the secret-read alert; a test log event trips an alarm; TestEventPattern fixtures match the mock; a batch read's text names the secret | an AWS account; run `aws.yaml`. This also closes #34, #86, #87, #89, #90 |
 | #115 | S12.6 Close the by-name gap for the RDS-managed secret (match `detail.resources.ARN` if CloudTrail carries it) | AWS first, to confirm the record shape |
-| #114 | S10.5 The pipeline check also proves the chat route and a pattern rule: built, passes locally on Podman (and fails when the route pages); closes when CI's `compose (sdk)` passes it | — |
+| #114 | S10.5 The pipeline check also proves the chat route and a pattern rule: **done**, CI run 39174954533 (`compose (sdk)`); demo test case 16 | — |
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
