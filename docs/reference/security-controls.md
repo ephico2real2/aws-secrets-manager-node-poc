@@ -68,7 +68,7 @@ CI runs Path A in both modes (`docker-compose.agent.yml`).
 - [ ] `NODE_ENV=production` (the image default): enforces the startup guards; demo routes are not registered.
 - [x] Rotation on: RDS managed rotation for the DB secret; the stack's rotation function for the Redis user.
 - [ ] A dedicated least-privilege DB role for the app instead of the RDS master user.
-- [ ] 🔎 Built, verify on AWS: an alarm on `GetSecretValue` from any principal other than the app and rotation roles (S4.2; set `AlertEmail`, and `CreateTrail=true` if the account has no trail).
+- [ ] ⚠️ Built but can't fire yet (topic key and rule state; fixed by S11.4 and S12.1): an alarm on `GetSecretValue` from any principal other than the app and rotation roles (S4.2; set `AlertEmail`, and `CreateTrail=true` if the account has no trail).
 - [ ] 🔎 Built, verify on AWS: a resource policy on the Redis secret: only the app, the rotation function and `SecretAdminRoleArn` (S4.1). The RDS-managed secret: to do after testing on AWS (S4.1b).
 - [ ] `EnableConfigRules=true` where the account has an AWS Config recorder (S4.3).
 - [ ] `Environment` set to the real environment, so secret names follow the [naming convention](secret-naming.md).
