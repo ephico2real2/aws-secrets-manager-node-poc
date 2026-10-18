@@ -13,6 +13,7 @@ import { NOTES_SCHEMA } from './schema.js';
 const redactor = new Redactor();
 const logger = createLogger({
   redactor,
+  ringSize: 2000,
   level: config.logging.level,
   revealSecrets: config.logging.revealSecrets && config.nodeEnv !== 'production',
   base: { app: 'secure-notes' },

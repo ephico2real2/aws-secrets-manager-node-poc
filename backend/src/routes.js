@@ -107,7 +107,14 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
   // ---- demo-only endpoints ---------------------------------------------------
   if (!config.demo.enabled) return;
 
-  router.get('/api/logs', async () => ({ lines: logger.recent(150) }));
+  // ?only=credentials: the debug lines about credentials (which secret, which
+  // keys, masked), found in the whole buffer so request noise can't push them out.
+  const CREDENTIAL_LINE = /"msg":"(secret consumed|secret loaded|secret refreshed[^"]*|postgres connecting with|redis authenticating with|agent request[^"]*|credential sources[^"]*|LOG_REVEAL_SECRETS[^"]*)"/;
+  router.get('/api/logs', async (ctx) =>
+    ctx.query.get('only') === 'credentials'
+      ? { lines: logger.recent(2000).filter((l) => CREDENTIAL_LINE.test(l)).slice(-150) }
+      : { lines: logger.recent(150) },
+  );
 
   router.post('/api/demo/rotate/:alias', async (ctx) => {
     try {

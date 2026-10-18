@@ -260,7 +260,8 @@ $('checks-btn').addEventListener('click', () => loadChecks().catch((e) => toast(
 // ------------------------------------------------------------------- logs --
 async function loadLogs() {
   if (!cfg.demoMode) return;
-  const { lines } = await api('GET', '/api/logs');
+  const only = $('log-cred-only').checked;
+  const { lines } = await api('GET', only ? '/api/logs?only=credentials' : '/api/logs');
   const box = $('log');
   const atBottom = box.scrollTop + box.clientHeight >= box.scrollHeight - 20;
   box.replaceChildren(
@@ -272,6 +273,11 @@ async function loadLogs() {
   );
   if (atBottom) box.scrollTop = box.scrollHeight;
 }
+
+$('log-cred-only').addEventListener('change', () => {
+  $('log').replaceChildren();
+  loadLogs().then(() => { $('log').scrollTop = $('log').scrollHeight; }).catch((e) => toast(e.message));
+});
 
 // ------------------------------------------------------------------- boot --
 async function refreshLive() {

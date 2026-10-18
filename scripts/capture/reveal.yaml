@@ -23,6 +23,8 @@ pages:
     before: 4000
     element: "#logs-card"
     actions:
+      - clickSelector: "#log-cred-only"
+      - wait: 2000
       - scrollToBottom: "#log"
       - wait: 500
     expect:
