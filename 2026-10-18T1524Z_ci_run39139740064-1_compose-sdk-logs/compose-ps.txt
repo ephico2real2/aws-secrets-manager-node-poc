@@ -1,0 +1,11 @@
+NAME                            IMAGE                                                    COMMAND                  SERVICE          CREATED         STATUS                        PORTS
+secure-notes-alertmanager-1     docker.io/prom/alertmanager:v0.34.1                      "/bin/alertmanager -…"   alertmanager     2 minutes ago   Up 2 minutes                  127.0.0.1:9093->9093/tcp
+secure-notes-app-1              secure-notes-app:dev                                     "docker-entrypoint.s…"   app              2 minutes ago   Up 2 minutes                  127.0.0.1:3000->3000/tcp
+secure-notes-aws-mock-1         secure-notes-aws-mock:dev                                "docker-entrypoint.s…"   aws-mock         2 minutes ago   Up About a minute (healthy)   4566/tcp, 4575/tcp
+secure-notes-otel-collector-1   docker.io/otel/opentelemetry-collector-contrib:0.163.1   "/otelcol-contrib --…"   otel-collector   2 minutes ago   Up 2 minutes                  4317-4318/tcp, 55679/tcp
+secure-notes-postgres-1         docker.io/library/postgres:16                            "docker-entrypoint.s…"   postgres         2 minutes ago   Up 2 minutes (healthy)        5432/tcp
+secure-notes-redis-1            docker.io/library/redis:7-alpine                         "/bin/sh /dev-script…"   redis            2 minutes ago   Up 2 minutes (healthy)        6379/tcp
+secure-notes-seed-1             secure-notes-app:dev                                     "docker-entrypoint.s…"   seed             2 minutes ago   Exited (0) 2 minutes ago      
+secure-notes-sns-logger-1       secure-notes-aws-mock:dev                                "docker-entrypoint.s…"   sns-logger       2 minutes ago   Up 2 minutes (healthy)        4566/tcp, 127.0.0.1:4575->4575/tcp
+secure-notes-victorialogs-1     docker.io/victoriametrics/victoria-logs:v1.53.0          "/victoria-logs-prod…"   victorialogs     2 minutes ago   Up 2 minutes                  127.0.0.1:9428->9428/tcp
+secure-notes-vmalert-1          docker.io/victoriametrics/vmalert:v1.154.0               "/vmalert-prod -rule…"   vmalert          2 minutes ago   Up 2 minutes                  127.0.0.1:8880->8880/tcp
