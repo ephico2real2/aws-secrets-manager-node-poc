@@ -1,0 +1,4 @@
+[seed] created 4 secrets
+[seed] postgres: role, table, grants done; bootstrap password replaced
+[seed] redis: ACL user created (notes:* keys only); bootstrap password replaced
+[seed] done. Every credential now lives only in Secrets Manager.
