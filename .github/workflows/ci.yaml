@@ -2,7 +2,9 @@
 #
 #   checks ─► build ─┬─► compose (sdk, agent) ─┐
 #   (scan, SBOM)     ├─► kind ─────────────────┼─► images (main only: push, sign, attest)
-#                    └─► mirror ───────────────┘
+#                    ├─► mirror ───────────────┘
+#                    └─► env-file-demo
+#   docs (every relative link resolves, every Mermaid diagram renders)
 #
 # The images are built ONCE, by `docker compose build` (the same command a
 # person runs), saved, and loaded unchanged into every later job: Docker
@@ -450,6 +452,30 @@ jobs:
       - name: Publish the output
         if: always()
         run: rm -rf output/supply-chain; scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_env-file-demo"
+
+  docs:
+    # The learning path is part of the product: a broken link or a diagram that
+    # GitHub can't render fails the build like a failing test.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Playwright and Mermaid (pinned)
+        run: |
+          mkdir -p .tmp/docs && cd .tmp/docs && npm init -y >/dev/null
+          npm i --no-audit --no-fund playwright@1.63.0 mermaid@11.16.1 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null 2>&1
+
+      - name: Links and diagrams
+        run: |
+          PLAYWRIGHT_MODULE="$PWD/.tmp/docs/node_modules/playwright" \
+          MERMAID_JS="$PWD/.tmp/docs/node_modules/mermaid/dist/mermaid.min.js" \
+            node scripts/docs-check.js
 
   images:
     # Publish exactly the images that just passed every job — no rebuild.
