@@ -1,0 +1,16 @@
+== records in VictoriaLogs (shipped as OpenTelemetry logs)
+  ok    secure-notes: 204 records
+  ok    aws-mock: 87 records
+  ok    sns-logger: 16 records
+  ok    CloudTrail-shaped records from the AWS mock: 86
+== a real failure becomes an alert: Secrets Manager unreachable during a forced refresh
+  forced refresh with the mock stopped answered HTTP 500 (the app keeps serving its cached value)
+  ok    the failure is in the log store with event secrets.fetch.failed
+  ok    vmalert -> Alertmanager -> SNS delivered the critical alert by email, SMS and chat
+  ok    published by Alertmanager's identity
+== a warning goes to chat only: a burst of errors in the app log (pattern rule app.errors.burst)
+  error lines from the app in the log store: 6 (the rule fires at 5 in 5m)
+  ok    one delivery, to the chat topic: vmalert -> Alertmanager -> SNS
+  ok    no page: nothing on the alerts topic, so no email and no SMS
+== the notification console sees the log store
+  ok    sns-logger's Pipeline tab reads VictoriaLogs
