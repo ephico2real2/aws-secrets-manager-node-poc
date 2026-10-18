@@ -1,0 +1,18 @@
+# The notification console (sns-logger's screen), from the browser on the host.
+# The component's policy lets only the app and the AWS mock reach sns-logger.
+# Through a NodePort the browser's traffic arrives from the node, not from a pod,
+# so kind needs this extra rule. kind is a laptop cluster, so "from anywhere"
+# here means "from this machine": the host port is bound to 127.0.0.1.
+# The API still refuses unsigned requests and browser POSTs.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sns-logger-console
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sns-logger
+  policyTypes: [Ingress]
+  ingress:
+    - ports:
+        - { port: 4575, protocol: TCP }

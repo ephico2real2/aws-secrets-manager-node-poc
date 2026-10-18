@@ -9,11 +9,10 @@
 ## Steps
 
 ```bash
-docker compose down -v            # free port 3000 from the earlier test cases
+docker compose down -v            # free ports 3000 and 4575 from the earlier test cases
 scripts/kind-up.sh && scripts/images-build.sh
 scripts/k8s-deploy.sh deploy/k8s/overlays/kind
-kubectl -n secure-notes port-forward svc/secure-notes 3000:80 &
-scripts/k8s-check.sh
+scripts/k8s-check.sh              # kind maps the app to localhost:3000; no port-forward
 ```
 
 ## What you should see

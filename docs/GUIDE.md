@@ -106,17 +106,24 @@ The same images run on any Kubernetes cluster. Pick B1 for a local kind cluster,
 
 | Overlay | Use it for | What it adds to the base |
 | --- | --- | --- |
-| `overlays/kind` | kind, or any local Kubernetes | Postgres, Redis, the Secrets Manager stand-in and the seed job, inside the cluster; Pod Security `restricted` enforced on the namespace |
-| `overlays/openshift` | OpenShift Local (CRC) or a dev cluster | The same, plus a TLS Route; images pulled from GHCR; no fixed user IDs, so OpenShift assigns them |
+| `overlays/kind` | kind, or any local Kubernetes | Postgres, Redis, the AWS stand-in, the local SNS (sns-logger) and the seed job, inside the cluster; Pod Security `restricted` enforced on the namespace; the app and the console on NodePorts that kind maps to `localhost:3000` and `localhost:4575` |
+| `overlays/openshift` | OpenShift Local (CRC) or a dev cluster | The same, plus two TLS Routes (the app, and the notification console); images pulled from GHCR; no fixed user IDs, so OpenShift assigns them |
+| `overlays/openshift-local` | OpenShift Local on an Apple-silicon Mac, or any cluster that can't pull from GHCR | The OpenShift overlay with images built on the cluster from your checkout (`scripts/openshift-build.sh`) |
 | `overlays/aws` | EKS, or ROSA with STS | Only the app, against real RDS, ElastiCache and Secrets Manager, with AWS access through an IAM role on the service account (IRSA) |
 
 The base is hardened in every overlay: non-root, read-only root filesystem, all Linux capabilities dropped, seccomp on, no service-account token, and default-deny NetworkPolicies. The app's credentials never become a Kubernetes Secret: the only Secret in the namespace is the one-time startup secret.
 
 ### B1 — kind (Kubernetes on your laptop)
 
-**You need:** Docker, [kind](https://kind.sigs.k8s.io) (CI uses v0.33.0) and kubectl. Check with `kind version` and `kubectl version --client`.
+**You need:** Docker, [kind](https://kind.sigs.k8s.io) (CI uses v0.33.0) and kubectl, and about 6 GiB of memory for Docker. On a Mac, `scripts/bootstrap/macos.sh` installs what's missing; on Linux, `scripts/bootstrap/linux.sh`. Then check the machine:
 
-1. Create the cluster:
+```bash
+scripts/preflight.sh kind
+```
+
+**Check:** the last line is `preflight: ready for the kind lab.` Ports 3000 and 4575 must be free, so stop Docker Compose first (`docker compose down`), or give kind other ports with `KIND_APP_PORT=3100 KIND_CONSOLE_PORT=4675`.
+
+1. Create the cluster. It reads `deploy/kind/cluster.yaml`, which pins the Kubernetes version and maps the app and the console to your machine (on `127.0.0.1` only), so no port-forward is needed:
 
    ```bash
    scripts/kind-up.sh
@@ -133,18 +140,8 @@ The base is hardened in every overlay: non-root, read-only root filesystem, all 
    ```
 
    It waits for Postgres, Redis and the stand-in, then the seed job, then the app. The app pod may restart once or twice while the seed job finishes; that's expected.
-4. Open the app. Leave this running:
-
-   ```bash
-   kubectl -n secure-notes port-forward svc/secure-notes 3000:80
-   ```
-
-   Then open <http://localhost:3000>. The header says **Node.js on Kubernetes**. For the notification console (the Detection lab's link), forward a second port in another terminal:
-
-   ```bash
-   kubectl -n secure-notes port-forward svc/sns-logger 4575:4575
-   ```
-5. In a second terminal, collect the evidence:
+4. Open <http://localhost:3000>. The header says **Node.js on Kubernetes**. The notification console (the Detection lab's link) is on <http://localhost:4575>.
+5. Collect the evidence:
 
    ```bash
    scripts/k8s-check.sh
@@ -154,25 +151,36 @@ The base is hardened in every overlay: non-root, read-only root filesystem, all 
 
    **Check:** the last line is `k8s-check: all checks passed`.
 
-When you're done: `kind delete cluster --name secure-notes`.
+When you're done: `scripts/kind-down.sh`. The images stay in Docker for next time.
+
+A cluster made before `deploy/kind/cluster.yaml` existed has no port mappings; `kind-up.sh` says so. Recreate it, or use `kubectl -n secure-notes port-forward svc/secure-notes 3000:80` and `svc/sns-logger 4575:4575`.
 
 ### B2 — OpenShift
 
-**You need:** `oc`, logged in to a cluster that can pull from `ghcr.io` (OpenShift Local works), as a user who can create a project.
+**You need:** `oc`, logged in to a cluster as a user who can create a project. OpenShift Local (CRC) on a laptop works: give it at least 9 GiB and 4 CPUs (`crc config set memory 10240`), then `crc start`, `eval $(crc oc-env)` and `oc login -u developer https://api.crc.testing:6443`. Check with `scripts/preflight.sh openshift`.
 
-1. Create the project and deploy:
+1. Create the project and deploy. Pick one:
 
    ```bash
    oc new-project secure-notes
+
+   # the published images (amd64 clusters that can pull from ghcr.io)
    KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/openshift
-   ```
-2. Find the app's address and open it over HTTPS:
 
-   ```bash
-   oc -n secure-notes get route secure-notes -o jsonpath='{.spec.host}{"\n"}'
+   # or: build the images on the cluster from your checkout (Apple-silicon Macs,
+   # where the published amd64 images can't run, or no access to ghcr.io)
+   scripts/openshift-build.sh
    ```
 
-   The header says **Node.js on OpenShift**, and **Security posture** shows the high user ID OpenShift assigned.
+   `openshift-build.sh` creates two BuildConfigs, uploads the committed source (`git archive` of HEAD), builds it on the cluster for the cluster's own CPU, and deploys `deploy/k8s/overlays/openshift-local`.
+2. The deploy prints two addresses, both HTTPS through the OpenShift router:
+
+   ```
+   app:                  https://secure-notes-secure-notes.apps-crc.testing
+   notification console: https://sns-logger-secure-notes.apps-crc.testing
+   ```
+
+   Open the app. The header says **Node.js on OpenShift**, and **Security posture** shows the high user ID OpenShift assigned. The Detection lab's console link points at the second Route; the deploy script sets that once the router has admitted it. OpenShift Local's certificate is self-signed, so the browser asks you to accept it once for each address.
 3. Collect the evidence:
 
    ```bash
@@ -191,7 +199,9 @@ KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/mirror
 
 The script copies the app, the stand-in, Postgres and Redis with `skopeo` (or `oc image mirror` if you set `MIRROR_TOOL=oc`), writes the `mirror` overlay, and checks that every image in it comes from your registry. If the registry needs a login to pull, also create a pull secret and link it to the `secure-notes` and `default` service accounts.
 
-Why no fixed user IDs: OpenShift's restricted-v2 policy starts every container as a random high user ID with group 0, and rejects pods that ask for a specific one. CI tests the Kubernetes deployment on kind (B1), which runs the same base and backing services; this overlay only adds the Route and the published image names, and leaves the user IDs to OpenShift. The check in step 3 confirms it on your cluster.
+Why no fixed user IDs: OpenShift's restricted-v2 policy starts every container as a random high user ID with group 0, and rejects pods that ask for a specific one. CI tests the Kubernetes deployment on kind (B1), which runs the same base and backing services; this overlay only adds the Routes, a NetworkPolicy that lets the router reach the console, and the image names, and leaves the user IDs to OpenShift. The check in step 3 confirms it on your cluster.
+
+CI has no OpenShift cluster. It renders and validates both OpenShift overlays on every push, but the Routes and `openshift-build.sh` are proven only when you run them; tell us if a step doesn't behave as written.
 
 ### B3 — EKS or ROSA, against real AWS
 

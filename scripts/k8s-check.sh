@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Evidence and assertions for a running Kubernetes deployment, then the same
-# end-to-end smoke test Docker Compose runs. Needs a port-forward to the app:
+# end-to-end smoke test Docker Compose runs. Needs the app on BASE:
 #
-#   kubectl -n secure-notes port-forward svc/secure-notes 3000:80 &
-#   scripts/k8s-check.sh http://localhost:3000
+#   scripts/k8s-check.sh                         # kind: deploy/kind/cluster.yaml maps localhost:3000
+#   kubectl -n secure-notes port-forward svc/secure-notes 3000:80 &   # any other cluster
+#   KUBECTL=oc scripts/k8s-check.sh http://localhost:3000
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 1
 # shellcheck disable=SC1091

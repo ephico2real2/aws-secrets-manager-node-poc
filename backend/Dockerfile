@@ -1,5 +1,5 @@
 # Build from the repository root:  docker build -f backend/Dockerfile .
-FROM node:22-alpine
+FROM docker.io/library/node:22-alpine
 
 WORKDIR /app/backend
 

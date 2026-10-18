@@ -1,9 +1,12 @@
 # OpenShift (OpenShift Local / CRC, or a dev cluster): the same stack as kind,
-# with a Route, the published images, and no fixed UIDs so the restricted-v2
-# SCC assigns them. Create the project first:
+# with two Routes (the app, and the notification console), the published images,
+# and no fixed UIDs so the restricted-v2 SCC assigns them. Create the project first:
 #
 #   oc new-project secure-notes
-#   oc apply -k deploy/k8s/overlays/openshift
+#   KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/openshift
+#
+# k8s-deploy.sh prints both https:// addresses and points the dashboard's
+# console link at the console's Route.
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -12,6 +15,8 @@ namespace: secure-notes
 resources:
   - ../../base
   - route.yaml
+  - console-route.yaml
+  - router-networkpolicy.yaml
 
 components:
   - ../../components/local-backing-services

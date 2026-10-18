@@ -60,23 +60,26 @@ Kustomize, in `deploy/k8s/`:
 | `overlays/openshift/` | base + backing services + a TLS Route, published images, no fixed UIDs so the restricted-v2 SCC assigns them. |
 | `overlays/aws/` | base only, against real RDS, ElastiCache and Secrets Manager; the ServiceAccount carries an IAM role (IRSA) on EKS or ROSA. |
 
-**kind** (needs Docker, kind and kubectl):
+**kind** (needs Docker, kind and kubectl; on a Mac, `scripts/bootstrap/macos.sh` installs them):
 
 ```bash
-scripts/kind-up.sh                                # the cluster
+scripts/preflight.sh kind                         # tools, Docker's memory, free ports
+scripts/kind-up.sh                                # the cluster, from deploy/kind/cluster.yaml
 scripts/images-build.sh                           # docker compose build, then load into kind
 scripts/k8s-deploy.sh deploy/k8s/overlays/kind    # apply and wait
-kubectl -n secure-notes port-forward svc/secure-notes 3000:80   # open http://localhost:3000
-kubectl -n secure-notes port-forward svc/sns-logger 4575:4575   # the notification console (another terminal)
-scripts/k8s-check.sh                              # evidence + smoke test (in another terminal)
+# open http://localhost:3000 (app) and http://localhost:4575 (console): kind maps them, no port-forward
+scripts/k8s-check.sh                              # evidence + smoke test
+scripts/kind-down.sh                              # when you're done
 ```
 
-**OpenShift** (OpenShift Local / CRC or a dev cluster; images pulled from GHCR):
+**OpenShift** (OpenShift Local / CRC or a dev cluster):
 
 ```bash
+scripts/preflight.sh openshift                   # oc installed and logged in
 oc new-project secure-notes
-KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/openshift
-oc -n secure-notes get route secure-notes        # open https://<that host>
+KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/openshift   # published images (amd64), from GHCR
+scripts/openshift-build.sh                       # or: build on the cluster from HEAD (Apple-silicon CRC, no GHCR)
+# both print https:// Routes for the app and the notification console
 ```
 
 **A cluster that can't reach ghcr.io or Docker Hub:** copy the four images into a

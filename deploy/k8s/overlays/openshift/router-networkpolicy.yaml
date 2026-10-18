@@ -1,0 +1,20 @@
+# Let the OpenShift router reach the notification console. The component's
+# policy only admits the app and the AWS mock. The label below is how OpenShift
+# marks its ingress (router) namespaces, including routers on the host network.
+# The app's own policy already admits its web port from anywhere.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sns-logger-from-router
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sns-logger
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              policy-group.network.openshift.io/ingress: ""
+      ports:
+        - { port: 4575, protocol: TCP }

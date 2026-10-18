@@ -1,0 +1,20 @@
+# DEV ONLY: the notification console (sns-logger's screen), over HTTPS from the
+# router, so the Detection lab's link works on OpenShift without a port-forward.
+# scripts/k8s-deploy.sh points the app's link (ALERTS_INBOX_URL) at this Route's
+# host once the router has admitted it. The console shows masked recipients and
+# never a credential; its API refuses unsigned requests and browser POSTs.
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: sns-logger
+  labels:
+    app.kubernetes.io/name: sns-logger
+spec:
+  to:
+    kind: Service
+    name: sns-logger
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

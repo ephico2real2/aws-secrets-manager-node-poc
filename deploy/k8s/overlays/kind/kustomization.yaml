@@ -1,8 +1,13 @@
-# kind (or any local Kubernetes): the app plus in-cluster Postgres, Redis and
-# the Secrets Manager mock. Images are the locally built :dev tags, loaded
-# into kind by scripts/images-build.sh.
+# kind (or any local Kubernetes): the app plus in-cluster Postgres, Redis, the
+# Secrets Manager mock and the local SNS. Images are the locally built :dev tags,
+# loaded into kind by scripts/images-build.sh.
 #
-#   kubectl apply -k deploy/k8s/overlays/kind
+#   scripts/kind-up.sh && scripts/images-build.sh && scripts/k8s-deploy.sh deploy/k8s/overlays/kind
+#   open http://localhost:3000 (the app) and http://localhost:4575 (the notification console)
+#
+# The two Services are NodePorts on fixed ports that deploy/kind/cluster.yaml
+# maps to 127.0.0.1 on the host, so no port-forward is needed. On another
+# cluster, use `kubectl port-forward` instead (the ports stay the same).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
@@ -11,6 +16,25 @@ namespace: secure-notes
 resources:
   - namespace.yaml
   - ../../base
+  - console-networkpolicy.yaml
 
 components:
   - ../../components/local-backing-services
+
+patches:
+  - target: { kind: Service, name: secure-notes }
+    patch: |-
+      - op: add
+        path: /spec/type
+        value: NodePort
+      - op: add
+        path: /spec/ports/0/nodePort
+        value: 30080
+  - target: { kind: Service, name: sns-logger }
+    patch: |-
+      - op: add
+        path: /spec/type
+        value: NodePort
+      - op: add
+        path: /spec/ports/0/nodePort
+        value: 30575

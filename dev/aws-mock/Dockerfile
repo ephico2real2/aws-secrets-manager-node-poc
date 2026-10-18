@@ -1,7 +1,7 @@
 # DEV/CI ONLY: the AWS mock (Secrets Manager, STS, CloudTrail + the alarm rule)
 # and sns-logger (a local SNS with a screen), in one image.
 # Build from the repository root:  docker build -f dev/aws-mock/Dockerfile .
-FROM node:22-alpine
+FROM docker.io/library/node:22-alpine
 WORKDIR /mock
 COPY dev/aws-mock/server.js ./
 COPY dev/aws-mock/lib ./lib
