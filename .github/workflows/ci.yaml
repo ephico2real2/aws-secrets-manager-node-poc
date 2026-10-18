@@ -223,6 +223,18 @@ jobs:
           label: compose-reveal
           env-json: '{"BASE":"http://localhost:3000"}'
 
+      - name: Reveal flag in production — the app refuses to start (exit 78)
+        if: matrix.mode == 'sdk'
+        run: |
+          set +e
+          out=$(docker run --rm -e NODE_ENV=production -e LOG_REVEAL_SECRETS=true -e DB_SECRET_ID=x -e REDIS_SECRET_ID=y secure-notes-app:dev 2>&1)
+          rc=$?
+          echo "$out"; echo "exit code: $rc"
+          if [ "$rc" != 78 ] || ! grep -q 'LOG_REVEAL_SECRETS must not be enabled in production' <<< "$out"; then
+            echo "::error::the app did not refuse LOG_REVEAL_SECRETS in production"; exit 1
+          fi
+          { echo "## LOG_REVEAL_SECRETS in production"; echo; echo '```'; echo "$out"; echo "exit code: $rc"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Reveal flag off again
         if: matrix.mode == 'sdk'
         run: |
