@@ -65,11 +65,11 @@ if [ "$PODMAN" = 1 ]; then
   if [ "$(podman machine inspect --format '{{.State}}')" != running ]; then
     echo "== podman machine start"; podman machine start
   fi
-  sock=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')
-  export DOCKER_HOST="unix://$sock" KIND_EXPERIMENTAL_PROVIDER=podman
+  # shellcheck source=scripts/podman.env
+  . scripts/podman.env
   if ! docker compose version >/dev/null 2>&1; then
     # Homebrew's docker-compose is a CLI plugin; the docker CLI finds it only through this setting.
-    echo "docker compose is not found: add \"cliPluginsExtraDirs\": [\"$(brew --prefix)/lib/docker/cli-plugins\"] to ~/.docker/config.json" >&2
+    echo "docker compose is not found: add \"cliPluginsExtraDirs\": [\"$(brew --prefix)/lib/docker/cli-plugins\"] to ${DOCKER_CONFIG:-$HOME/.docker}/config.json" >&2
   fi
 else
   if [ ! -d /Applications/Docker.app ]; then
@@ -96,10 +96,8 @@ scripts/preflight.sh kind
 [ "$OPENSHIFT" = 1 ] && scripts/preflight.sh openshift
 echo
 if [ "$PODMAN" = 1 ]; then
-  echo "Next, in each new Terminal (or in your shell profile), point the docker CLI and kind at Podman:"
-  # shellcheck disable=SC2016  # printed for the reader to paste, not expanded here
-  echo '  export DOCKER_HOST="unix://$(podman machine inspect --format '"'"'{{.ConnectionInfo.PodmanSocket.Path}}'"'"')"'
-  echo "  export KIND_EXPERIMENTAL_PROVIDER=podman"
+  echo "Next, in each new Terminal (or from your shell profile), point the docker CLI and kind at Podman:"
+  echo "  . scripts/podman.env"
   echo "then: docker compose up --build -d   (or scripts/kind-up.sh; see HANDOVER.md section 11)"
 else
   echo "Next: docker compose up --build -d   (or scripts/kind-up.sh; see HANDOVER.md section 11)"

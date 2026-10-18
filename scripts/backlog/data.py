@@ -536,8 +536,15 @@ for _it in _all_items():
                 "4 CPUs, 4 GiB): `compose-check.sh` and `k8s-check.sh` passed; the machine used 1582 MiB of 3887 with kind."),
             (1, "`macos.sh --podman`: Podman Desktop and a 4 GiB machine instead of Docker Desktop; the preflight names the engine, "
                 "points the docker CLI at Podman's socket (`DOCKER_HOST`) and kind at Podman (`KIND_EXPERIMENTAL_PROVIDER`)."),
-            (1, "PyYAML for `sync-event-pattern.py` in `.tmp/venv` at the CI pin (Homebrew's Python refuses `pip install --user`).")]
+            (1, "PyYAML for `sync-event-pattern.py` in `.tmp/venv` at the CI pin (Homebrew's Python refuses `pip install --user`)."),
+            (1, "Without Docker Desktop: Homebrew's docker 29.9.1 and docker-compose 5.6.0 (`cliPluginsExtraDirs`) on Podman passed `compose-check.sh`."),
+            (1, "`scripts/podman.env` sets both variables, in bash or zsh, on macOS."),
+            (0, "CI job `compose (podman)` runs Part A on rootless Podman on Linux (`scripts/podman.env` there too).")]
         _it["evidence"] += [d("demo/test-case-10-kubernetes.md", "test case 10: the lab on Podman"), d("docs/GUIDE.md", "GUIDE B1: Podman instead of Docker")]
+    # Parked by the owner on 2026-10-18: CRC was deleted on their Mac on 2026-10-13 and is restored later.
+    if _it["id"] == "S5.3":
+        _it["parked"] = True
+        _it["criteria"][-1] = (0, _it["criteria"][-1][1] + " **Parked** until the owner restores CRC on their Mac (deleted 2026-10-13).")
 
 # ---- E15 moved to its own repo, 2026-10-18 (it continues there as epics B0–B8) ----
 NB = "https://github.com/ephico2real2/openbao-node-poc/issues/"

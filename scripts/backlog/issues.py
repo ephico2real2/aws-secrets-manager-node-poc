@@ -64,7 +64,7 @@ def labels(item, epic):
     ls = [TRACK[item["id"]], f"type:{t}", f"epic:{(epic or item)['id']}"]
     if item.get("size"): ls.append(f"size:{item['size']}")
     if item.get("aws"): ls.append("needs-aws-verification")
-    if (epic or item).get("parked"): ls.append("parked")
+    if item.get("parked") or (epic or item).get("parked"): ls.append("parked")
     return ls
 
 # 1. create every issue once (placeholder body), remembering numbers and ids

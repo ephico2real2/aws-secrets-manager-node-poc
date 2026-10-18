@@ -8,6 +8,7 @@
 checks ─► build ─┬─► compose (sdk, agent) ─┐
          (scan,  ├─► kind ─────────────────┼─► images (main only: push, sign, attest)
           SBOM)  ├─► mirror ───────────────┘
+                 ├─► compose (podman)
                  └─► env-file-demo
 docs (links, Mermaid)
 ```
@@ -17,6 +18,7 @@ docs (links, Mermaid)
 | `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; the AWS mock's tests (EventBridge rule, CloudTrail, SNS); the local rule and the generated alert rules match their sources; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (the OpenShift Route is skipped: it has no public schema); `cfn-lint` on both CloudFormation templates; actionlint on every workflow; the Redis rotation function's tests, and that the copy in the template matches it. |
 | `build` | `docker compose build`, once; a CycloneDX SBOM per image (syft) and a vulnerability scan (grype) that fails on any CRITICAL vulnerability with a fix; the images are saved and handed to every later job. |
 | `compose (sdk)`, `compose (agent)` | Path A on the runner, once per secrets mode: the dashboard walk, the bootstrap passwords burned, the end-to-end smoke test, every alert path (`alerts-check.sh`). The sdk leg also runs the log pipeline (`pipeline-check.sh`) and photographs the notification console. In agent mode also: the agent served the app's fetches, its SSRF token is visible only to the agent and the app, and it rejects a request without the token. |
+| `compose (podman)` | Path A on rootless Podman instead of Docker: the docker CLI talks to Podman's API socket (`scripts/podman.env`), as on a MacBook with Podman Desktop; the bootstrap burned, the smoke test and the credential scan (`compose-check.sh`). Not a gate for `images`. |
 | `kind` | Path B under Pod Security `restricted`: who each container runs as, that Kubernetes holds no copy of the app's credentials, the bootstrap burned, SCRAM-only password changes in the Postgres log, and the smoke test. |
 | `mirror` | `scripts/mirror-images.sh` copies all four images into a throwaway registry; the generated overlay pulls only from it and the copies match the originals. |
 | `images` | On `main`, pushes the exact images that passed to GHCR, signs each digest with cosign (keyless, this workflow's GitHub identity) and attaches its SBOM as a signed attestation, then verifies both without logging in. |

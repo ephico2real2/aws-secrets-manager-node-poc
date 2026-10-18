@@ -58,7 +58,7 @@ if [ "$TARGET" != openshift ]; then
     hint="start Docker Desktop (open -a Docker) or the docker service"
     # The docker CLI talks to Podman through the machine's API socket; nothing points it there by default.
     if have podman && sock=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null) && [ -S "$sock" ]; then
-      hint="Podman is running: export DOCKER_HOST=unix://$sock"
+      hint="Podman is running: . scripts/podman.env (sets DOCKER_HOST=unix://$sock)"
     fi
     row REQUIRED-FAIL docker "installed, not answering" "$hint"
   else
@@ -76,8 +76,8 @@ if [ "$TARGET" != openshift ]; then
     else raise="Docker Desktop: Settings > Resources > Memory"; fi
     if [ "$mem" -ge $((want * 1024 * 9 / 10)) ]; then row ok "memory for the lab" "$shown" ">= ${want} GiB for this target"
     else row warn "memory for the lab" "$shown" "below ${want} GiB: raise it ($raise)"; fi
-    if docker compose version >/dev/null 2>&1; then row ok "docker compose" "$(docker compose version --short 2>/dev/null)" "Compose v2 builds the images, on every path"
-    else row REQUIRED-FAIL "docker compose" "not found" "Compose v2 (part of Docker Desktop; brew install docker-compose for Podman; docker-compose-plugin on Linux)"; fi
+    if docker compose version >/dev/null 2>&1; then row ok "docker compose" "$(docker compose version --short 2>/dev/null)" "Compose builds the images, on every path"
+    else row REQUIRED-FAIL "docker compose" "not found" "Compose v2 or later (part of Docker Desktop; brew install docker-compose for Podman; docker-compose-plugin on Linux)"; fi
   fi
 fi
 
@@ -91,7 +91,7 @@ case "$TARGET" in
     else row REQUIRED-FAIL kind "not found" "$KIND_VERSION (brew install kind, or scripts/bootstrap/linux.sh)"; fi
     if [ "$engine" = podman ]; then
       if [ "${KIND_EXPERIMENTAL_PROVIDER:-}" = podman ]; then row ok "kind provider" "podman" "kind runs its node through Podman"
-      else row warn "kind provider" "${KIND_EXPERIMENTAL_PROVIDER:-docker (default)}" "the lab is proven on Podman with: export KIND_EXPERIMENTAL_PROVIDER=podman"; fi
+      else row warn "kind provider" "${KIND_EXPERIMENTAL_PROVIDER:-docker (default)}" "the lab is proven on Podman with KIND_EXPERIMENTAL_PROVIDER=podman (. scripts/podman.env)"; fi
     fi
     grep -q "image: ${KIND_NODE_IMAGE}" deploy/kind/cluster.yaml \
       && row ok "node image" "${KIND_NODE_IMAGE%%@*}" "deploy/kind/cluster.yaml = scripts/versions.env" \

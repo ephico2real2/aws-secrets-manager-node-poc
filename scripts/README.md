@@ -11,6 +11,7 @@ macOS ships 3.2, and `bootstrap/macos.sh` installs a newer one.
 
 | Script | What it does |
 | --- | --- |
+| [`podman.env`](podman.env) | Source it (`. scripts/podman.env`) to point the docker CLI and kind at Podman, on macOS or Linux |
 | [`bootstrap/macos.sh`](bootstrap/macos.sh) | MacBook: installs what's missing with Homebrew (bash, jq, node, kind, kubectl; `--openshift` adds `oc`), Docker Desktop or with `--podman` Podman Desktop, and PyYAML in `.tmp/venv`, then runs the preflight |
 | [`bootstrap/linux.sh`](bootstrap/linux.sh) | Linux laptop or CI runner: kind at its pin, checked against the release's SHA-256, and kubectl if missing; then the preflight |
 | [`preflight.sh`](preflight.sh) `compose\|kind\|openshift [--observability]` | One table: tools and versions, Docker's memory, free ports, `oc` login. `PREFLIGHT_STRICT=1` exits 1 if a required row fails |

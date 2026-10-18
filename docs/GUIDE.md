@@ -161,15 +161,22 @@ Podman runs Part A and B1 in a smaller VM than Docker Desktop. The scripts call 
 
 ```bash
 scripts/bootstrap/macos.sh --podman      # Podman Desktop, a 4 GiB machine if you have none, then the preflight
-export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
-export KIND_EXPERIMENTAL_PROVIDER=podman
+. scripts/podman.env                      # DOCKER_HOST at Podman's socket, KIND_EXPERIMENTAL_PROVIDER=podman
 ```
 
-Then Part A and steps 1 to 5 above, unchanged. Set the two variables in every new terminal, or in your shell profile.
+Then Part A and steps 1 to 5 above, unchanged. Source `scripts/podman.env` in every new terminal (or from your shell profile); it works in bash and zsh, on macOS and Linux. CI runs Part A this way on every push (`compose (podman)`).
 
 **Check:** `scripts/preflight.sh kind` shows `Podman engine` in the docker row and `ok  kind provider  podman`.
 
-Proven on a MacBook (Apple silicon) with Podman 6.1.2, rootless, 4 CPUs and 4 GiB: `compose-check.sh` and `k8s-check.sh` passed ([test case 10](../demo/test-case-10-kubernetes.md#the-same-lab-on-a-macbook-on-podman-instead-of-docker)). CI runs Docker only. If the lab needs more memory (the log pipeline asks for 6 GiB), resize the machine: `podman machine stop && podman machine set --memory 6144 && podman machine start`.
+**Without Docker Desktop.** The docker CLI then comes from Homebrew: `macos.sh --podman` installs the `docker` and `docker-compose` formulae when no `docker` is on your `PATH`. Compose is a CLI plugin, so tell the docker CLI where Homebrew put it, as the bootstrap prints and Homebrew's own caveat says:
+
+```json
+{ "cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"] }
+```
+
+in `~/.docker/config.json` (or `$DOCKER_CONFIG/config.json`). **Check:** `docker compose version` prints a version. Proven with Homebrew's docker 29.9.1 and docker-compose 5.6.0 on Podman 6.1.2: `compose-check.sh` passed, with Docker Desktop's CLI off the `PATH` and an empty `DOCKER_CONFIG`.
+
+Proven on a MacBook (Apple silicon) with Podman 6.1.2, rootless, 4 CPUs and 4 GiB: `compose-check.sh` and `k8s-check.sh` passed ([test case 10](../demo/test-case-10-kubernetes.md#the-same-lab-on-a-macbook-on-podman-instead-of-docker)). CI runs Part A on Podman too (rootless, on Linux); kind runs on Docker there. If the lab needs more memory (the log pipeline asks for 6 GiB), resize the machine: `podman machine stop && podman machine set --memory 6144 && podman machine start`.
 
 ### B2 — OpenShift
 

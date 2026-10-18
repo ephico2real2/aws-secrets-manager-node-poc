@@ -469,6 +469,52 @@ jobs:
           rm -rf output/supply-chain  # the images artifact brings the SBOMs along; they are published by the build job
           scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_mirror-logs"
 
+  compose-podman:
+    # The base stack on rootless Podman instead of Docker, through the docker CLI and Podman's
+    # API socket (scripts/podman.env), as on a MacBook with Podman Desktop (HANDOVER.md 11.3).
+    # Not a gate for publishing the images: Docker stays the reference engine.
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    name: compose (podman)
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: images
+
+      - name: Podman's API socket, and the images the build job made
+        run: |
+          podman version --format 'podman {{.Client.Version}}'
+          systemctl --user start podman.socket
+          gunzip -c images.tar.gz | podman load
+          . scripts/podman.env
+          echo "DOCKER_HOST=$DOCKER_HOST" >> "$GITHUB_ENV"
+
+      - name: docker compose up on Podman (no rebuild)
+        run: |
+          docker version --format 'docker CLI {{.Client.Version}} -> {{range .Server.Components}}{{.Name}} {{end}}{{.Server.Version}}'
+          scripts/preflight.sh compose
+          docker compose up -d --no-build
+
+      - name: Check — bootstrap burned, end-to-end smoke test, credential scan
+        run: |
+          set -o pipefail
+          mkdir -p output
+          scripts/compose-check.sh | tee output/compose-check.txt
+          { echo "## Docker Compose on Podman — check"; echo; echo '```'; cat output/compose-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logs
+        if: failure()
+        run: |
+          docker compose ps -a || true
+          docker compose logs --no-color --tail=100 || true
+
   env-file-demo:
     # The problem this project solves, shown live: credentials passed in a .env
     # file are readable by anyone who can reach the container. Then the same

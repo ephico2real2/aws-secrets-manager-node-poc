@@ -28,8 +28,7 @@ The steps are the ones above, after pointing the docker CLI and kind at Podman
 
 ```bash
 scripts/bootstrap/macos.sh --podman
-export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
-export KIND_EXPERIMENTAL_PROVIDER=podman
+. scripts/podman.env                      # DOCKER_HOST at Podman's socket, KIND_EXPERIMENTAL_PROVIDER=podman
 ```
 
 ![The dashboard on kind, on Podman on a MacBook](images/podman-kind-01-dashboard.png)

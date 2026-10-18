@@ -20,6 +20,7 @@ def closed(item):
 
 def mark(item):
     if closed(item): return "✅"
+    if item.get("parked"): return "⏸️ parked"
     if item.get("status") == "done" and item.get("aws"): return "✅ built · 🔎 verify on AWS"
     kids = item.get("children", [])
     if kids and "criteria" not in item and all(k.get("status") == "done" for k in kids): return "✅ built · 🔎 verify on AWS"

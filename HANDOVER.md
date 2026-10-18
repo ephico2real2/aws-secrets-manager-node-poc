@@ -144,7 +144,7 @@ Open stories at handover:
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
 | #118 | S5.2 Bootstrap a MacBook: **done** 2026-10-18 on Podman (Compose and kind, section 11.3); on Docker Desktop only the bootstrap, the preflight and `docker compose up` ran, no check | — |
-| #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | the owner's Mac with CRC (section 11.4) |
+| #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | the owner's Mac with CRC (section 11.4). **Waiting:** CRC was deleted on that Mac on 2026-10-13; the owner restores it later. Don't recreate it unasked |
 | #102–#111 | E15 **moved** to [`openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc) (epics B0–B8 there); closed here | — |
 
 ## 7. How CI works (pattern from the owner's cilium-implementation-poc)
@@ -190,7 +190,7 @@ Then close #95.
 - **`pkill -f` can match your own shell.** Use PIDs.
 - **Homebrew's Python refuses `pip install --user`** (PEP 668), and Homebrew has no PyYAML formula. `scripts/bootstrap/macos.sh` puts PyYAML in `.tmp/venv` at `PYYAML_VERSION`; the preflight checks it.
 - **A VM's memory reads low inside it.** A 4 GiB Podman machine reports 3887 MiB, so a whole-GiB floor said "3 GiB". The preflight compares MiB, allowing 10%.
-- **The docker CLI does not find Podman by itself.** `DOCKER_HOST` must point at the machine's API socket, and kind needs `KIND_EXPERIMENTAL_PROVIDER=podman`; the preflight says so when either is missing.
+- **The docker CLI does not find Podman by itself.** `DOCKER_HOST` must point at the machine's API socket, and kind needs `KIND_EXPERIMENTAL_PROVIDER=podman`; the preflight says so when either is missing, and `. scripts/podman.env` sets both.
 - **The sandbox's network is limited.** If `npm install` can't reach the registry locally, CI resolves the lockfile (the `checks` job uploads it as an artifact). Tag pushes and some GitHub APIs (GraphQL, releases) are blocked in the cloud sandbox; use REST through `gh api`.
 - **sns-logger only accepts signed requests that carry no `Origin`.** A hand-made `curl` POST needs an `Authorization: AWS4-HMAC-SHA256 Credential=<key>/…` header. The access key ID is the caller's identity in the mock (`local-app`, `local-seed`, `local-intruder-user`, `local-intruder-role`, `local-events`, `local-alertmanager`; unsigned is `local-tooling`).
 
@@ -263,19 +263,23 @@ scripts/kind-down.sh
 
 To run kind beside Compose, use `KIND_APP_PORT=3100 KIND_CONSOLE_PORT=4675 scripts/kind-up.sh`.
 **On Podman Desktop** (the owner's choice: a smaller VM than Docker Desktop), point the docker
-CLI and kind at Podman first, in every terminal; then the commands above and those of 11.2 are
+CLI and kind at Podman first, in every terminal (`scripts/podman.env`); then the commands above and those of 11.2 are
 unchanged:
 
 ```bash
 scripts/bootstrap/macos.sh --podman
-export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
-export KIND_EXPERIMENTAL_PROVIDER=podman
+. scripts/podman.env                      # DOCKER_HOST at Podman's socket, KIND_EXPERIMENTAL_PROVIDER=podman
 ```
 
 Proven on 2026-10-18 on the owner's MacBook (Apple silicon, Podman 6.1.2, rootless, 4 CPUs,
 4 GiB, Docker Desktop stopped): `compose-check.sh` and `k8s-check.sh` both passed. The machine
 used 1074 MiB of 3887 with Compose and 1582 MiB with kind, so 4 GiB is enough; the log
 pipeline is not measured on Podman yet. Screenshots: demo test cases 10 and 14. Colima is not tried.
+
+Without Docker Desktop, the bootstrap installs Homebrew's `docker` and `docker-compose`; add
+`"cliPluginsExtraDirs": ["/opt/homebrew/lib/docker/cli-plugins"]` to `~/.docker/config.json` (GUIDE B1,
+"Without Docker Desktop"). Proven with docker 29.9.1 and docker-compose 5.6.0 (bottles unpacked, Docker
+Desktop's CLI off the `PATH`): `compose-check.sh` passed.
 
 ### 11.4 OpenShift Local (CRC)
 
