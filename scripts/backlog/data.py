@@ -527,6 +527,18 @@ for _it in _all_items():
         _it["evidence"] = ([d("scripts/bootstrap/macos.sh"), d("scripts/bootstrap/linux.sh")] if _it["id"] == "S5.2"
                            else [d("deploy/k8s/overlays/openshift/console-route.yaml"), d("scripts/openshift-build.sh")])
 
+# S5.2 ran on the owner's MacBook on 2026-10-18, on Podman Desktop (the owner's choice over Docker Desktop).
+for _it in _all_items():
+    if _it["id"] == "S5.2":
+        _it["status"] = "done"
+        _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [
+            (1, "Run end to end on a real MacBook: Compose and kind. Done on Podman (Apple silicon, Podman 6.1.2, rootless, "
+                "4 CPUs, 4 GiB): `compose-check.sh` and `k8s-check.sh` passed; the machine used 1582 MiB of 3887 with kind."),
+            (1, "`macos.sh --podman`: Podman Desktop and a 4 GiB machine instead of Docker Desktop; the preflight names the engine, "
+                "points the docker CLI at Podman's socket (`DOCKER_HOST`) and kind at Podman (`KIND_EXPERIMENTAL_PROVIDER`)."),
+            (1, "PyYAML for `sync-event-pattern.py` in `.tmp/venv` at the CI pin (Homebrew's Python refuses `pip install --user`).")]
+        _it["evidence"] += [d("demo/test-case-10-kubernetes.md", "test case 10: the lab on Podman"), d("docs/GUIDE.md", "GUIDE B1: Podman instead of Docker")]
+
 # ---- E15 moved to its own repo, 2026-10-18 (it continues there as epics B0–B8) ----
 NB = "https://github.com/ephico2real2/openbao-node-poc/issues/"
 _MOVED = {"S15.1": (7, "B1 · ADR-002"), "S15.2": (3, "B0 · the repo, seeded with the AWS path kept; steps/ folders and tags"),

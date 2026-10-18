@@ -263,13 +263,15 @@ Evidence: [.github/workflows/aws.yaml](../../.github/workflows/aws.yaml), [infra
 
 Evidence: [deploy/kind/cluster.yaml](../../deploy/kind/cluster.yaml), [scripts/preflight.sh](../../scripts/preflight.sh), [scripts/kind-up.sh](../../scripts/kind-up.sh), CI job `kind`
 
-**S5.2 · Bootstrap a MacBook and a Linux machine** · S · 🔜 · [#118](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/118)
+**S5.2 · Bootstrap a MacBook and a Linux machine** · S · ✅ · [#118](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/118)
 *As a new contributor, I want one command to install what the lab needs, so that I don't assemble the toolchain by hand.*
 - [x] `scripts/bootstrap/linux.sh`: kind at its pin, checked against the release's SHA-256; kubectl if missing; used by CI.
 - [x] `scripts/bootstrap/macos.sh`: Homebrew formulae and Docker Desktop, then the preflight; changes no settings.
-- [ ] Run end to end on a real MacBook: Compose and kind (the owner).
+- [x] Run end to end on a real MacBook: Compose and kind. Done on Podman (Apple silicon, Podman 6.1.2, rootless, 4 CPUs, 4 GiB): `compose-check.sh` and `k8s-check.sh` passed; the machine used 1582 MiB of 3887 with kind.
+- [x] `macos.sh --podman`: Podman Desktop and a 4 GiB machine instead of Docker Desktop; the preflight names the engine, points the docker CLI at Podman's socket (`DOCKER_HOST`) and kind at Podman (`KIND_EXPERIMENTAL_PROVIDER`).
+- [x] PyYAML for `sync-event-pattern.py` in `.tmp/venv` at the CI pin (Homebrew's Python refuses `pip install --user`).
 
-Evidence: [scripts/bootstrap/macos.sh](../../scripts/bootstrap/macos.sh), [scripts/bootstrap/linux.sh](../../scripts/bootstrap/linux.sh)
+Evidence: [scripts/bootstrap/macos.sh](../../scripts/bootstrap/macos.sh), [scripts/bootstrap/linux.sh](../../scripts/bootstrap/linux.sh), [test case 10: the lab on Podman](../../demo/test-case-10-kubernetes.md), [GUIDE B1: Podman instead of Docker](../GUIDE.md)
 
 **S5.3 · OpenShift: Routes for the app and the console; images built on the cluster** · M · 🔜 · [#119](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/119)
 *As an OpenShift user, I want to open the app and the notification console through Routes, and to build the images on the cluster, so that the lab runs on OpenShift Local on any Mac.*

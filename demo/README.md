@@ -5,7 +5,8 @@ way you would demo it: **what it proves, the steps (click or command), what you
 should see, the screenshot and the real output from a CI run.** The pictures and
 outputs come from the CI captures on the
 [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
-branch, so they show the app as it actually ran.
+branch, so they show the app as it actually ran. The exceptions are labelled: test cases 10
+and 14 also show the lab on a MacBook, on Podman instead of Docker.
 
 Do them **in order**: test case 6 searches for the passwords that test cases 2–4
 created and leaked into the logs, and test cases 9 and 10 change which stack is
@@ -14,7 +15,7 @@ and 17 add the log pipeline overlay (`docker-compose.observability.yml`). Test c
 is the "before" picture and runs on its own. Counts such as versions, file numbers and fingerprints will differ on
 your machine; the shape of the output is what matters.
 
-**You need:** Docker with Compose v2, `jq`, and for the check scripts Node.js 22
+**You need:** Docker with Compose v2 (Docker Desktop, or Podman through its Docker API: test case 10), `jq`, and for the check scripts Node.js 22
 and `curl` on your machine. Test case 10 also needs [kind](https://kind.sigs.k8s.io)
 and `kubectl`; test case 11 `cosign` (and Linux on x86-64 for the scan script);
 test case 12 `skopeo` (or `oc`) and a registry you can push to. Test case 16 needs about

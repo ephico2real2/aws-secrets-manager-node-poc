@@ -17,6 +17,10 @@
 
 ![The Email tab](images/11-sns-email.png)
 
+The same tab from the kind lab on a MacBook, on Podman (not from CI; [test case 10](test-case-10-kubernetes.md#the-same-lab-on-a-macbook-on-podman-instead-of-docker) says how it ran):
+
+![The Email tab on kind, on Podman on a MacBook](images/podman-kind-02-sns-email.png)
+
 **SMS.** The test alert fits in one part (`SecNotes dev INFO: …`, sender ID `SECNOTES`, Transactional). The intruder alert is 181 characters, so it goes out in 2 parts. The Alertmanager alert reuses one message for every protocol, so its text runs to 4 parts. To shorten texts on AWS, give the SMS subscription its own topic or template. US numbers show no sender ID.
 
 ![The SMS tab](images/12-sns-sms.png)

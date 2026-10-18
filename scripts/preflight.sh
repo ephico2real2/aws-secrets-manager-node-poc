@@ -50,20 +50,34 @@ if ver_ge "$bv" 4.4; then row ok "bash (env bash)" "$bv at $(command -v bash)" "
 else row REQUIRED-FAIL "bash (env bash)" "$bv at $(command -v bash)" ">= 4.4: brew install bash (Homebrew's comes first on PATH)"; fi
 
 # ------------------------------------------------------------ the container engine
+engine=docker
 if [ "$TARGET" != openshift ]; then
   if ! have docker; then
-    row REQUIRED-FAIL docker "not found" "Docker Desktop (macOS) or Docker Engine (Linux)"
+    row REQUIRED-FAIL docker "not found" "Docker Desktop, or the docker CLI for Podman (macOS: scripts/bootstrap/macos.sh [--podman]); Docker Engine (Linux)"
   elif ! docker info >/dev/null 2>&1; then
-    row REQUIRED-FAIL docker "installed, not answering" "start Docker Desktop (open -a Docker) or the docker service"
+    hint="start Docker Desktop (open -a Docker) or the docker service"
+    # The docker CLI talks to Podman through the machine's API socket; nothing points it there by default.
+    if have podman && sock=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null) && [ -S "$sock" ]; then
+      hint="Podman is running: export DOCKER_HOST=unix://$sock"
+    fi
+    row REQUIRED-FAIL docker "installed, not answering" "$hint"
   else
-    mem=$(docker info --format '{{.MemTotal}}' 2>/dev/null); mem=$(( ${mem:-0} / 1073741824 ))
+    docker version --format '{{range .Server.Components}}{{.Name}} {{end}}' 2>/dev/null | grep -q Podman && engine=podman
+    # MiB, not whole GiB: the guest kernel sees less than the VM was given (a 4 GiB Podman machine
+    # reports 3887 MiB), so the floor allows 10% for it.
+    mem=$(docker info --format '{{.MemTotal}}' 2>/dev/null); mem=$(( ${mem:-0} / 1048576 ))
     cpu=$(docker info --format '{{.NCPU}}' 2>/dev/null)
-    row ok docker "engine $(docker version --format '{{.Server.Version}}' 2>/dev/null), ${cpu:-?} CPUs, ${mem} GiB" "the VM's size is what the lab gets"
-    want=4; [ "$OBS" = 1 ] && want=6; [ "$TARGET" = kind ] && want=6
-    if [ "$mem" -ge "$want" ]; then row ok "memory for the lab" "${mem} GiB" ">= ${want} GiB for this target"
-    else row warn "memory for the lab" "${mem} GiB" "below ${want} GiB: raise it (Docker Desktop: Settings > Resources > Memory)"; fi
+    shown=$(awk -v m="$mem" 'BEGIN{printf "%.1f GiB", m/1024}')
+    if [ "$engine" = podman ]; then name="Podman"; else name="Docker"; fi
+    row ok docker "$name engine $(docker version --format '{{.Server.Version}}' 2>/dev/null), ${cpu:-?} CPUs, $shown" "the VM's size is what the lab gets"
+    # kind: one node and the five workloads used 1.5 GiB of a 4 GiB Podman machine (HANDOVER.md 11.3).
+    want=4; [ "$OBS" = 1 ] && want=6
+    if [ "$engine" = podman ]; then raise="podman machine stop && podman machine set --memory $((want * 1024)) && podman machine start"
+    else raise="Docker Desktop: Settings > Resources > Memory"; fi
+    if [ "$mem" -ge $((want * 1024 * 9 / 10)) ]; then row ok "memory for the lab" "$shown" ">= ${want} GiB for this target"
+    else row warn "memory for the lab" "$shown" "below ${want} GiB: raise it ($raise)"; fi
     if docker compose version >/dev/null 2>&1; then row ok "docker compose" "$(docker compose version --short 2>/dev/null)" "Compose v2 builds the images, on every path"
-    else row REQUIRED-FAIL "docker compose" "not found" "Compose v2 (part of Docker Desktop; docker-compose-plugin on Linux)"; fi
+    else row REQUIRED-FAIL "docker compose" "not found" "Compose v2 (part of Docker Desktop; brew install docker-compose for Podman; docker-compose-plugin on Linux)"; fi
   fi
 fi
 
@@ -75,6 +89,10 @@ case "$TARGET" in
       if [ "$kv" = "$KIND_VERSION" ]; then row ok kind "$kv" "= $KIND_VERSION (scripts/versions.env)"
       else row warn kind "$kv" "the node image is pinned for $KIND_VERSION; other versions usually work"; fi
     else row REQUIRED-FAIL kind "not found" "$KIND_VERSION (brew install kind, or scripts/bootstrap/linux.sh)"; fi
+    if [ "$engine" = podman ]; then
+      if [ "${KIND_EXPERIMENTAL_PROVIDER:-}" = podman ]; then row ok "kind provider" "podman" "kind runs its node through Podman"
+      else row warn "kind provider" "${KIND_EXPERIMENTAL_PROVIDER:-docker (default)}" "the lab is proven on Podman with: export KIND_EXPERIMENTAL_PROVIDER=podman"; fi
+    fi
     grep -q "image: ${KIND_NODE_IMAGE}" deploy/kind/cluster.yaml \
       && row ok "node image" "${KIND_NODE_IMAGE%%@*}" "deploy/kind/cluster.yaml = scripts/versions.env" \
       || row REQUIRED-FAIL "node image" "files disagree" "deploy/kind/cluster.yaml and KIND_NODE_IMAGE must name the same image"
@@ -103,6 +121,9 @@ if have node; then
   if [ "${nv%%.*}" -ge "$NODE_MIN_MAJOR" ] 2>/dev/null; then row ok node "$nv" ">= $NODE_MIN_MAJOR for the check scripts and the unit tests"
   else row warn node "$nv" "the check scripts need Node.js $NODE_MIN_MAJOR or later"; fi
 else row warn node "not found" "Node.js $NODE_MIN_MAJOR+ for the check scripts and the unit tests"; fi
+py=python3; [ -x .tmp/venv/bin/python3 ] && py=.tmp/venv/bin/python3
+if "$py" -c 'import yaml' 2>/dev/null; then row ok "PyYAML" "$("$py" -c 'import yaml; print(yaml.__version__)') ($py)" "scripts/sync-event-pattern.py reads the template"
+else row warn "PyYAML" "not importable by $py" "scripts/sync-event-pattern.py needs it (macOS: scripts/bootstrap/macos.sh makes .tmp/venv)"; fi
 
 # ------------------------------------------------------------ host ports
 ports="3000 4575"; [ "$OBS" = 1 ] && ports="$ports 9428 8880 9093"

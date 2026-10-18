@@ -43,7 +43,7 @@ No git? On the repository page, choose **Code → Download ZIP**, unzip it, and 
 
 The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Everything AWS would normally provide runs in containers, including a stand-in for Secrets Manager.
 
-**You need:** Docker Desktop, running. Check with `docker compose version`; it should print `v2.` followed by numbers. Node.js 22 is only needed for the optional tests in step 3.
+**You need:** Docker Desktop, running, or Podman with the docker CLI pointed at it ([Podman instead of Docker](#podman-instead-of-docker)). Check with `docker compose version`; it should print a version number. Node.js 22 is only needed for the optional tests in step 3.
 
 1. Build the images and start everything:
 
@@ -115,7 +115,7 @@ The base is hardened in every overlay: non-root, read-only root filesystem, all 
 
 ### B1 — kind (Kubernetes on your laptop)
 
-**You need:** Docker, [kind](https://kind.sigs.k8s.io) (CI uses v0.33.0) and kubectl, and about 6 GiB of memory for Docker. On a Mac, `scripts/bootstrap/macos.sh` installs what's missing; on Linux, `scripts/bootstrap/linux.sh`. Then check the machine:
+**You need:** Docker (or Podman: see below), [kind](https://kind.sigs.k8s.io) (CI uses v0.33.0) and kubectl, and 4 GiB of memory for the container VM: the running lab used 1.5 GiB of it on a MacBook. On a Mac, `scripts/bootstrap/macos.sh` installs what's missing; on Linux, `scripts/bootstrap/linux.sh`. Then check the machine:
 
 ```bash
 scripts/preflight.sh kind
@@ -154,6 +154,22 @@ scripts/preflight.sh kind
 When you're done: `scripts/kind-down.sh`. The images stay in Docker for next time.
 
 A cluster made before `deploy/kind/cluster.yaml` existed has no port mappings; `kind-up.sh` says so. Recreate it, or use `kubectl -n secure-notes port-forward svc/secure-notes 3000:80` and `svc/sns-logger 4575:4575`.
+
+#### Podman instead of Docker
+
+Podman runs Part A and B1 in a smaller VM than Docker Desktop. The scripts call `docker`; the docker CLI talks to Podman through the Podman machine's API socket, and kind runs its node through Podman. On a Mac:
+
+```bash
+scripts/bootstrap/macos.sh --podman      # Podman Desktop, a 4 GiB machine if you have none, then the preflight
+export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+export KIND_EXPERIMENTAL_PROVIDER=podman
+```
+
+Then Part A and steps 1 to 5 above, unchanged. Set the two variables in every new terminal, or in your shell profile.
+
+**Check:** `scripts/preflight.sh kind` shows `Podman engine` in the docker row and `ok  kind provider  podman`.
+
+Proven on a MacBook (Apple silicon) with Podman 6.1.2, rootless, 4 CPUs and 4 GiB: `compose-check.sh` and `k8s-check.sh` passed ([test case 10](../demo/test-case-10-kubernetes.md#the-same-lab-on-a-macbook-on-podman-instead-of-docker)). CI runs Docker only. If the lab needs more memory (the log pipeline asks for 6 GiB), resize the machine: `podman machine stop && podman machine set --memory 6144 && podman machine start`.
 
 ### B2 — OpenShift
 

@@ -62,7 +62,7 @@ docker compose -f docker-compose.yml -f docker-compose.observability.yml up --bu
 ```
 
 **On a MacBook:** `scripts/bootstrap/macos.sh` installs what's missing (Homebrew formulae,
-Docker Desktop), then `scripts/preflight.sh kind` checks the machine. kind maps the app to
+Docker Desktop, or Podman Desktop with `--podman`), then `scripts/preflight.sh kind` checks the machine. kind maps the app to
 `localhost:3000` (`scripts/kind-up.sh`); OpenShift Local works too, building the images on
 the cluster for Apple silicon (`scripts/openshift-build.sh`).
 

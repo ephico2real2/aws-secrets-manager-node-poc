@@ -19,6 +19,38 @@ scripts/k8s-check.sh              # kind maps the app to localhost:3000; no port
 
 ![The dashboard on kind](images/kind-01-dashboard.png)
 
+### The same lab on a MacBook, on Podman instead of Docker
+
+Not from CI: the owner's MacBook (Apple silicon, macOS 26.5) on 2026-10-18, with Podman
+Desktop's machine (Podman 6.1.2, rootless, 4 CPUs, 4 GiB) and Docker Desktop not running.
+The steps are the ones above, after pointing the docker CLI and kind at Podman
+([GUIDE B1](../docs/GUIDE.md#b1--kind-kubernetes-on-your-laptop)):
+
+```bash
+scripts/bootstrap/macos.sh --podman
+export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+export KIND_EXPERIMENTAL_PROVIDER=podman
+```
+
+![The dashboard on kind, on Podman on a MacBook](images/podman-kind-01-dashboard.png)
+
+From that run:
+
+```
+ • Ready after 15s 💚
+...
+  ok    security posture: no check fails  (13 checks, none failing)
+
+All checks passed
+...
+credential-scan: no credential value found anywhere it must not be
+
+k8s-check: all checks passed
+```
+
+With the lab running, the Podman machine used 1582 MiB of its 3887 MiB and the kind node
+854 MB (`free -m` in the machine, `podman stats`).
+
 ## Evidence from the run
 
 ```

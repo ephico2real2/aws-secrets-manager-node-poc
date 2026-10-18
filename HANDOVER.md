@@ -80,7 +80,7 @@ gh api "repos/ephico2real2/aws-secrets-manager-node-poc/issues?state=open&per_pa
   -q '.[] | "#\(.number) \(.title)"'
 (cd backend && npm ci && npm test)       # unit tests
 node --test dev/aws-mock/test/*.test.js  # mock tests (EventBridge matcher, SNS, CloudTrail)
-node scripts/sync-alert-rules.js --check && python3 scripts/sync-event-pattern.py --check
+node scripts/sync-alert-rules.js --check && python3 scripts/sync-event-pattern.py --check   # on a Mac: .tmp/venv/bin/python3 (section 9)
 node scripts/docs-check.js               # links (and Mermaid if Playwright is set up)
 docker compose up --build -d             # http://localhost:3000 (app) and :4575 (notification console)
 scripts/compose-check.sh                 # end-to-end, alert paths and the credential scan
@@ -142,7 +142,7 @@ Open stories at handover:
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
-| #118 | S5.2 Run the bootstrap and the kind lab end to end on a real MacBook | the owner's Mac (section 11) |
+| #118 | S5.2 Bootstrap a MacBook: **done** 2026-10-18 on Podman (Compose and kind, section 11.3); on Docker Desktop only the bootstrap, the preflight and `docker compose up` ran, no check | — |
 | #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | the owner's Mac with CRC (section 11.4) |
 | #102–#111 | E15 **moved** to [`openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc) (epics B0–B8 there); closed here | — |
 
@@ -187,6 +187,9 @@ Then close #95.
 - **The `aws/sns` key.** EventBridge and CloudWatch alarms can't publish to a topic encrypted with it. These two facts are why S4.2 could never fire before v2.
 - **Exit paths lose async writes.** The file sink writes synchronously so `config.unsafe` survives `process.exit`.
 - **`pkill -f` can match your own shell.** Use PIDs.
+- **Homebrew's Python refuses `pip install --user`** (PEP 668), and Homebrew has no PyYAML formula. `scripts/bootstrap/macos.sh` puts PyYAML in `.tmp/venv` at `PYYAML_VERSION`; the preflight checks it.
+- **A VM's memory reads low inside it.** A 4 GiB Podman machine reports 3887 MiB, so a whole-GiB floor said "3 GiB". The preflight compares MiB, allowing 10%.
+- **The docker CLI does not find Podman by itself.** `DOCKER_HOST` must point at the machine's API socket, and kind needs `KIND_EXPERIMENTAL_PROVIDER=podman`; the preflight says so when either is missing.
 - **The sandbox's network is limited.** If `npm install` can't reach the registry locally, CI resolves the lockfile (the `checks` job uploads it as an artifact). Tag pushes and some GitHub APIs (GraphQL, releases) are blocked in the cloud sandbox; use REST through `gh api`.
 - **sns-logger only accepts signed requests that carry no `Origin`.** A hand-made `curl` POST needs an `Authorization: AWS4-HMAC-SHA256 Credential=<key>/…` header. The access key ID is the caller's identity in the mock (`local-app`, `local-seed`, `local-intruder-user`, `local-intruder-role`, `local-events`, `local-alertmanager`; unsigned is `local-tooling`).
 
@@ -214,7 +217,8 @@ changing Docker Desktop's settings.
 ```bash
 git clone https://github.com/ephico2real2/aws-secrets-manager-node-poc.git
 cd aws-secrets-manager-node-poc
-scripts/bootstrap/macos.sh                # add --openshift for the oc CLI
+scripts/bootstrap/macos.sh                # Docker Desktop; add --openshift for the oc CLI
+scripts/bootstrap/macos.sh --podman       # Podman Desktop instead: a smaller VM (11.3)
 ```
 
 `macos.sh` needs Homebrew (<https://brew.sh>; its installer asks for the password, so the
@@ -230,7 +234,7 @@ Fix every `REQUIRED-FAIL` row before going on. The common ones on a new Mac:
 | --- | --- |
 | `bash (env bash)` 3.2 | `brew install bash`, then open a new Terminal, so `/opt/homebrew/bin` comes before `/bin` |
 | `docker` not answering | `open -a Docker`, and accept its terms on the first launch |
-| `memory for the lab` (warn) | Docker Desktop → Settings → Resources → Memory: 6 GiB or more for kind, 8 GiB with the log pipeline |
+| `memory for the lab` (warn) | 4 GiB for Compose or kind, 6 GiB with the log pipeline. Docker Desktop → Settings → Resources → Memory; Podman: `podman machine stop && podman machine set --memory 6144 && podman machine start` |
 | `port 3000` / `4575` in use | Another lab is running: `docker compose down` or `scripts/kind-down.sh` |
 
 ### 11.2 Docker Compose (the quickest lab)
@@ -257,8 +261,20 @@ scripts/kind-down.sh
 ```
 
 To run kind beside Compose, use `KIND_APP_PORT=3100 KIND_CONSOLE_PORT=4675 scripts/kind-up.sh`.
-Podman or Colima instead of Docker Desktop should work with kind
-(`KIND_EXPERIMENTAL_PROVIDER=podman`), but the lab is only proven on Docker.
+**On Podman Desktop** (the owner's choice: a smaller VM than Docker Desktop), point the docker
+CLI and kind at Podman first, in every terminal; then the commands above and those of 11.2 are
+unchanged:
+
+```bash
+scripts/bootstrap/macos.sh --podman
+export DOCKER_HOST="unix://$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}')"
+export KIND_EXPERIMENTAL_PROVIDER=podman
+```
+
+Proven on 2026-10-18 on the owner's MacBook (Apple silicon, Podman 6.1.2, rootless, 4 CPUs,
+4 GiB, Docker Desktop stopped): `compose-check.sh` and `k8s-check.sh` both passed. The machine
+used 1074 MiB of 3887 with Compose and 1582 MiB with kind, so 4 GiB is enough; the log
+pipeline is not measured on Podman yet. Screenshots: demo test cases 10 and 14. Colima is not tried.
 
 ### 11.4 OpenShift Local (CRC)
 
