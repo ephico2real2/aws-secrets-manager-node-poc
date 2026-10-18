@@ -365,6 +365,8 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: write # publishes the evidence to ci-captures
     steps:
       - uses: actions/checkout@v5
 
@@ -406,8 +408,15 @@ jobs:
             want=$(docker image inspect --format '{{json .RootFS.Layers}}' "$src" | jq -c .)
             got=$(skopeo inspect --tls-verify=false --config "docker://$dst" | jq -c .rootfs.diff_ids)
             [ "$want" = "$got" ] || { echo "::error title=mirror mismatch::$dst"; echo "want $want"; echo "got  $got"; exit 1; }
-            echo "  ok    $dst ($(jq length <<< "$got") identical layers)"
+            echo "  ok    $dst ($(jq length <<< "$got") identical layers)" | tee -a mirror-check.txt
           done
+
+      - name: Publish the mirror evidence
+        if: always()
+        run: |
+          mkdir -p output; cp mirror.txt mirror-check.txt output/ 2>/dev/null || true
+          cp deploy/k8s/overlays/mirror/kustomization.yaml output/mirror-overlay.yaml 2>/dev/null || true
+          scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_mirror-logs"
 
   images:
     # Publish exactly the images that just passed every job — no rebuild.
@@ -416,7 +425,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
-      contents: read
+      contents: write # publishes the signing evidence to ci-captures
       packages: write
       id-token: write # keyless cosign signing with the workflow's GitHub identity
     steps:
@@ -458,7 +467,7 @@ jobs:
           while IFS='=' read -r name ref; do
             cosign sign --yes "$ref"
             cosign attest --yes --type cyclonedx --predicate "output/supply-chain/sbom-$name.cdx.json" "$ref"
-            echo "signed + SBOM attested: $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "signed + SBOM attested: $ref" | tee -a "$GITHUB_STEP_SUMMARY" signing.txt
           done < digests.env
 
       - name: Can a cluster pull them without credentials?
@@ -470,7 +479,9 @@ jobs:
           while IFS='=' read -r name ref; do
             if cosign verify --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" > /dev/null \
                && cosign verify-attestation --type cyclonedx --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" > /dev/null; then
-              echo "verified signature + SBOM attestation: $ref" | tee -a "$GITHUB_STEP_SUMMARY"
+              cosign verify --certificate-identity "$id" --certificate-oidc-issuer https://token.actions.githubusercontent.com "$ref" 2>/dev/null \
+                | jq -r '.[0].optional | "  signed by: \(.Subject // .subject // "?")  issuer: \(.Issuer // "?")"' >> signing.txt || true
+              echo "verified signature + SBOM attestation: $ref" | tee -a "$GITHUB_STEP_SUMMARY" signing.txt
             else
               echo "::error title=cosign verify failed::$ref"; exit 1
             fi
@@ -479,8 +490,14 @@ jobs:
             img="ghcr.io/${{ github.repository }}/$name:sha-${GITHUB_SHA::7}"
             docker rmi -f "$img" >/dev/null 2>&1 || true
             if docker pull -q "$img" >/dev/null 2>&1; then
-              echo "public: $img" | tee -a "$GITHUB_STEP_SUMMARY"
+              echo "public: $img" | tee -a "$GITHUB_STEP_SUMMARY" signing.txt
             else
               echo "::warning title=GHCR package is private::$img cannot be pulled anonymously. Make the package public (Package settings → Change visibility) or give the cluster a pull secret."
             fi
           done
+
+      - name: Publish the signing evidence
+        if: always()
+        run: |
+          mkdir -p output; cp signing.txt digests.env output/ 2>/dev/null || true
+          scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_images-logs"
