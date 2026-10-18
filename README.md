@@ -19,6 +19,11 @@ The same app, built into the same images, runs three ways:
 **New to this?** Follow the step-by-step guide in [`docs/GUIDE.md`](docs/GUIDE.md): every
 command, what you should see after it, and troubleshooting, written for a first deployment.
 
+**See it work:** the [tutorial](docs/TUTORIAL.md) walks through every feature on your laptop;
+the [demo folder](demo/README.md) has one page per test case, with the CI screenshot and
+output for each; and [`docs/TEST-CASES.md`](docs/TEST-CASES.md) lists every automated test and
+what it proves.
+
 Every push runs path A and path B on kind on a GitHub runner and publishes screenshots of the
 dashboard to the [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 branch — see [CI](#ci-what-every-push-proves).
@@ -212,6 +217,21 @@ A cluster can enforce the same rule at admission (OpenShift's sigstore image pol
 or Kyverno / policy-controller on other clusters). The SBOMs and scan reports of every
 build are also in the run's `…build-supply-chain` folder on `ci-captures`.
 
+## Debug logging, the reveal flag, and the credential scan
+
+| Setting | Default | What it does |
+| --- | --- | --- |
+| `LOG_LEVEL=debug` | `debug` in Compose and kind, `info` on AWS (`LogLevel` parameter) | Each secret load and each login is logged with the secret ID, version and every key: passwords as `******** (32 chars, fp=…)`, usernames partly masked, hosts and ports in full. The dashboard's log panel has a **Credential lines only** filter. |
+| `LOG_REVEAL_SECRETS=true` | off | Lab troubleshooting only: those debug lines also print the real values. Red banner on the dashboard, a failing posture check, never served by `/api/logs`, and **refused in production** (the app exits 78). |
+
+`scripts/credential-scan.sh compose|k8s` reads every password from the Secrets Manager
+stand-in and searches the running stack for the **values**: container configuration,
+pod specs, ConfigMaps, decoded Kubernetes Secrets, events, the app's process environment,
+every file in the app container, the Postgres and Redis data, and every container's log.
+It never prints a value. `compose-check.sh` and `k8s-check.sh` run it after the end-to-end
+test; CI also runs it with the reveal flag on and requires it to find the values in the
+app's log and nowhere else.
+
 ## SDK mode vs Workload Credentials Provider mode
 
 `SECRETS_MODE=sdk` (default): the app calls `GetSecretValue` with the AWS SDK v3 and
@@ -231,7 +251,8 @@ backend/        Node.js app: src/secrets (provider, fetchers, SecretValue, redac
 frontend/       dashboard (vanilla JS, strict CSP, textContent only)
 dev/            Secrets Manager + STS + agent mock (dev/CI only), Redis entrypoint
 deploy/k8s/     Kustomize base, component and overlays (kind, OpenShift, AWS)
-docs/           GUIDE.md: the step-by-step guide for all three paths
+docs/           GUIDE.md (deploy, all three paths), TUTORIAL.md, TEST-CASES.md
+demo/           one page per test case, with CI screenshots and output
 infra/          CloudFormation (app stack + GitHub OIDC bootstrap), rotation/ (Redis rotation function),
                 systemd unit, example IAM and IRSA policies
 scripts/        the same scripts on a laptop and in CI; capture/ = the dashboard walk

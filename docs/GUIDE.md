@@ -60,7 +60,7 @@ The quickest way to see the app: no AWS account, no Kubernetes, only Docker. Eve
    scripts/compose-check.sh
    ```
 
-   **Check:** the tests end with `# pass 15` and `# fail 0`, and `compose-check.sh` ends with `All checks passed`.
+   **Check:** the tests end with `# pass 23` and `# fail 0`, and `compose-check.sh` ends with `All checks passed`.
 4. Stop and reset. Press `Ctrl+C` in the first terminal, then:
 
    ```bash
@@ -685,6 +685,23 @@ A real capture from the `kind` job: the four rotation steps have run, and the ti
 **To see them:** open the repository's **Actions** tab, pick a run, and scroll the summary. Each job's logs and evidence (`k8s-check.txt`, pod logs) are in a `…-logs` folder on the same branch.
 
 Part C does not run on every push, because it needs an AWS account and costs money. It has its own manual workflow, `aws (Part C)` in `.github/workflows/aws.yaml`, which you start yourself once AWS is set up (see C11). Until then, every push still lints its CloudFormation templates and the workflow file, so they stay valid.
+
+## What the tests prove
+
+Every claim in this guide has a test that fails if the claim stops being true; the most important one searches the running stack for the **actual passwords**, not just their names, and finds none.
+
+| Claim | Proven by | Where |
+| --- | --- | --- |
+| No password in any container or pod: configuration, pod specs, ConfigMaps, decoded Secrets, events, process environment, every file, the databases (only hashes), every log | `scripts/credential-scan.sh`, run after the end-to-end test | `compose`, `kind` |
+| The scan really finds a leak | the same scan with `LOG_REVEAL_SECRETS=true`: FOUND in the app log, and only there | `compose (sdk)` |
+| Rotation needs no restart | rotate from the dashboard, drop connections: `auth-failed → new-version → recovered` | `compose`, `kind` |
+| Six common leaks are blocked | the leak test: `0 of 6 leaked` | `compose`, `kind` |
+| Debug logs name every key and mask every value | unit tests and the dashboard capture | `checks`, `compose`, `kind` |
+| Production refuses the reveal flag | the app exits 78 | `checks`, `compose (sdk)` |
+
+**Debug logging.** With `LOG_LEVEL=debug` (the default in Compose and kind; the `LogLevel` parameter on AWS), the log shows which secret, version and keys the app used: passwords as `******** (32 chars, fp=…)`, usernames partly masked, hosts and ports in full. On the dashboard, tick **Credential lines only** under **Application log**.
+
+To see each one work, follow the [tutorial](TUTORIAL.md); to demo them one at a time, with the CI screenshot and output for each, open the [demo folder](../demo/README.md). [TEST-CASES.md](TEST-CASES.md) lists every automated test.
 
 ## Troubleshooting
 
