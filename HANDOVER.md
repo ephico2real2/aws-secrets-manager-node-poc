@@ -2,7 +2,7 @@
 
 **Read this file first, then follow it.** It holds everything a new AI agent (Claude Code or
 any other) needs to pick the work up where it stopped. The last session ended on
-2026-10-18 at commit `5f99117`, with every CI job green (run 39145306416).
+2026-10-18; the last code change is commit `0b847fb`, with every CI job green (run 39149684453).
 
 Paste this into a new session to start:
 
