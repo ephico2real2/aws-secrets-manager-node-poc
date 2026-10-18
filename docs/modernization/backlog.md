@@ -225,7 +225,7 @@ Evidence: `RotationEnabledRule`, `RotationSucceededRule`, `ImdsV2Rule` in [infra
 
 ### E5 — Delivery and automation
 
-[#39](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/39) · ✅ · **Outcome:** One build for every platform, a verifiable supply chain and keyless deploys. Docs: [CI reference](../reference/ci.md)
+[#39](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/39) · 🔜 · **Outcome:** One build for every platform, a verifiable supply chain and keyless deploys. Docs: [CI reference](../reference/ci.md)
 
 **F5.1 · One build, every platform** · M · ✅ · [#40](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/40)
 *As a release engineer, I want the exact tested images published, so that nothing is rebuilt between test and release.*
@@ -252,6 +252,32 @@ Evidence: [test case 12](../../demo/test-case-12-image-mirror.md)
 - [x] The deploy role can rotate but never read secrets.
 
 Evidence: [.github/workflows/aws.yaml](../../.github/workflows/aws.yaml), [infra/github-actions-bootstrap.yaml](../../infra/github-actions-bootstrap.yaml)
+
+#### F5.6 · Local labs on any laptop: kind and OpenShift Local · 🔜 · [#116](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/116)
+
+**S5.1 · kind cluster: pinned, port-mapped, checked first** · S · ✅ · [#117](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/117)
+*As a developer, I want `scripts/kind-up.sh` to build the same cluster on my Mac and in CI, and to open the app without a port-forward, so that the lab just works.*
+- [x] `deploy/kind/cluster.yaml` pins the node image by digest (amd64 and arm64) and maps the app and the console to 127.0.0.1:3000 and :4575 through NodePorts.
+- [x] `scripts/preflight.sh` checks bash, Docker and its memory, kind and the node image, kubectl's skew, Node.js and free ports; `kind-up.sh` runs it strictly.
+- [x] CI's kind job runs the same scripts, reaches both ports with no port-forward, and exports kind's logs on failure.
+
+Evidence: [deploy/kind/cluster.yaml](../../deploy/kind/cluster.yaml), [scripts/preflight.sh](../../scripts/preflight.sh), [scripts/kind-up.sh](../../scripts/kind-up.sh), CI job `kind`
+
+**S5.2 · Bootstrap a MacBook and a Linux machine** · S · 🔜 · [#118](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/118)
+*As a new contributor, I want one command to install what the lab needs, so that I don't assemble the toolchain by hand.*
+- [x] `scripts/bootstrap/linux.sh`: kind at its pin, checked against the release's SHA-256; kubectl if missing; used by CI.
+- [x] `scripts/bootstrap/macos.sh`: Homebrew formulae and Docker Desktop, then the preflight; changes no settings.
+- [ ] Run end to end on a real MacBook: Compose and kind (the owner).
+
+Evidence: [scripts/bootstrap/macos.sh](../../scripts/bootstrap/macos.sh), [scripts/bootstrap/linux.sh](../../scripts/bootstrap/linux.sh)
+
+**S5.3 · OpenShift: Routes for the app and the console; images built on the cluster** · M · 🔜 · [#119](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/119)
+*As an OpenShift user, I want to open the app and the notification console through Routes, and to build the images on the cluster, so that the lab runs on OpenShift Local on any Mac.*
+- [x] Routes `secure-notes` and `sns-logger` (edge TLS); a NetworkPolicy lets the router reach the console; `k8s-deploy.sh` points the console link at its Route.
+- [x] `overlays/openshift-local` with `scripts/openshift-build.sh`: BuildConfigs build both images from HEAD for the cluster's CPU; image lookup resolves the short names.
+- [ ] Run on OpenShift Local (CRC) end to end, including `k8s-check.sh` (the owner: CI has no OpenShift).
+
+Evidence: [deploy/k8s/overlays/openshift/console-route.yaml](../../deploy/k8s/overlays/openshift/console-route.yaml), [scripts/openshift-build.sh](../../scripts/openshift-build.sh)
 
 ### E6 — Verification and evidence
 
@@ -570,6 +596,20 @@ Evidence: [GUIDE](../GUIDE.md), [quick reference](../reference/deploy-quickref.m
 - [x] Screenshots come from the CI walk (`scripts/capture/`), so they show the current app.
 
 Evidence: [TUTORIAL](../TUTORIAL.md), [demo pages](../../demo/README.md), [TEST-CASES](../TEST-CASES.md)
+
+#### F7.8 · Folder READMEs and a handover · ✅ · [#120](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/120)
+
+**S7.7 · A README in every folder, and a docs index** · S · ✅ · [#121](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/121)
+*As a reader, I want each folder to say what it holds, so that I can find my way without reading the code.*
+- [x] `docs/README.md` (where to start, by goal) and `docs/reference/README.md`; READMEs in backend, frontend, deploy, dev, infra, scripts and versions; a repository map in the root README.
+
+Evidence: [docs index](../README.md), [repository map](../../README.md)
+
+**S7.8 · Handover for the next contributor or AI agent** · S · ✅ · [#122](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/122)
+*As the owner, I want a handover in the repo, so that a new session can continue the work or rebuild the lab on my Mac.*
+- [x] `HANDOVER.md`: state, working rules, map, generated files, open work, CI, lessons, and recreating the lab on a MacBook; `CLAUDE.md` points to it.
+
+Evidence: [HANDOVER.md](../../HANDOVER.md), [CLAUDE.md](../../CLAUDE.md)
 
 ### E13 — Version folders and milestone tags
 

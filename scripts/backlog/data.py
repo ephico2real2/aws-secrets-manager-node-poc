@@ -434,6 +434,36 @@ EPICS += [
   ]),
 ]
 
+# ---- local labs on any laptop (E5) and folder READMEs + handover (E7), 2026-10-18 ----
+_E = {e["id"]: e for e in EPICS}
+_E["E5"]["children"].append(
+  F("F5.6", "Local labs on any laptop: kind and OpenShift Local", [
+    S("S5.1", "kind cluster: pinned, port-mapped, checked first", "S",
+      "As a developer, I want `scripts/kind-up.sh` to build the same cluster on my Mac and in CI, and to open the app without a port-forward, so that the lab just works.",
+      ["`deploy/kind/cluster.yaml` pins the node image by digest (amd64 and arm64) and maps the app and the console to 127.0.0.1:3000 and :4575 through NodePorts.",
+       "`scripts/preflight.sh` checks bash, Docker and its memory, kind and the node image, kubectl's skew, Node.js and free ports; `kind-up.sh` runs it strictly.",
+       "CI's kind job runs the same scripts, reaches both ports with no port-forward, and exports kind's logs on failure."]),
+    S("S5.2", "Bootstrap a MacBook and a Linux machine", "S",
+      "As a new contributor, I want one command to install what the lab needs, so that I don't assemble the toolchain by hand.",
+      ["`scripts/bootstrap/linux.sh`: kind at its pin, checked against the release's SHA-256; kubectl if missing; used by CI.",
+       "`scripts/bootstrap/macos.sh`: Homebrew formulae and Docker Desktop, then the preflight; changes no settings.",
+       "Run end to end on a real MacBook: Compose and kind (the owner)."]),
+    S("S5.3", "OpenShift: Routes for the app and the console; images built on the cluster", "M",
+      "As an OpenShift user, I want to open the app and the notification console through Routes, and to build the images on the cluster, so that the lab runs on OpenShift Local on any Mac.",
+      ["Routes `secure-notes` and `sns-logger` (edge TLS); a NetworkPolicy lets the router reach the console; `k8s-deploy.sh` points the console link at its Route.",
+       "`overlays/openshift-local` with `scripts/openshift-build.sh`: BuildConfigs build both images from HEAD for the cluster's CPU; image lookup resolves the short names.",
+       "Run on OpenShift Local (CRC) end to end, including `k8s-check.sh` (the owner: CI has no OpenShift)."]),
+  ], docs=[d("deploy/README.md", "deploy/"), d("docs/GUIDE.md", "GUIDE Part B")]))
+_E["E7"]["children"].append(
+  F("F7.8", "Folder READMEs and a handover", [
+    S("S7.7", "A README in every folder, and a docs index", "S",
+      "As a reader, I want each folder to say what it holds, so that I can find my way without reading the code.",
+      ["`docs/README.md` (where to start, by goal) and `docs/reference/README.md`; READMEs in backend, frontend, deploy, dev, infra, scripts and versions; a repository map in the root README."]),
+    S("S7.8", "Handover for the next contributor or AI agent", "S",
+      "As the owner, I want a handover in the repo, so that a new session can continue the work or rebuild the lab on my Mac.",
+      ["`HANDOVER.md`: state, working rules, map, generated files, open work, CI, lessons, and recreating the lab on a MacBook; `CLAUDE.md` points to it."]),
+  ], docs=[d("HANDOVER.md"), d("docs/README.md", "docs index")]))
+
 # ---- progress on E8–E14 (evidence: commits on main, CI runs, docs) ----
 def _all_items():
     for e in EPICS:
@@ -467,6 +497,9 @@ _EVIDENCE = {
     "S14.3": [d("docs/reference/alerts.md", "alert catalogue"), d("README.md")],
     "S14.4": [d("scripts/backlog/README.md", "scripts/backlog")],
     "S14.2": [d("demo/README.md", "demo test cases 13–18"), d("scripts/capture/alerts.yaml")],
+    "S5.1": [d("deploy/kind/cluster.yaml"), d("scripts/preflight.sh"), d("scripts/kind-up.sh"), "CI job `kind`"],
+    "S7.7": [d("docs/README.md", "docs index"), d("README.md", "repository map")],
+    "S7.8": [d("HANDOVER.md"), d("CLAUDE.md")],
     "S8.4": [d("backend/src/logship/file.js"), d("backend/src/secrets/provider.js"), d("backend/test/logging.test.js")],
     "S9.5": [d("dev/aws-mock/sns-logger/server.js"), d("scripts/alerts-check.sh")],
 }
@@ -486,3 +519,10 @@ for _it in _all_items():
         _it["criteria"] = [(0, "`v1-secrets-manager` and `v2-alerts`, each with a release linking the CI evidence: run the `milestone` workflow (this session can't push tags)."),
                            (1, "Release notes in `docs/releases/`; the `milestone` workflow creates the tag and the release.")]
         _it["evidence"] = [d(".github/workflows/milestone.yaml"), d("docs/releases/v1-secrets-manager.md")]
+
+# Built and checked in CI where possible; the last criterion of each needs the owner's machine.
+for _it in _all_items():
+    if _it["id"] in ("S5.2", "S5.3"):
+        _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [(0, _it["criteria"][-1][1])]
+        _it["evidence"] = ([d("scripts/bootstrap/macos.sh"), d("scripts/bootstrap/linux.sh")] if _it["id"] == "S5.2"
+                           else [d("deploy/k8s/overlays/openshift/console-route.yaml"), d("scripts/openshift-build.sh")])

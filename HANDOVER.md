@@ -11,6 +11,14 @@ Paste this into a new session to start:
 > run the "Get your bearings" commands, tell me in five lines what state the repo is in,
 > and ask me which open item to take next. Don't change anything until I answer.
 
+To rebuild the lab on a MacBook instead, paste:
+
+> Read `HANDOVER.md` in this repo and follow section 11, "Recreate the lab on a MacBook".
+> Run the bootstrap and the preflight first and show me the preflight table. Then bring up
+> the target I name (Docker Compose, kind, or OpenShift Local), run its check script, and
+> give me the URLs. Stop and ask before changing Docker Desktop's settings or installing
+> anything that needs my password.
+
 ---
 
 ## 1. What this project is
@@ -88,12 +96,13 @@ scripts/compose-check.sh                 # end-to-end, alert paths and the crede
 | `docker-compose.yml` | Base stack: app, aws-mock, sns-logger, seed, postgres, redis |
 | `docker-compose.agent.yml` | Agent mode (AWS Workload Credentials Provider stand-in) |
 | `docker-compose.observability.yml` | Optional log pipeline: OpenTelemetry Collector → VictoriaLogs → vmalert → Alertmanager → sns-logger |
+| `deploy/kind/cluster.yaml` | The kind cluster: node image pinned by digest (amd64 + arm64), the app and the console mapped to `127.0.0.1:3000` and `:4575` through NodePorts |
 | `deploy/observability/` | Collector, Alertmanager config (routes generated), vmalert rules (generated) |
-| `deploy/k8s/` | Kustomize: base, components, overlays `kind`, `openshift`, `aws`, `mirror` |
+| `deploy/k8s/` | Kustomize: base, components, overlays `kind`, `openshift` (two Routes), `openshift-local` (images built on the cluster), `aws`, and `mirror` (generated) |
 | `infra/cloudformation.yaml` | The EC2 stack: VPC endpoint, KMS keys, RDS with a managed secret, ElastiCache with an RBAC user and a rotation function, alert topics, CloudWatch agent, **generated** metric filters and alarms, and `SecretReadAlertRule` |
 | `infra/github-actions-bootstrap.yaml` | OIDC role for the manual `aws.yaml` workflow |
 | `versions/v0-env-file/` | The "before" app and `leak.sh` |
-| `scripts/` | `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh`, `credential-scan.sh` (searches for the real values), `kind-up.sh`, `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
+| `scripts/` | `bootstrap/macos.sh` and `bootstrap/linux.sh` (set up a machine), `preflight.sh` (check it), `kind-up.sh` / `kind-down.sh`, `openshift-build.sh`, `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh`, `credential-scan.sh` (searches for the real values), `kind-up.sh`, `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
 | `docs/learn/` | Learning path, chapters 1–7 (chapter 7 is alerts and audit) |
 | `docs/TUTORIAL.md`, `docs/GUIDE.md`, `docs/TEST-CASES.md` | The walkthrough, the deploy guide (Parts A, B, C; C7b checks alerts on AWS), and the catalogue of automated tests (IDs S, R, L, D, C, F, A, P, K, N…) |
 | `docs/reference/` | `alerts.md` (generated table), `secret-naming.md`, `security-controls.md`, `deploy-quickref.md`, `ci.md` |
@@ -133,6 +142,8 @@ Open stories at handover:
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
+| #118 | S5.2 Run the bootstrap and the kind lab end to end on a real MacBook | the owner's Mac (section 11) |
+| #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | the owner's Mac with CRC (section 11.4) |
 | #102–#111 | **E15 parked**: OpenBao/Vault sibling repo, `SECRETS_PROVIDER=aws\|vault\|openbao` | the owner decides: a new repo (recommended in the plan) or the switch added here first |
 
 ## 7. How CI works (pattern from the owner's cilium-implementation-poc)
@@ -142,7 +153,7 @@ Open stories at handover:
 - `build`: images built once, SBOM and grype gate.
 - `compose (sdk)`: runs with the observability overlay, the alerts walk and `pipeline-check`.
 - `compose (agent)`.
-- `kind`: Pod Security restricted.
+- `kind`: runs `scripts/bootstrap/linux.sh` and `kind-up.sh` (strict preflight), deploys under Pod Security restricted, reaches the app and the console on the mapped host ports (no port-forward), and exports kind's own logs on failure.
 - `mirror`.
 - `env-file-demo`, `v0-leak`.
 - `docs`: links and Mermaid rendering.
@@ -179,9 +190,112 @@ Then close #95.
 - **The sandbox's network is limited.** If `npm install` can't reach the registry locally, CI resolves the lockfile (the `checks` job uploads it as an artifact). Tag pushes and some GitHub APIs (GraphQL, releases) are blocked in the cloud sandbox; use REST through `gh api`.
 - **sns-logger only accepts signed requests that carry no `Origin`.** A hand-made `curl` POST needs an `Authorization: AWS4-HMAC-SHA256 Credential=<key>/…` header. The access key ID is the caller's identity in the mock (`local-app`, `local-seed`, `local-intruder-user`, `local-intruder-role`, `local-events`, `local-alertmanager`; unsigned is `local-tooling`).
 
+- **kind's NodePort traffic is subject to NetworkPolicy.** kindnet enforces policies, and traffic from a host port arrives from the node, not from a pod. So the console needs its own allow rule (`overlays/kind/console-networkpolicy.yaml`). OpenShift's router needs one too (`router-networkpolicy.yaml`, using the `policy-group.network.openshift.io/ingress` namespace label).
+- **The published images are amd64 only.** OpenShift Local on an Apple-silicon Mac runs arm64, so it builds the images on the cluster (`scripts/openshift-build.sh`). kind on a Mac is fine: `images-build.sh` builds locally for the Mac's CPU, and the node image is multi-arch.
+- **Buildah enforces short-name rules,** so the Dockerfiles name `docker.io/library/node:22-alpine` in full.
+- **The cloud sandbox can't pull from Docker Hub** or reach dl.k8s.io, so kind and OpenShift changes are proven in CI (kind) or by the owner (OpenShift), not locally.
+
 ## 10. Where to read more
 
 - Decisions: `docs/modernization/02-adr-001-secrets-manager-selection.md`, and `plan-e8-e15.md` (the "As built" table lists where the build differs from the plan, and why).
 - Alerts: `docs/learn/07-alerts-and-audit.md` and `docs/reference/alerts.md`.
 - Every automated test, by ID: `docs/TEST-CASES.md`.
 - The parked Vault/OpenBao work: `docs/modernization/parked-openbao-vault.md`.
+- Every folder has a README; `docs/README.md` is the index of the documentation.
+
+## 11. Recreate the lab on a MacBook
+
+Use this when the owner asks to run the lab on their Mac (Apple silicon or Intel). Every
+command runs from the repo root. Ask before anything that needs their password, and before
+changing Docker Desktop's settings.
+
+### 11.1 Get the code and the tools
+
+```bash
+git clone https://github.com/ephico2real2/aws-secrets-manager-node-poc.git
+cd aws-secrets-manager-node-poc
+scripts/bootstrap/macos.sh                # add --openshift for the oc CLI
+```
+
+`macos.sh` needs Homebrew (<https://brew.sh>; its installer asks for the password, so the
+owner runs it). It installs what's missing:
+- the formulae `bash`, `jq`, `node`, `kind` and `kubernetes-cli` (plus `openshift-cli` with `--openshift`);
+- the Docker Desktop cask.
+
+Then it starts Docker Desktop and prints the preflight tables. It changes no settings.
+
+Fix every `REQUIRED-FAIL` row before going on. The common ones on a new Mac:
+
+| Row | Fix |
+| --- | --- |
+| `bash (env bash)` 3.2 | `brew install bash`, then open a new Terminal, so `/opt/homebrew/bin` comes before `/bin` |
+| `docker` not answering | `open -a Docker`, and accept its terms on the first launch |
+| `memory for the lab` (warn) | Docker Desktop → Settings → Resources → Memory: 6 GiB or more for kind, 8 GiB with the log pipeline |
+| `port 3000` / `4575` in use | Another lab is running: `docker compose down` or `scripts/kind-down.sh` |
+
+### 11.2 Docker Compose (the quickest lab)
+
+```bash
+scripts/preflight.sh compose
+docker compose up --build -d
+scripts/compose-check.sh                  # ends with "All checks passed" and the alert checks
+# http://localhost:3000 (dashboard) · http://localhost:4575 (notification console)
+docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build -d   # optional log pipeline
+docker compose down -v                    # stop and wipe
+```
+
+### 11.3 kind
+
+```bash
+docker compose down -v                    # kind uses the same two ports
+scripts/kind-up.sh                        # preflight (strict), then deploy/kind/cluster.yaml
+scripts/images-build.sh                   # builds for the Mac's CPU and loads into kind
+scripts/k8s-deploy.sh deploy/k8s/overlays/kind
+scripts/k8s-check.sh                      # ends with "k8s-check: all checks passed"
+# http://localhost:3000 · http://localhost:4575  (no port-forward)
+scripts/kind-down.sh
+```
+
+To run kind beside Compose, use `KIND_APP_PORT=3100 KIND_CONSOLE_PORT=4675 scripts/kind-up.sh`.
+Podman or Colima instead of Docker Desktop should work with kind
+(`KIND_EXPERIMENTAL_PROVIDER=podman`), but the lab is only proven on Docker.
+
+### 11.4 OpenShift Local (CRC)
+
+The owner downloads CRC with their Red Hat account (console.redhat.com/openshift/create/local),
+then:
+
+```bash
+crc setup
+crc config set memory 10240 && crc config set cpus 4
+crc start                                  # asks for the pull secret the first time
+eval $(crc oc-env)
+oc login -u developer https://api.crc.testing:6443   # password: developer
+scripts/preflight.sh openshift
+oc new-project secure-notes
+scripts/openshift-build.sh                 # builds both images ON the cluster from HEAD (arm64 on Apple silicon)
+# it prints https://secure-notes-secure-notes.apps-crc.testing and https://sns-logger-secure-notes.apps-crc.testing
+oc -n secure-notes port-forward svc/secure-notes 3000:80 &
+KUBECTL=oc scripts/k8s-check.sh
+```
+
+On an Intel Mac, or any amd64 cluster that can pull from ghcr.io, `KUBECTL=oc
+scripts/k8s-deploy.sh deploy/k8s/overlays/openshift` deploys the published images instead.
+
+`openshift-build.sh` uploads committed code only (`git archive` of HEAD), so commit before
+building. CRC's certificates are self-signed, so the browser asks to accept each address
+once.
+
+**Not yet proven:** CI has no OpenShift cluster. The Routes, the router policy and
+`openshift-build.sh` were written from Red Hat's documentation and validated by kustomize
+and kubeconform, but have not run on CRC yet. If a step fails:
+1. Fix it.
+2. Record what changed in section 9 of this file.
+3. Update GUIDE B2.
+
+### 11.5 The AWS path from a Mac
+
+Part C of `docs/GUIDE.md` works from a Mac as written. It needs the AWS CLI
+(`brew install awscli`) and the Session Manager plugin
+(`brew install --cask session-manager-plugin`). Sign in with SSO or a role; never with
+stored keys.

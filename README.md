@@ -60,6 +60,11 @@ docker compose down -v           # stop and wipe
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
 ```
 
+**On a MacBook:** `scripts/bootstrap/macos.sh` installs what's missing (Homebrew formulae,
+Docker Desktop), then `scripts/preflight.sh kind` checks the machine. kind maps the app to
+`localhost:3000` (`scripts/kind-up.sh`); OpenShift Local works too, building the images on
+the cluster for Apple silicon (`scripts/openshift-build.sh`).
+
 - **First time:** the [step-by-step guide](docs/GUIDE.md): every command, what you should see, troubleshooting.
 - **Done it before:** the [quick reference](docs/reference/deploy-quickref.md): the commands for A, B and C.
 
@@ -82,3 +87,20 @@ branch ([what CI proves](docs/reference/ci.md)).
 | [Secret naming convention](docs/reference/secret-naming.md) | `/{service}/{env}/{resource}/{name}`, set from env vars, `config.yaml`, `config.env`, Kustomize, or Helm (example) |
 | [CI](docs/reference/ci.md) | What each job proves |
 | [Quick reference](docs/reference/deploy-quickref.md) | Commands for paths A–C, and the project layout |
+
+## Repository map
+
+Each folder has a README that explains what's in it.
+
+| Folder | What it holds |
+| --- | --- |
+| [`backend/`](backend/README.md) | The app (Node.js): secrets cache, rotation-aware clients, logging and alerts |
+| [`frontend/`](frontend/README.md) | The dashboard: static files, no build step |
+| [`deploy/`](deploy/README.md) | kind cluster config, Kubernetes overlays (kind, OpenShift, AWS), the log pipeline config |
+| [`infra/`](infra/README.md) | AWS: the CloudFormation stacks, the Redis rotation function, the systemd unit |
+| [`dev/`](dev/README.md) | Dev/CI only: the AWS stand-in and the local SNS with a screen |
+| [`scripts/`](scripts/README.md) | Set up, run, prove and generate: the same scripts on a laptop and in CI |
+| [`docs/`](docs/README.md) | The learning path, tutorial, guide, test catalogue, reference and the modernization case study |
+| [`demo/`](demo/README.md) | One page per test case, with CI screenshots |
+| [`versions/`](versions/README.md) | Earlier versions you can run (v0: the `.env` app) |
+| [`HANDOVER.md`](HANDOVER.md) | For a new contributor or AI agent: the state, the rules, the open work, and how to rebuild the lab on a Mac |
