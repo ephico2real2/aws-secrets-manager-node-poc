@@ -101,6 +101,18 @@ export const config = Object.freeze({
     otlpEndpoint: env.LOG_OTLP_ENDPOINT || undefined,
   }),
 
+  // Notifications through Amazon SNS (alerts/notifier.js). Off without a topic.
+  alerts: Object.freeze({
+    topicArn: env.SNS_TOPIC_ARN || undefined,
+    // ONLY for local development: the sns-logger container. Refused in production.
+    endpoint: env.SNS_ENDPOINT || undefined,
+    senderId: env.ALERTS_SENDER_ID ?? 'SECNOTES',
+    environment: naming.env ?? env.NODE_ENV ?? 'development',
+    runbookBase: env.ALERTS_RUNBOOK_URL ?? 'https://github.com/ephico2real2/aws-secrets-manager-node-poc/blob/main/docs/reference/alerts.md',
+    // Where people read delivered alerts locally (linked from the dashboard).
+    inboxUrl: env.ALERTS_INBOX_URL || undefined,
+  }),
+
   // Demo-only features (rotation lab, leak test, log tail). Off by default and
   // refused in production; see assertSafeEnvironment().
   demo: Object.freeze({
@@ -140,6 +152,7 @@ export function assertSafeEnvironment() {
       problems.push('static AWS_ACCESS_KEY_ID found in production; use the EC2 instance role instead');
     }
     if (config.awsEndpoint) problems.push('AWS_MOCK_ENDPOINT must not be set in production');
+    if (config.alerts.endpoint) problems.push('SNS_ENDPOINT must not be set in production: it points SNS at a local stand-in');
     if (config.demo.enabled) problems.push('DEMO_MODE must not be enabled in production');
     if (config.logging.revealSecrets) problems.push('LOG_REVEAL_SECRETS must not be enabled in production: it writes secret values to the log');
     if (config.logging.format !== 'json') problems.push('LOG_FORMAT must be json in production: log stores and alert rules read JSON');

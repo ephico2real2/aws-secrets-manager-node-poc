@@ -583,6 +583,9 @@ Resources:
     DependsOn: CacheAppUser # starts after the stack's own one-time read of the Redis secret
     Properties:
       Description: A Secure Notes secret was read by someone other than the app or its rotation function
+      # GetSecretValue is a read-only management event: EventBridge delivers
+      # those only to rules in this state (a plain ENABLED rule never fires).
+      State: ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS
       EventPattern:
         source: [aws.secretsmanager]
         detail-type: [AWS API Call via CloudTrail]

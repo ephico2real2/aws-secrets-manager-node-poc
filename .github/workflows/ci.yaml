@@ -53,7 +53,14 @@ jobs:
       - name: Install the backend's dependencies
         working-directory: backend
         run: |
-          if [ -f package-lock.json ]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+          # npm ci when the committed lockfile matches package.json; otherwise
+          # resolve one here, use it for this run, and publish it to commit.
+          if [ -f package-lock.json ] && npm ci --no-audit --no-fund; then :
+          else
+            echo "::warning title=lockfile::backend/package-lock.json is missing or out of date; resolving one (published to ci-captures)"
+            npm install --no-audit --no-fund
+            echo "LOCK_RESOLVED=1" >> "$GITHUB_ENV"
+          fi
           npm ls --depth=0
 
       - name: Unit tests (secrets layer, Redis rotation function)
@@ -62,6 +69,14 @@ jobs:
 
       - name: The Redis rotation code inlined in the CloudFormation template matches its tested source
         run: node scripts/sync-rotation-lambda.js --check
+
+      - name: The local AWS stand-ins (EventBridge rule matching, CloudTrail records, SNS)
+        run: node --test dev/aws-mock/test/*.test.js
+
+      - name: The aws-mock runs the same unexpected-read rule as the CloudFormation stack
+        run: |
+          python3 -c 'import yaml' 2>/dev/null || pip install --user --break-system-packages pyyaml==6.0.2 >/dev/null
+          python3 scripts/sync-event-pattern.py --check
 
       - name: Every JavaScript file parses
         run: git ls-files '*.js' | xargs -n1 node --check
@@ -100,12 +115,17 @@ jobs:
           cfn-lint infra/cloudformation.yaml infra/github-actions-bootstrap.yaml > /tmp/cfn-lint.txt 2>&1 && { echo "cfn-lint: clean"; exit 0; }
           cat /tmp/cfn-lint.txt; grep -E '^[EW][0-9]' /tmp/cfn-lint.txt | head -10 | sed 's|^|::error title=cfn-lint::|'; exit 1
 
-      - name: Publish the lockfile this install resolved (until one is committed)
-        if: hashFiles('backend/package-lock.json') != '' && github.event_name == 'push'
+      - name: Publish the lockfile this install resolved (until it is committed)
+        if: env.LOCK_RESOLVED == '1' && github.event_name == 'push'
         run: |
-          git ls-files --error-unmatch backend/package-lock.json >/dev/null 2>&1 && { echo "lockfile is committed"; exit 0; }
           mkdir -p .tmp/lock && cp backend/package-lock.json .tmp/lock/
           scripts/ci-publish.sh .tmp/lock "lockfile_run${{ github.run_id }}"
+
+      # The build uses exactly the dependency tree the tests ran against.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backend-lockfile
+          path: backend/package-lock.json
 
   build:
     needs: checks
@@ -115,6 +135,11 @@ jobs:
       contents: write # publishes the scan reports to ci-captures
     steps:
       - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: backend-lockfile
+          path: backend
 
       - name: Build with Docker Compose — the one place images are built
         run: scripts/images-build.sh
@@ -336,7 +361,7 @@ jobs:
             echo; kubectl get events -n secure-notes --sort-by=.lastTimestamp
             echo; kubectl describe pods -n secure-notes
           } > output/cluster.txt 2>&1 || true
-          for d in secure-notes aws-mock postgres redis; do
+          for d in secure-notes aws-mock sns-logger postgres redis; do
             kubectl -n secure-notes logs "deploy/$d" --all-containers --previous > "output/$d.previous.log" 2>/dev/null || rm -f "output/$d.previous.log"
             kubectl -n secure-notes logs "deploy/$d" --all-containers > "output/$d.log" 2>&1 || true
           done

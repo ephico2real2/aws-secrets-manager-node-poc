@@ -1,0 +1,76 @@
+# DEV ONLY: sns-logger, a local Amazon SNS with a screen (same image as aws-mock).
+#   kubectl -n secure-notes port-forward svc/sns-logger 4575:4575   ->  http://localhost:4575
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sns-logger
+  labels:
+    app.kubernetes.io/name: sns-logger
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sns-logger
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sns-logger
+    spec:
+      automountServiceAccountToken: false
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: sns-logger
+          image: secure-notes-aws-mock:dev
+          imagePullPolicy: IfNotPresent
+          command: ["node", "sns-logger/server.js"]
+          env:
+            - name: PORT
+              value: "4575"
+            - name: SNS_LOGGER_PUBLIC_URL
+              value: http://localhost:4575
+            - name: SNS_LOGGER_TOPICS
+              value: secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes
+            # example.com and 555-01xx are reserved for examples. On the ops topic, email
+            # and SMS get critical alerts (and tests) only; chat gets everything.
+            - name: SNS_LOGGER_SUBSCRIPTIONS
+              value: >-
+                secure-notes-secret-read-alert:email:oncall@example.com;
+                secure-notes-secret-read-alert:sms:+15555550100;
+                secure-notes-secret-read-alert:https:https://chat.example.com/hooks/secure-notes;
+                secure-notes-ops-alerts:email:oncall@example.com {"severity":["critical","test"]};
+                secure-notes-ops-alerts:sms:+15555550100 {"severity":["critical","test"]};
+                secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes
+          ports:
+            - name: http
+              containerPort: 4575
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 3
+          resources:
+            requests: { cpu: 10m, memory: 48Mi }
+            limits: { memory: 128Mi }
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sns-logger
+  labels:
+    app.kubernetes.io/name: sns-logger
+spec:
+  selector:
+    app.kubernetes.io/name: sns-logger
+  ports:
+    - name: http
+      port: 4575
+      targetPort: http

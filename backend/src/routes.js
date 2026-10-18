@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { inspect } from 'node:util';
 import { HttpError } from './http.js';
 import { runSecurityChecks } from './security/checks.js';
@@ -5,7 +6,7 @@ import { runSecurityChecks } from './security/checks.js';
 const NOTES_CACHE_KEY = 'notes:list';
 const ALIASES = ['db', 'redis'];
 
-export function registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper }) {
+export function registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper, notifier }) {
   const log = logger.child({ component: 'api' });
 
   // ---- health -------------------------------------------------------------
@@ -34,6 +35,7 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
     revealSecrets: config.logging.revealSecrets,
     secrets: Object.fromEntries(ALIASES.map((a) => [a, config.secretIds[a]])),
     logFormat: config.logging.format,
+    alerts: { enabled: Boolean(notifier?.enabled), inboxUrl: config.alerts.inboxUrl ?? null, stats: notifier?.stats() ?? null },
     logShipping: shipper ? shipper.stats() : null,
     secretNaming: {
       environment: config.secretNaming.environment ?? null,
@@ -135,6 +137,63 @@ export function registerRoutes(router, { config, provider, db, cache, events, lo
   });
 
   router.post('/api/demo/drop-connections', async () => rotator.dropConnections());
+
+  // ---- detection lab: alerts, end to end, on a laptop ------------------------
+  router.post('/api/demo/alerts/test', async () => {
+    if (!notifier?.enabled) throw new HttpError(409, 'notifications are off: set SNS_TOPIC_ARN');
+    const messageId = await notifier.notify('alerting.test', { requestedFrom: 'dashboard' }, { dedupKey: randomUUID() });
+    if (!messageId) throw new HttpError(502, 'the test alert could not be published; see the log');
+    events.record('alerts', 'test', `Sent a test alert through SNS (message ${messageId.slice(0, 8)})`);
+    return { messageId };
+  });
+
+  // Read a secret as someone who shouldn't, so the local CloudTrail and the
+  // stack's EventBridge rule (in the AWS mock) raise the alarm. Local mock only;
+  // the value is discarded and never returned.
+  const INTRUDERS = { user: 'local-intruder-user', role: 'local-intruder-role' };
+  router.post('/api/demo/unexpected-read', async (ctx) => {
+    if (!config.awsEndpoint) throw new HttpError(409, 'only against the local AWS mock');
+    const as = INTRUDERS[ctx.body?.as] ? ctx.body.as : 'user';
+    const target = ['redis', 'db-by-arn', 'db-by-name'].includes(ctx.body?.target) ? ctx.body.target : 'redis';
+    const { SecretsManagerClient, GetSecretValueCommand, DescribeSecretCommand } = await import('@aws-sdk/client-secrets-manager');
+    const intruder = new SecretsManagerClient({
+      region: config.region,
+      endpoint: config.awsEndpoint,
+      credentials: { accessKeyId: INTRUDERS[as], secretAccessKey: 'local-mock' },
+    });
+    let secretId = target === 'redis' ? config.secretIds.redis : config.secretIds.db;
+    if (target === 'db-by-arn') secretId = (await intruder.send(new DescribeSecretCommand({ SecretId: secretId }))).ARN;
+    const out = await intruder.send(new GetSecretValueCommand({ SecretId: secretId }));
+    const version = out.VersionId;
+    out.SecretString = undefined; // discard: this demo is about the audit trail, not the value
+    const who = as === 'user' ? 'IAM user mallory' : 'role ops-admin';
+    log.warn({ demo: 'unexpected-read', readAs: who, secretName: secretId, versionId: version }, 'detection lab: read a secret as an unexpected identity');
+    events.record('alerts', 'unexpected-read', `Read ${secretId} as ${who}: watch for the alert`);
+    return { readAs: who, secretId, versionId: version, alarmExpected: target !== 'db-by-name' };
+  });
+
+  router.get('/api/demo/detections', async () => {
+    const get = async (url) => {
+      try {
+        const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+        return res.ok ? await res.json() : undefined;
+      } catch {
+        return undefined;
+      }
+    };
+    const [rule, sns] = await Promise.all([
+      config.awsEndpoint ? get(`${config.awsEndpoint}/_mock/eventbridge`) : undefined,
+      config.alerts.endpoint ? get(`${config.alerts.endpoint}/_sns/deliveries`) : undefined,
+    ]);
+    return {
+      rule: rule?.rule ?? null,
+      evaluations: (rule?.evaluations ?? []).filter((e) => e.matched).slice(-6),
+      deliveries: (sns?.deliveries ?? []).slice(-8).map((d) => ({
+        protocol: d.protocol, to: d.toMasked, subject: d.subject ?? null, topic: d.topicName ?? null,
+        time: d.timestamp, messageId: d.messageId, publishedBy: d.publishedBy,
+      })),
+    };
+  });
 
   router.post('/api/demo/leak-test', async () => {
     const secret = await provider.get(config.secretIds.db);

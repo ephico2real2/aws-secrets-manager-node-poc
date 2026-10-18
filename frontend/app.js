@@ -86,6 +86,10 @@ async function loadConfig() {
       : 'HTTPS via VPC endpoint · KMS';
   $('secrets-mode').textContent = cfg.secretsMode === 'agent' ? 'mode: agent' : 'mode: sdk';
   document.querySelectorAll('.demo-only').forEach((n) => (n.hidden = !cfg.demoMode));
+  if (cfg.alerts?.inboxUrl) {
+    $('inbox-link').href = cfg.alerts.inboxUrl;
+    $('inbox-link').hidden = false;
+  }
 }
 
 // ----------------------------------------------------------------- notes ---
@@ -242,6 +246,53 @@ $('leak-btn').addEventListener('click', async () => {
   }
 });
 
+// --------------------------------------------------------- detection lab --
+async function loadDetections() {
+  if (!cfg.demoMode) return;
+  const d = await api('GET', '/api/demo/detections');
+  const state = $('detect-state');
+  state.className = `pill ${d.rule?.state === 'ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS' ? 'pill-pass' : d.rule ? 'pill-warn' : 'pill-skip'}`;
+  state.textContent = d.rule ? `rule ${d.rule.state === 'ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS' ? 'receives reads' : `state ${d.rule.state}`}` : 'no rule';
+  $('detections').replaceChildren(
+    ...(d.evaluations.length
+      ? d.evaluations.reverse().map((e) =>
+          el('li', { class: e.messageId ? 'ev-failed' : 'ev-recovered' },
+            el('time', { datetime: e.time }, clock(e.time)),
+            el('div', {}, el('span', { class: 'tag' }, e.messageId ? 'alarm sent' : 'not alerted'), el('br'), `${e.op} ${e.secret} by ${e.who.split(/[:/]/).slice(-2).join('/')}: ${e.note}`)))
+      : [el('li', {}, el('span'), el('div', { class: 'muted small' }, 'No unexpected read yet.'))]),
+  );
+  $('deliveries').replaceChildren(
+    ...(d.deliveries.length
+      ? d.deliveries.reverse().map((x) =>
+          el('li', {},
+            el('time', { datetime: x.time }, clock(x.time)),
+            el('div', {}, el('span', { class: 'tag' }, `${x.protocol} · ${x.topic ?? 'direct'}`), el('br'), `${x.to} · ${x.subject ?? '(no subject)'}`)))
+      : [el('li', {}, el('span'), el('div', { class: 'muted small' }, 'Nothing delivered yet.'))]),
+  );
+}
+
+document.querySelectorAll('[data-read]').forEach((btn) =>
+  btn.addEventListener('click', async () => {
+    const [as, target] = btn.dataset.read.split(':');
+    try {
+      const r = await api('POST', '/api/demo/unexpected-read', { as, target });
+      toast(r.alarmExpected ? `Read ${r.secretId} as ${r.readAs}: an alert should arrive in seconds` : `Read ${r.secretId} by name as ${r.readAs}: audited, but the rule matches this secret by ARN only`);
+      setTimeout(() => loadDetections().catch(() => {}), 1500);
+    } catch (err) {
+      toast(err.message);
+    }
+  }),
+);
+$('test-alert-btn').addEventListener('click', async () => {
+  try {
+    const r = await api('POST', '/api/demo/alerts/test');
+    toast(`Test alert published (message ${r.messageId.slice(0, 8)})`);
+    setTimeout(() => loadDetections().catch(() => {}), 1500);
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
 // ----------------------------------------------------------------- checks --
 const STATUS_CLASS = { pass: 'pill-pass', warn: 'pill-warn', fail: 'pill-fail', info: 'pill-info', skip: 'pill-skip' };
 async function loadChecks() {
@@ -281,7 +332,7 @@ $('log-cred-only').addEventListener('change', () => {
 
 // ------------------------------------------------------------------- boot --
 async function refreshLive() {
-  await Promise.allSettled([loadSecrets(), loadEvents(), loadLogs()]);
+  await Promise.allSettled([loadSecrets(), loadEvents(), loadLogs(), loadDetections()]);
 }
 
 (async () => {

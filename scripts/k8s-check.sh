@@ -17,7 +17,7 @@ pass() { printf '  ok    %s\n' "$*"; }
 fail() { printf '  FAIL  %s\n' "$*"; fails=$((fails + 1)); }
 
 echo "== who each container runs as (OpenShift-style arbitrary UIDs show up here)"
-for d in secure-notes aws-mock postgres redis; do
+for d in secure-notes aws-mock sns-logger postgres redis; do
   printf '  %-13s %s\n' "$d" "$("$K" -n "$NS" exec "deploy/$d" -- id 2>&1 | head -1)"
 done
 root=$("$K" -n "$NS" get pods -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.spec.securityContext.runAsUser}{"\n"}{end}' | awk '$2=="0"')
@@ -80,6 +80,9 @@ echo "== NetworkPolicies"
 
 echo "== end-to-end smoke test against $BASE"
 node backend/scripts/smoke-test.js "$BASE" || fails=$((fails + 1))
+
+echo "== alerts: the local SNS, the stack's unexpected-read rule, the app's notifications"
+KUBECTL="$K" NAMESPACE="$NS" scripts/alerts-check.sh k8s "$BASE" || fails=$((fails + 1))
 
 # After the smoke test: its rotations and its leak test have run.
 echo "== the actual credential values, searched for in every pod, object, file and log"

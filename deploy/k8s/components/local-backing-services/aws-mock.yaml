@@ -29,6 +29,9 @@ spec:
           env:
             - name: MOCK_STATE_FILE
               value: /data/state.json
+            # The stack's unexpected-read rule runs here; matches go to the local SNS.
+            - name: MOCK_SNS_ENDPOINT
+              value: http://sns-logger:4575
           ports:
             - name: http
               containerPort: 4566

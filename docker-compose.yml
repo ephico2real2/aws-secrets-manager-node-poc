@@ -20,9 +20,11 @@ x-mock-aws-env: &mock-aws-env
   NODE_ENV: development
   AWS_REGION: us-east-1
   AWS_MOCK_ENDPOINT: http://aws-mock:4566
-  # Dummy values: the AWS SDK requires credentials to sign requests even
-  # though the mock ignores them. On EC2 nothing like this is set.
-  AWS_ACCESS_KEY_ID: local-mock
+  # Dummy values: the AWS SDK requires credentials to sign requests. The mock
+  # ignores the signature but reads the key ID as "who is calling" (local-app
+  # = the app's role; see dev/aws-mock/lib/principals.js). On EC2 nothing like
+  # this is set: the instance role signs.
+  AWS_ACCESS_KEY_ID: local-app
   AWS_SECRET_ACCESS_KEY: local-mock
   # Secret names come from the naming convention (docs/reference/secret-naming.md):
   # /{service}/{env}/{resource}/{name} -> /rds/dev/notes-db/app, /elasticache/dev/notes-cache/app
@@ -35,15 +37,44 @@ x-mock-aws-env: &mock-aws-env
 services:
   aws-mock:
     image: secure-notes-aws-mock:dev
-    build: ./dev/aws-mock
+    build: { context: ., dockerfile: dev/aws-mock/Dockerfile }
     environment:
       MOCK_STATE_FILE: /data/state.json
+      # The stack's unexpected-read rule runs here; matches are published to SNS.
+      MOCK_SNS_ENDPOINT: http://sns-logger:4575
     volumes:
       - mock-data:/data
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4566/health"] # not localhost: Alpine resolves it to ::1
       interval: 2s
       retries: 20
+
+  # A local Amazon SNS with a screen: http://localhost:4575
+  sns-logger:
+    image: secure-notes-aws-mock:dev
+    command: ["node", "sns-logger/server.js"]
+    environment:
+      PORT: "4575"
+      SNS_LOGGER_PUBLIC_URL: http://localhost:4575
+      SNS_LOGGER_TOPICS: secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes
+      # example.com and 555-01xx are reserved for examples. On the ops topic, email
+      # and SMS get critical alerts (and tests) only; chat gets everything.
+      SNS_LOGGER_SUBSCRIPTIONS: >-
+        secure-notes-secret-read-alert:email:oncall@example.com;
+        secure-notes-secret-read-alert:sms:+15555550100;
+        secure-notes-secret-read-alert:https:https://chat.example.com/hooks/secure-notes;
+        secure-notes-ops-alerts:email:oncall@example.com {"severity":["critical","test"]};
+        secure-notes-ops-alerts:sms:+15555550100 {"severity":["critical","test"]};
+        secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes
+    ports:
+      - "127.0.0.1:4575:4575" # loopback only
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:4575/health"]
+      interval: 2s
+      retries: 20
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
 
   postgres:
     image: docker.io/library/postgres:16 # same image as the Kubernetes manifests
@@ -78,6 +109,7 @@ services:
     command: ["node", "scripts/seed-local.js"]
     environment:
       <<: *mock-aws-env
+      AWS_ACCESS_KEY_ID: local-seed # the deployer's identity, like CloudFormation
       SEED_PG_HOST: postgres
       SEED_REDIS_HOST: redis
       PG_BOOTSTRAP_PASSWORD: ${PG_BOOTSTRAP_PASSWORD:-bootstrap-only-change-me}
@@ -101,10 +133,15 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-debug}
       # true: those debug lines ALSO print the real values (lab only; refused in production).
       LOG_REVEAL_SECRETS: ${LOG_REVEAL_SECRETS:-false}
+      # Notifications through SNS: the local stand-in here, Amazon SNS on AWS.
+      SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:secure-notes-ops-alerts
+      SNS_ENDPOINT: http://sns-logger:4575
+      ALERTS_INBOX_URL: http://localhost:4575
     ports:
       - "127.0.0.1:3000:3000" # loopback only
     depends_on:
       seed: { condition: service_completed_successfully }
+      sns-logger: { condition: service_healthy }
     read_only: true
     cap_drop: [ALL]
     security_opt: ["no-new-privileges:true"]

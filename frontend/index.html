@@ -83,6 +83,23 @@
         <ul class="leaks" id="leaks"></ul>
       </section>
 
+      <section class="card demo-only" id="detect-card" hidden>
+        <div class="card-head"><h2>Detection lab</h2><span class="pill" id="detect-state">–</span></div>
+        <p class="hint">Read a secret as someone who shouldn't. The local CloudTrail records it, the stack's own EventBridge rule
+          matches it, and SNS delivers the alert by email, SMS and chat. Or send a test alert through the app.</p>
+        <div class="btn-row">
+          <button class="btn" data-read="user:redis">Read Redis secret as IAM user mallory</button>
+          <button class="btn" data-read="role:db-by-arn">Read DB secret as role ops-admin</button>
+          <button class="btn btn-ghost" data-read="user:db-by-name">Read DB secret by name (known gap)</button>
+          <button class="btn btn-ghost" id="test-alert-btn">Send a test alert</button>
+        </div>
+        <p class="small"><a id="inbox-link" href="#" target="_blank" rel="noopener" hidden>Open the notification console ↗</a></p>
+        <h3 class="small">Rule matches</h3>
+        <ul class="timeline" id="detections"></ul>
+        <h3 class="small">Delivered</h3>
+        <ul class="timeline" id="deliveries"></ul>
+      </section>
+
       <section class="card" id="checks-card">
         <div class="card-head">
           <h2>Security posture</h2>

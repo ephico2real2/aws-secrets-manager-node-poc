@@ -32,6 +32,9 @@ spec:
             - configMapRef:
                 name: secure-notes-config
           env:
+            # The deployer's identity (the mock reads the key ID as "who is calling").
+            - name: AWS_ACCESS_KEY_ID
+              value: local-seed
             - name: SEED_PG_HOST
               value: postgres
             - name: SEED_REDIS_HOST

@@ -23,7 +23,7 @@ echo "== apply"
 
 if grep -q '^kind: Job' /tmp/secure-notes-rendered.yaml; then
   echo "== waiting for the backing services and the seed job"
-  for d in aws-mock postgres redis; do "$K" -n "$NS" rollout status "deploy/$d" --timeout=300s; done
+  for d in aws-mock sns-logger postgres redis; do "$K" -n "$NS" rollout status "deploy/$d" --timeout=300s; done
   if ! "$K" -n "$NS" wait --for=condition=complete job/seed --timeout=300s; then
     "$K" -n "$NS" logs job/seed --all-containers --tail=100 || true
     exit 1

@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>sns-logger · local Amazon SNS</title>
+  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="sns.css">
+  <script src="ui.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <div class="wrap top-inner">
+      <div>
+        <p class="eyebrow">Amazon SNS · local stand-in · Secure Notes</p>
+        <h1>Notification console</h1>
+        <p class="lede">Every message published to the local SNS, shown the way each subscriber would receive it:
+          an email, a text message, a chat or webhook post. Recipients are masked; nothing leaves this machine.</p>
+      </div>
+      <div class="badges" id="badges" aria-live="polite"></div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="flow" aria-label="Where alerts come from">
+      <ol class="flow-chain">
+        <li class="node"><span class="node-title">App and AWS mock</span><span class="node-sub">logs + CloudTrail records</span></li>
+        <li class="node node-app"><span class="node-title">Log store and rules</span><span class="node-sub">VictoriaLogs · vmalert · EventBridge rule</span></li>
+        <li class="node node-cache"><span class="node-title">Amazon SNS (this)</span><span class="node-sub">topics and subscriptions</span></li>
+        <li class="node node-sm"><span class="node-title">On-call</span><span class="node-sub">email · SMS · chat</span></li>
+      </ol>
+    </section>
+
+    <nav class="tabs" role="tablist" aria-label="Deliveries">
+      <button class="tab" role="tab" data-tab="email" aria-selected="true">Email <span class="count" id="count-email">0</span></button>
+      <button class="tab" role="tab" data-tab="sms">SMS <span class="count" id="count-sms">0</span></button>
+      <button class="tab" role="tab" data-tab="chat">Chat and webhooks <span class="count" id="count-chat">0</span></button>
+      <button class="tab" role="tab" data-tab="topics">Topics</button>
+      <button class="tab" role="tab" data-tab="pipeline">Pipeline</button>
+    </nav>
+
+    <section class="card card-wide panel" id="panel-email" role="tabpanel">
+      <div class="card-head"><h2>Inbox</h2><span class="muted small">email subscriptions</span></div>
+      <p class="hint">What an email subscriber gets from SNS: sender "AWS Notifications" (or the topic's display name), the subject, the message and the unsubscribe footer.</p>
+      <div id="emails" class="mail-list"><p class="muted small empty">No email yet.</p></div>
+    </section>
+
+    <section class="card card-wide panel" id="panel-sms" role="tabpanel" hidden>
+      <div class="card-head"><h2>Phone</h2><span class="muted small">sms subscriptions</span></div>
+      <p class="hint">Each text with how SNS would split it: GSM-7 messages over 160 characters, or UCS-2 over 70, go out in parts.</p>
+      <div id="sms" class="phone"><p class="muted small empty">No text message yet.</p></div>
+    </section>
+
+    <section class="card card-wide panel" id="panel-chat" role="tabpanel" hidden>
+      <div class="card-head"><h2>Chat and webhooks</h2><span class="muted small">https subscriptions</span></div>
+      <p class="hint">The JSON body SNS would POST to the endpoint. Chat tools read it through Amazon Q Developer in chat applications; its custom-notification format is shown as a card.</p>
+      <div id="chat" class="chat-list"><p class="muted small empty">No webhook delivery yet.</p></div>
+    </section>
+
+    <section class="card card-wide panel" id="panel-topics" role="tabpanel" hidden>
+      <div class="card-head"><h2>Topics and subscriptions</h2></div>
+      <div id="topics"></div>
+    </section>
+
+    <section class="card card-wide panel" id="panel-pipeline" role="tabpanel" hidden>
+      <div class="card-head"><h2>Pipeline</h2><span class="pill" id="pipeline-state">–</span></div>
+      <p class="hint">Logs first, then alerts: the newest records in VictoriaLogs (from the app, the AWS mock and this console) and the rules vmalert is evaluating.
+        A delivery's message ID appears in the log line that recorded it.</p>
+      <h3 class="small">Alert rules (vmalert)</h3>
+      <ul class="timeline" id="rules"></ul>
+      <h3 class="small">Latest log records (VictoriaLogs)</h3>
+      <pre class="log" id="pipeline-log" tabindex="0"></pre>
+    </section>
+  </main>
+  <footer class="wrap foot">Development only. sns-logger implements part of the Amazon SNS API for this demo; it signs nothing and sends nothing.</footer>
+</body>
+</html>

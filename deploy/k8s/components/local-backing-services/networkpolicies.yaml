@@ -40,6 +40,57 @@ spec:
               app.kubernetes.io/name: aws-mock
       ports:
         - { port: 4566, protocol: TCP }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sns-logger
+      ports:
+        - { port: 4575, protocol: TCP }
+---
+# The local SNS: the app publishes notifications (and reads deliveries for the
+# detection lab); the aws-mock publishes the EventBridge rule's matches.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: sns-logger
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: sns-logger
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/name
+                operator: In
+                values: [secure-notes, aws-mock]
+      ports:
+        - { port: 4575, protocol: TCP }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: aws-mock-to-sns
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: aws-mock
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - { port: 53, protocol: UDP }
+        - { port: 53, protocol: TCP }
+        - { port: 5353, protocol: UDP }
+        - { port: 5353, protocol: TCP }
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: sns-logger
+      ports:
+        - { port: 4575, protocol: TCP }
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

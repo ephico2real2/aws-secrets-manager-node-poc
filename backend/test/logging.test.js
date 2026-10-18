@@ -113,3 +113,50 @@ test('every event name used in the code is in the catalogue', () => {
     assert.ok(a.title.length < 80, a.title);
   }
 });
+
+test('notification bodies: subject rules, SMS within 140 bytes, chat card, no secret', async () => {
+  const { composeMessage, truncateBytes } = await import('../src/alerts/notifier.js');
+  const { NOTIFICATIONS } = await import('../src/alerts/catalogue.js');
+  const m = composeMessage({
+    name: 'credential.rotated', def: NOTIFICATIONS['credential.rotated'],
+    details: { secretName: '/rds/dev/notes-db/app', version: '1a2b3c4d', trigger: 'db-auth-failure' },
+    app: 'Secure Notes', environment: 'dev', host: 'ip-10-0-0-5', alertId: '0f8fad5b-d9cb-469f-a165-70867728950e',
+    at: new Date('2026-10-18T13:00:00Z'), runbookBase: 'https://example.com/alerts.md',
+  });
+  assert.equal(m.subject, '[INFO] Secure Notes (dev): The app switched to a rotated credential');
+  assert.ok(m.subject.length < 100 && !/[\r\n]/.test(m.subject));
+  assert.ok(Buffer.byteLength(m.bodies.sms) <= 140, m.bodies.sms);
+  assert.match(m.bodies.email, /Runbook:  https:\/\/example\.com\/alerts\.md#credentialrotated/);
+  const chat = JSON.parse(m.bodies.https);
+  assert.equal(chat.source, 'custom');
+  assert.equal(chat.metadata.additionalContext.severity, 'info');
+  assert.equal(typeof m.bodies.default, 'string');
+  assert.equal(truncateBytes('ééé', 5), 'é…');
+});
+
+test('notifier: dedup within the repeat window, redacted bodies, an alert-sent log line', async () => {
+  const { createNotifier } = await import('../src/alerts/notifier.js');
+  const redactor = new Redactor();
+  redactor.register(SECRET_VALUE);
+  const out = captureSink();
+  const logger = createLogger({ redactor, level: 'debug', out });
+  const sent = [];
+  const client = { send: async (cmd) => (sent.push(cmd.input), { MessageId: `m-${sent.length}` }) };
+  let t = 0;
+  const notifier = createNotifier({
+    config: { region: 'us-east-1', alerts: { topicArn: 'arn:aws:sns:us-east-1:000000000000:ops', senderId: 'SECNOTES', environment: 'dev', runbookBase: 'x' } },
+    logger, redactor, client, now: () => t,
+  });
+  assert.equal(await notifier.notify('credential.rotated', { secretName: `oops ${SECRET_VALUE}` }), 'm-1');
+  assert.equal(await notifier.notify('credential.rotated', {}), undefined, 'suppressed within 10 minutes');
+  t = 11 * 60 * 1000;
+  assert.equal(await notifier.notify('credential.rotated', {}), 'm-2');
+  assert.ok(!sent[0].Message.includes(SECRET_VALUE), 'a registered value never leaves in a notification');
+  assert.equal(sent[0].MessageStructure, 'json');
+  assert.equal(sent[0].MessageAttributes.severity.StringValue, 'info');
+  const lines = out.lines.map((l) => JSON.parse(l));
+  const sentLine = lines.find((l) => l.event === 'alerting.notification.sent');
+  assert.equal(sentLine['messaging.message.id'], 'm-1');
+  assert.equal(sentLine['messaging.system'], 'aws.sns');
+  assert.ok(lines.some((l) => l.event === 'alerting.notification.suppressed'));
+});

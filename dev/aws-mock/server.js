@@ -6,7 +6,12 @@
 //     DescribeSecret, PutSecretValue, UpdateSecretVersionStage,
 //     GetRandomPassword, ListSecrets - including version stage semantics
 //     (AWSCURRENT / AWSPENDING / AWSPREVIOUS) used by rotation.
-//   * STS GetCallerIdentity.
+//   * STS GetCallerIdentity, answering as the caller (see lib/principals.js:
+//     the dummy access key names the identity).
+//   * CloudTrail: a record for every Secrets Manager call, and the stack's
+//     unexpected-read EventBridge rule (rules/secret-read-alert.json, generated
+//     from infra/cloudformation.yaml) evaluated on each one; a match is
+//     published to SNS (MOCK_SNS_ENDPOINT, the sns-logger) as EventBridge would.
 //   * Optionally, an emulation of the AWS Workload Credentials Provider
 //     (formerly Secrets Manager Agent) HTTP interface on localhost:2773 with
 //     SSRF-token checking, so SECRETS_MODE=agent can be tried locally.
@@ -16,6 +21,10 @@
 //
 // Zero dependencies. Env:
 //   PORT=4566  HOST=0.0.0.0  MOCK_STATE_FILE=/data/state.json
+//   MOCK_SNS_ENDPOINT=http://sns-logger:4575   where rule matches are published
+//   MOCK_RULE_DB_SECRET, MOCK_RULE_REDIS_SECRET, MOCK_RULE_ENVIRONMENT, MOCK_RULE_STACK_NAME
+//     local values for the rule's CloudFormation references (defaults match Compose)
+//   LOG_OTLP_ENDPOINT   optional: ship CloudTrail records and rule results to a collector
 //   MOCK_AGENT_PORT=2773  MOCK_AGENT_TOKEN_FILE=./awssmatoken  MOCK_AGENT_TTL_SECONDS=300
 //   MOCK_AGENT_UPSTREAM=http://aws-mock:4566  run ONLY the agent, as a sidecar next
 //     to the app, fetching from another mock over HTTP the way the real agent
@@ -24,6 +33,10 @@
 import http from 'node:http';
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync, chmodSync } from 'node:fs';
+import { principalOf, callerIdentity, roleArn, ROLE_NAMES } from './lib/principals.js';
+import { cloudTrailEvent, createTrail } from './lib/cloudtrail.js';
+import { matches, deliveredToRule, transformInput } from './lib/event-pattern.js';
+import { createOtlpShipper } from '../../backend/src/logship/otlp.js';
 
 const PORT = Number(process.env.PORT ?? 4566);
 const HOST = process.env.HOST ?? '0.0.0.0';
@@ -191,10 +204,116 @@ const ops = {
 };
 
 // --------------------------------------------------------------- STS ------
-const identity = { Arn: `arn:aws:iam::${ACCOUNT}:user/local-mock-user`, UserId: 'AIDALOCALMOCK', Account: ACCOUNT };
-
-function stsXml() {
+function stsXml(identity) {
   return `<GetCallerIdentityResponse xmlns="https://sts.amazonaws.com/doc/2011-06-15/"><GetCallerIdentityResult><Arn>${identity.Arn}</Arn><UserId>${identity.UserId}</UserId><Account>${identity.Account}</Account></GetCallerIdentityResult><ResponseMetadata><RequestId>${randomUUID()}</RequestId></ResponseMetadata></GetCallerIdentityResponse>`;
+}
+
+// ------------------------------------------- CloudTrail and EventBridge ----
+const shipper = process.env.LOG_OTLP_ENDPOINT
+  ? createOtlpShipper({ endpoint: process.env.LOG_OTLP_ENDPOINT, resource: { 'service.name': 'aws-mock', 'deployment.environment.name': 'local' } })
+  : undefined;
+function shipJson(level, fields, msg) {
+  shipper?.write(JSON.stringify({ time: new Date().toISOString(), level, app: 'aws-mock', ...fields, msg }));
+}
+
+const trail = createTrail();
+const evaluations = [];
+const SNS_ENDPOINT = process.env.MOCK_SNS_ENDPOINT;
+
+const RULE_FILE = new URL('./rules/secret-read-alert.json', import.meta.url);
+const rule = existsSync(RULE_FILE) ? JSON.parse(readFileSync(RULE_FILE, 'utf8')) : undefined;
+
+// The rule's CloudFormation references, bound to local values. Secret ARNs are
+// looked up when the rule runs, because the seed job creates the secrets later.
+const arnOfSecret = (name) => () => secrets.get(name)?.arn ?? `unknown-secret:${name}`;
+const SUBS = {
+  Environment: process.env.MOCK_RULE_ENVIRONMENT ?? 'dev',
+  'AWS::StackName': process.env.MOCK_RULE_STACK_NAME ?? 'notes-cache',
+  'AWS::Region': REGION,
+  'AWS::AccountId': ACCOUNT,
+};
+const BINDINGS = {
+  'Fn::GetAtt:Database.MasterUserSecret.SecretArn': arnOfSecret(process.env.MOCK_RULE_DB_SECRET ?? '/rds/dev/notes-db/app'),
+  'Ref:RedisAppSecret': arnOfSecret(process.env.MOCK_RULE_REDIS_SECRET ?? '/elasticache/dev/notes-cache/app'),
+  'Fn::GetAtt:AppRole.Arn': () => roleArn(ROLE_NAMES.app),
+  'Fn::GetAtt:RedisRotationRole.Arn': () => roleArn(ROLE_NAMES.rotation),
+  'Ref:SecretReadAlertTopic': () => `arn:aws:sns:${REGION}:${ACCOUNT}:secure-notes-secret-read-alert`,
+};
+
+/** Replace {"Ref"...}/{"Fn::GetAtt"...}/{"Fn::Sub"...} with local values. Unknown ones throw. */
+function bind(node) {
+  if (Array.isArray(node)) return node.map(bind);
+  if (node && typeof node === 'object') {
+    const keys = Object.keys(node);
+    if (keys.length === 1 && (keys[0] === 'Ref' || keys[0] === 'Fn::GetAtt')) {
+      const ref = `${keys[0]}:${Array.isArray(node[keys[0]]) ? node[keys[0]].join('.') : node[keys[0]]}`;
+      if (!BINDINGS[ref]) throw new Error(`rules/secret-read-alert.json: no local binding for ${ref}`);
+      return BINDINGS[ref]();
+    }
+    if (keys.length === 1 && keys[0] === 'Fn::Sub') {
+      return String(node['Fn::Sub']).replace(/\$\{([^}]+)\}/g, (_, name) => {
+        if (!(name in SUBS)) throw new Error(`rules/secret-read-alert.json: no local value for \${${name}}`);
+        return SUBS[name];
+      });
+    }
+    return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, bind(v)]));
+  }
+  return node;
+}
+if (rule) {
+  bind(rule.eventPattern); // fail at startup, not at the first read, if a reference is unknown
+  bind(rule.target.arn);
+  console.log(`[aws-mock] EventBridge rule SecretReadAlertRule loaded (State=${rule.state}, sha256 ${rule.sha256.slice(0, 12)})`);
+}
+
+async function publishToSns(topicArn, message) {
+  const body = new URLSearchParams({ Action: 'Publish', Version: '2010-03-31', TopicArn: topicArn, Message: message });
+  const res = await fetch(SNS_ENDPOINT, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded; charset=utf-8',
+      Authorization: `AWS4-HMAC-SHA256 Credential=local-events/${new Date().toISOString().slice(0, 10).replace(/-/g, '')}/${REGION}/sns/aws4_request, SignedHeaders=host, Signature=local`,
+    },
+    body,
+    signal: AbortSignal.timeout(5000),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`SNS answered ${res.status}: ${text.slice(0, 200)}`);
+  return /<MessageId>([^<]+)<\/MessageId>/.exec(text)?.[1];
+}
+
+/** Record one call and run the rule on it, as CloudTrail + EventBridge would. */
+async function audit(req, op, input, requestId, errorCode) {
+  const principal = principalOf(req.headers);
+  const event = cloudTrailEvent({
+    op, input, principal, requestId, errorCode, region: REGION,
+    sourceIp: req.socket.remoteAddress?.replace(/^::ffff:/, ''), userAgent: req.headers['user-agent'],
+  });
+  trail.add(event);
+  const who = principal.arn ?? principal.invokedBy;
+  const target = input.SecretId ?? (input.SecretIdList ?? []).join(',') ?? '';
+  shipJson('info', { event: 'cloudtrail.record', 'cloudtrail.event_name': op, 'cloudtrail.read_only': event.detail.readOnly, 'aws.principal': who, 'aws.secret_name': target, 'aws.request_id': requestId, errorCode }, `CloudTrail: ${op} ${target} by ${who}`);
+  if (!rule) return;
+  const pattern = bind(rule.eventPattern);
+  const delivered = deliveredToRule(rule.state, event);
+  const matched = matches(pattern, event);
+  const evaluation = { time: event.time, op, secret: target, who, matched, delivered, state: rule.state };
+  if (matched && !delivered) evaluation.note = `EventBridge does not deliver read-only management events to a rule in state ${rule.state}`;
+  if (matched && delivered) {
+    const message = transformInput(rule.target.inputTransformer ?? {}, event);
+    try {
+      evaluation.messageId = SNS_ENDPOINT ? await publishToSns(bind(rule.target.arn), message) : undefined;
+      evaluation.note = SNS_ENDPOINT ? 'published to SNS' : 'matched, but MOCK_SNS_ENDPOINT is not set';
+    } catch (err) {
+      evaluation.note = `publish failed: ${err.message}`;
+    }
+  }
+  if (matched) {
+    console.log(`[aws-mock] eventbridge SecretReadAlertRule matched ${op} ${target} by ${who}: ${evaluation.note}`);
+    shipJson(evaluation.messageId ? 'warn' : 'info', { event: 'eventbridge.rule.matched', 'eventbridge.rule': 'SecretReadAlertRule', 'eventbridge.delivered': delivered, 'aws.principal': who, 'aws.secret_name': target, 'messaging.message.id': evaluation.messageId }, `EventBridge rule SecretReadAlertRule: ${evaluation.note}`);
+  }
+  evaluations.push(evaluation);
+  if (evaluations.length > 100) evaluations.shift();
 }
 
 // -------------------------------------------------------------- server ----
@@ -215,27 +334,39 @@ const api = http.createServer(async (req, res) => {
   if (req.method === 'GET' && (req.url === '/health' || req.url === '/_localstack/health')) {
     return reply(200, { status: 'running', services: { secretsmanager: 'running', sts: 'running' } }, 'application/json');
   }
+  // Local-only views for the dashboard's detection lab: names and identities, never values.
+  if (req.method === 'GET' && req.url.startsWith('/_mock/cloudtrail')) {
+    return reply(200, { records: trail.since(Number(new URL(req.url, 'http://x').searchParams.get('since') ?? 0)) }, 'application/json');
+  }
+  if (req.method === 'GET' && req.url === '/_mock/eventbridge') {
+    return reply(200, { rule: rule ? { name: 'SecretReadAlertRule', state: rule.state, sha256: rule.sha256 } : null, evaluations }, 'application/json');
+  }
 
   // STS (query protocol, or JSON for newer SDKs)
   if (target.startsWith('AWSSecurityTokenServiceV20110615.') || /(^|&)Action=GetCallerIdentity(&|$)/.test(body)) {
-    console.log('[aws-mock] sts:GetCallerIdentity');
-    return target ? reply(200, identity, 'application/x-amz-json-1.0') : reply(200, stsXml(), 'text/xml');
+    const identity = callerIdentity(principalOf(req.headers));
+    console.log(`[aws-mock] sts:GetCallerIdentity -> ${identity.Arn}`);
+    return target ? reply(200, identity, 'application/x-amz-json-1.0') : reply(200, stsXml(identity), 'text/xml');
   }
 
   if (!target.startsWith('secretsmanager.')) {
     return reply(400, { __type: 'UnknownOperationException', message: `unsupported target '${target}'` });
   }
   const op = target.slice('secretsmanager.'.length);
+  const requestId = randomUUID();
+  let input = {};
   try {
     if (!ops[op]) throw new AwsError('UnknownOperationException', `mock does not implement ${op}`);
-    const input = body ? JSON.parse(body) : {};
+    input = body ? JSON.parse(body) : {};
     const out = ops[op](input);
     console.log(`[aws-mock] secretsmanager:${op} ${input.SecretId ?? input.Name ?? ''}`.trim()); // never log values
-    reply(200, out);
+    reply(200, out, undefined, { 'x-amzn-RequestId': requestId });
+    await audit(req, op, input, requestId);
   } catch (err) {
     const type = err.type ?? 'InternalServiceError';
     console.log(`[aws-mock] secretsmanager:${op} -> ${type}`);
-    reply(err.status ?? 500, { __type: type, message: err.message }, 'application/x-amz-json-1.1', { 'x-amzn-ErrorType': type });
+    if (!res.headersSent) reply(err.status ?? 500, { __type: type, message: err.message }, 'application/x-amz-json-1.1', { 'x-amzn-ErrorType': type });
+    await audit(req, op, input, requestId, type).catch(() => {});
   }
 });
 
@@ -247,7 +378,12 @@ async function getSecretValue(input) {
   if (!UPSTREAM) return ops.GetSecretValue(input);
   const res = await fetch(UPSTREAM, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/x-amz-json-1.1', 'X-Amz-Target': 'secretsmanager.GetSecretValue' },
+    // The real agent signs with the host's role: the app's identity here.
+    headers: {
+      'Content-Type': 'application/x-amz-json-1.1',
+      'X-Amz-Target': 'secretsmanager.GetSecretValue',
+      Authorization: 'AWS4-HMAC-SHA256 Credential=local-app/20260101/us-east-1/secretsmanager/aws4_request, SignedHeaders=host, Signature=local',
+    },
     body: JSON.stringify(input),
   });
   const out = await res.json();

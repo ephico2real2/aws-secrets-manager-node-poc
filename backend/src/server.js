@@ -11,6 +11,7 @@ import { createHttpServer, createRouter } from './http.js';
 import { registerRoutes } from './routes.js';
 import { NOTES_SCHEMA } from './schema.js';
 import { createOtlpShipper } from './logship/otlp.js';
+import { createNotifier } from './alerts/notifier.js';
 
 const version = (() => {
   try {
@@ -89,9 +90,13 @@ if (config.logging.revealSecrets) {
 }
 
 const events = createEventLog();
+const notifier = createNotifier({ config, logger, redactor });
 const provider = createSecretsProvider({ config, redactor, logger });
 provider.on('loaded', ({ secretId, reason, changed, versionId }) => {
   const alias = Object.entries(config.secretIds).find(([, id]) => id === secretId)?.[0] ?? secretId;
+  if (changed) {
+    void notifier.notify('credential.rotated', { secretName: secretId, version: versionId.slice(0, 8), trigger: reason }, { dedupKey: `rotated:${secretId}` });
+  }
   events.record(
     'secrets',
     changed ? 'new-version' : 'loaded',
@@ -140,7 +145,7 @@ const rotator = config.demo.enabled
   : undefined;
 
 const router = createRouter();
-registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper });
+registerRoutes(router, { config, provider, db, cache, events, logger, redactor, rotator, shipper, notifier });
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const server = createHttpServer({

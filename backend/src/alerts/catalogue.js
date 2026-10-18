@@ -154,6 +154,7 @@ export const NOTIFICATIONS = Object.freeze({
   },
   'alerting.test': {
     severity: 'info',
+    route: 'test', // the SNS "severity" attribute: subscription filter policies let tests reach every channel
     title: 'Test alert from Secure Notes',
     channels: ['email', 'sms', 'chat'],
     repeat: '0',
