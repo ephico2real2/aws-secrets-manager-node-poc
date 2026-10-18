@@ -10,7 +10,9 @@
 // and exposed by stats().
 
 const SEVERITY = { debug: [5, 'DEBUG'], info: [9, 'INFO'], warn: [13, 'WARN'], error: [17, 'ERROR'] };
-const SKIP = new Set(['time', 'level', 'msg', 'event', 'fatal']);
+// time and msg become Timestamp and Body; level and event stay as attributes too,
+// so log stores that don't map SeverityText/EventName can still filter on them.
+const SKIP = new Set(['time', 'msg', 'fatal']);
 
 function anyValue(v) {
   if (typeof v === 'string') return { stringValue: v };

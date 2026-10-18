@@ -392,6 +392,12 @@ EPICS += [
        ["v0-env-file, v1-openbao-kv, v2-openbao-dynamic, v3-k8s, v4-vault."], evidence=[d("docs/modernization/parked-openbao-vault.md", "parked plan")]),
    ], docs=[d("docs/modernization/parked-openbao-vault.md", "parked plan")]),
    F("F15.2", "Retrieval and refresh", [
+     S("S15.0", "One switch: SECRETS_PROVIDER=aws|vault|openbao", "M",
+       "As an operator, I want to choose the secrets manager with one setting, so that the same app runs on AWS Secrets Manager, HashiCorp Vault or OpenBao.",
+       ["`aws` (default) keeps today's behaviour, with SECRETS_MODE=sdk|agent unchanged.",
+        "`vault` and `openbao` share one HTTP fetcher; the value switches only real differences (token prefixes, plugins, namespaces).",
+        "Config holds the provider, an address and secret names only; the no-credentials-in-env guard, cache, rotation recovery, masking and reveal flag work with every provider."],
+       evidence=[d("docs/modernization/parked-openbao-vault.md", "parked plan")]),
      S("S15.3", "OpenBao in Compose with KV v2 and AppRole; HTTP client with token renewal", "M",
        "As a developer, I want the app to read from OpenBao over its HTTP API, so that no client library or env var is needed.",
        ["Static seal and self-init for a hands-off demo; reveal flag kept."], evidence=[d("docs/modernization/parked-openbao-vault.md", "parked plan")]),

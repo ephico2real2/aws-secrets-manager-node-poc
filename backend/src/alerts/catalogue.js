@@ -19,7 +19,12 @@
  * @property {string} action      what on-call should do first
  */
 
-/** Events that raise an alert (logs first: a rule on the log store, then SNS). */
+/**
+ * Events that raise an alert (logs first: a rule on the log store, then SNS).
+ * Routing by severity, the same locally and on AWS:
+ *   critical -> the alerts topic (email, SMS, chat)
+ *   warning  -> the chat topic (chat only)
+ */
 export const ALERTS = Object.freeze({
   'config.unsafe': {
     severity: 'critical',
@@ -126,8 +131,8 @@ export const PATTERN_ALERTS = Object.freeze({
     when: { count: 5, window: '5m' },
     repeat: '1h',
     action: 'Look at the error lines in the log store for the same five minutes.',
-    logsql: 'level:=error -msg:"simulated:"',
-    cloudwatch: '{ ($.log.level = "error") && ($.log.msg != "simulated:*") }',
+    logsql: 'level:=error -_msg:"simulated:"*',
+    cloudwatch: '{ ($.level = "error") && ($.msg != "simulated:*") }',
   },
 });
 
@@ -148,13 +153,14 @@ export const PLATFORM_ALERTS = Object.freeze({
 export const NOTIFICATIONS = Object.freeze({
   'credential.rotated': {
     severity: 'info',
+    topic: 'chat', // the chat-only topic: it tells, it doesn't page
     title: 'The app switched to a rotated credential',
     channels: ['chat'],
     repeat: '10m',
   },
   'alerting.test': {
     severity: 'info',
-    route: 'test', // the SNS "severity" attribute: subscription filter policies let tests reach every channel
+    topic: 'alerts', // the paging topic, so a test reaches email, SMS and chat
     title: 'Test alert from Secure Notes',
     channels: ['email', 'sms', 'chat'],
     repeat: '0',

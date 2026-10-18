@@ -1,0 +1,80 @@
+# The local log pipeline: logs first, then alerts, as on AWS.
+#
+#   app / aws-mock / sns-logger --OTLP--> otel-collector --> VictoriaLogs   (AWS: CloudWatch Logs)
+#   vmalert (LogsQL rules) --> Alertmanager --SNS Publish--> sns-logger     (AWS: metric filters, alarms, SNS)
+#
+#   docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build
+#   VictoriaLogs UI: http://localhost:9428/select/vmui   vmalert: http://localhost:8880   Alertmanager: http://localhost:9093
+#
+# About 600 MB more memory than the base stack, so it is opt-in.
+services:
+  otel-collector:
+    image: docker.io/otel/opentelemetry-collector-contrib:0.163.1
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./deploy/observability/otel-collector.yaml:/etc/otelcol/config.yaml:ro
+    depends_on:
+      victorialogs: { condition: service_healthy }
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  victorialogs:
+    image: docker.io/victoriametrics/victoria-logs:v1.53.0
+    command: ["-storageDataPath=/vlogs", "-retentionPeriod=7d", "-loggerLevel=WARN"]
+    volumes:
+      - vlogs-data:/vlogs
+    ports:
+      - "127.0.0.1:9428:9428" # loopback only
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:9428/health"]
+      interval: 2s
+      retries: 30
+
+  vmalert:
+    image: docker.io/victoriametrics/vmalert:v1.154.0
+    command:
+      - -rule=/etc/vmalert/rules.yaml
+      - -rule.defaultRuleType=vlogs
+      - -datasource.url=http://victorialogs:9428
+      - -notifier.url=http://alertmanager:9093
+      - -rule.evalDelay=5s
+      - -loggerLevel=WARN
+    volumes:
+      - ./deploy/observability/vmalert-rules.yaml:/etc/vmalert/rules.yaml:ro
+    ports:
+      - "127.0.0.1:8880:8880" # loopback only
+    depends_on:
+      victorialogs: { condition: service_healthy }
+      alertmanager: { condition: service_started }
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  alertmanager:
+    image: docker.io/prom/alertmanager:v0.34.1
+    command: ["--config.file=/etc/alertmanager/alertmanager.yml", "--storage.path=/alertmanager", "--log.level=warn"]
+    volumes:
+      - ./deploy/observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - am-data:/alertmanager
+    ports:
+      - "127.0.0.1:9093:9093" # loopback only
+    depends_on:
+      sns-logger: { condition: service_healthy }
+
+  # Ship each service's (redacted) records to the collector, as well as stdout.
+  app:
+    environment:
+      LOG_OTLP_ENDPOINT: http://otel-collector:4318
+  aws-mock:
+    environment:
+      LOG_OTLP_ENDPOINT: http://otel-collector:4318
+  sns-logger:
+    environment:
+      LOG_OTLP_ENDPOINT: http://otel-collector:4318
+      VICTORIALOGS_URL: http://victorialogs:9428
+      VMALERT_URL: http://vmalert:8880
+
+volumes:
+  vlogs-data:
+  am-data:

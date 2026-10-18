@@ -73,6 +73,9 @@ jobs:
       - name: The local AWS stand-ins (EventBridge rule matching, CloudTrail records, SNS)
         run: node --test dev/aws-mock/test/*.test.js
 
+      - name: Alert rules, AWS alarms and the alert table match the catalogue
+        run: node scripts/sync-alert-rules.js --check
+
       - name: The aws-mock runs the same unexpected-read rule as the CloudFormation stack
         run: |
           python3 -c 'import yaml' 2>/dev/null || pip install --user --break-system-packages pyyaml==6.0.2 >/dev/null
@@ -189,7 +192,8 @@ jobs:
     env:
       # agent: the app reads its secrets through an agent on its own localhost
       # (docker-compose.agent.yml), as SECRETS_MODE=agent does on EC2.
-      COMPOSE_FILE: ${{ matrix.mode == 'agent' && 'docker-compose.yml:docker-compose.agent.yml' || 'docker-compose.yml' }}
+      # sdk: also the local log pipeline (docker-compose.observability.yml).
+      COMPOSE_FILE: ${{ matrix.mode == 'agent' && 'docker-compose.yml:docker-compose.agent.yml' || 'docker-compose.yml:docker-compose.observability.yml' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -227,6 +231,22 @@ jobs:
           mkdir -p output
           scripts/compose-check.sh | tee output/compose-check.txt
           { echo "## Docker Compose (${{ matrix.mode }}) — check"; echo; echo '```'; cat output/compose-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logs first, then alerts — collector, VictoriaLogs, vmalert, Alertmanager, SNS
+        if: matrix.mode == 'sdk'
+        run: |
+          set -o pipefail
+          scripts/pipeline-check.sh | tee output/pipeline-check.txt
+          { echo "## Logs first, then alerts"; echo; echo '```'; cat output/pipeline-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Alerts — what on-call receives (captures)
+        if: matrix.mode == 'sdk'
+        uses: ./.github/actions/browser-walk
+        with:
+          spec: scripts/capture/alerts.yaml
+          out: captures-alerts
+          label: compose-alerts
+          env-json: '{"BASE":"http://localhost:3000","SNS_BASE":"http://localhost:4575"}'
 
       # The flag that prints real values (lab use) — and the proof the scan
       # would catch a leak: with it on, the scan MUST find the values in the

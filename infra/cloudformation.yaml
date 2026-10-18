@@ -43,7 +43,22 @@ Parameters:
   AlertEmail:
     Type: String
     Default: ''
-    Description: Optional email for the "unexpected secret read" alarm (you confirm the subscription by email).
+    Description: Optional email for the alert topics (secret reads and critical app alarms; you confirm the subscription by email).
+  AlertPhone:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^\+[1-9][0-9]{6,14}$'
+    Description: Optional phone number (E.164, e.g. +15555550100) for SMS on secret reads and critical alarms. New accounts start in the SMS sandbox.
+  AlertWebhookUrl:
+    Type: String
+    Default: ''
+    AllowedPattern: '^$|^https://.+'
+    Description: Optional https endpoint for every alert and notification (it must confirm the SNS subscription). For Slack or Teams, connect the topics in Amazon Q Developer in chat applications instead.
+  EnableCloudWatchLogs:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+    Description: Ship the app's (redacted) log to CloudWatch Logs with the CloudWatch agent, and alarm on it.
   CreateTrail:
     Type: String
     AllowedValues: ['true', 'false']
@@ -97,6 +112,10 @@ Conditions:
   MakeEndpoint: !Equals [!Ref CreateSecretsManagerEndpoint, 'true']
   HasSecretAdmin: !Not [!Equals [!Ref SecretAdminRoleArn, '']]
   HasAlertEmail: !Not [!Equals [!Ref AlertEmail, '']]
+  HasAlertPhone: !Not [!Equals [!Ref AlertPhone, '']]
+  HasWebhook: !Not [!Equals [!Ref AlertWebhookUrl, '']]
+  ChatByEmail: !And [!Not [!Condition HasWebhook], !Condition HasAlertEmail]
+  MakeLogs: !Equals [!Ref EnableCloudWatchLogs, 'true']
   MakeTrail: !Equals [!Ref CreateTrail, 'true']
   MakeConfigRules: !Equals [!Ref EnableConfigRules, 'true']
 
@@ -121,6 +140,33 @@ Resources:
     Properties:
       AliasName: !Sub alias/${AWS::StackName}-secrets
       TargetKeyId: !Ref SecretsKey
+
+  # The alert topics need a customer-managed key: EventBridge and CloudWatch
+  # alarms can't publish to a topic encrypted with the AWS-managed aws/sns key.
+  AlertsKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: Encrypts the Secure Notes alert topics
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AccountAdmin
+            Effect: Allow
+            Principal: { AWS: !Sub 'arn:${AWS::Partition}:iam::${AWS::AccountId}:root' }
+            Action: kms:*
+            Resource: '*'
+          - Sid: EventBridgeAndAlarmsMayPublish
+            Effect: Allow
+            Principal: { Service: [events.amazonaws.com, cloudwatch.amazonaws.com] }
+            Action: [kms:GenerateDataKey*, kms:Decrypt]
+            Resource: '*'
+
+  AlertsKeyAlias:
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Sub alias/${AWS::StackName}-alerts
+      TargetKeyId: !Ref AlertsKey
 
   # ------------------------------------------------------ security groups --
   AppSecurityGroup:
@@ -339,6 +385,31 @@ Resources:
                 Effect: Allow
                 Action: s3:GetObject
                 Resource: !Sub arn:${AWS::Partition}:s3:::${AppArtifactBucket}/${AppArtifactKey}
+        - PolicyName: notify-and-ship-logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              # The app's own notifications (credential rotated, test alert).
+              - Sid: PublishNotifications
+                Effect: Allow
+                Action: sns:Publish
+                Resource: [!Ref OpsAlertsTopic, !Ref OpsChatTopic]
+              - Sid: EncryptForTheAlertTopics
+                Effect: Allow
+                Action: [kms:GenerateDataKey*, kms:Decrypt]
+                Resource: !GetAtt AlertsKey.Arn
+                Condition:
+                  StringEquals:
+                    kms:ViaService: !Sub sns.${AWS::Region}.amazonaws.com
+              # The CloudWatch agent ships /var/log/secure-notes/app.jsonl.
+              - Sid: ShipAppLog
+                Effect: Allow
+                Action: [logs:CreateLogStream, logs:PutLogEvents, logs:DescribeLogStreams]
+                Resource: !Sub arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/secure-notes/${AWS::StackName}/app:*
+              - Sid: AgentLooksUpLogGroups
+                Effect: Allow
+                Action: logs:DescribeLogGroups
+                Resource: '*'
 
   AppInstanceProfile:
     Type: AWS::IAM::InstanceProfile
@@ -551,8 +622,8 @@ Resources:
   SecretReadAlertTopic:
     Type: AWS::SNS::Topic
     Properties:
-      DisplayName: Secure Notes secret read alert
-      KmsMasterKeyId: alias/aws/sns
+      DisplayName: Secure Notes security
+      KmsMasterKeyId: !Ref AlertsKey # S12.1: not alias/aws/sns, which EventBridge can't use
 
   SecretReadAlertTopicPolicy:
     Type: AWS::SNS::TopicPolicy
@@ -577,6 +648,397 @@ Resources:
       TopicArn: !Ref SecretReadAlertTopic
       Protocol: email
       Endpoint: !Ref AlertEmail
+
+  SecretReadAlertSms:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertPhone
+    Properties:
+      TopicArn: !Ref SecretReadAlertTopic
+      Protocol: sms
+      Endpoint: !Ref AlertPhone
+
+  SecretReadAlertWebhook:
+    Type: AWS::SNS::Subscription
+    Condition: HasWebhook
+    Properties:
+      TopicArn: !Ref SecretReadAlertTopic
+      Protocol: https
+      Endpoint: !Ref AlertWebhookUrl
+
+  # E12: alarms from the app's log. Critical ones page (email, SMS, chat);
+  # warnings and the app's notifications go to chat only. The same split as
+  # the local Alertmanager.
+  OpsAlertsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Secure Notes
+      KmsMasterKeyId: !Ref AlertsKey
+
+  OpsChatTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: Secure Notes
+      KmsMasterKeyId: !Ref AlertsKey
+
+  OpsTopicsPolicy:
+    Type: AWS::SNS::TopicPolicy
+    Properties:
+      Topics: [!Ref OpsAlertsTopic, !Ref OpsChatTopic]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AlarmsInThisAccountMayPublish
+            Effect: Allow
+            Principal: { Service: cloudwatch.amazonaws.com }
+            Action: sns:Publish
+            Resource: [!Ref OpsAlertsTopic, !Ref OpsChatTopic]
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+  OpsAlertsEmail:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertEmail
+    Properties: { TopicArn: !Ref OpsAlertsTopic, Protocol: email, Endpoint: !Ref AlertEmail }
+
+  OpsAlertsSms:
+    Type: AWS::SNS::Subscription
+    Condition: HasAlertPhone
+    Properties: { TopicArn: !Ref OpsAlertsTopic, Protocol: sms, Endpoint: !Ref AlertPhone }
+
+  OpsAlertsWebhook:
+    Type: AWS::SNS::Subscription
+    Condition: HasWebhook
+    Properties: { TopicArn: !Ref OpsAlertsTopic, Protocol: https, Endpoint: !Ref AlertWebhookUrl }
+
+  OpsChatWebhook:
+    Type: AWS::SNS::Subscription
+    Condition: HasWebhook
+    Properties: { TopicArn: !Ref OpsChatTopic, Protocol: https, Endpoint: !Ref AlertWebhookUrl }
+
+  # Without a chat endpoint, warnings still reach someone: by email.
+  OpsChatEmail:
+    Type: AWS::SNS::Subscription
+    Condition: ChatByEmail
+    Properties: { TopicArn: !Ref OpsChatTopic, Protocol: email, Endpoint: !Ref AlertEmail }
+
+  AppLogGroup:
+    Type: AWS::Logs::LogGroup
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Sub /secure-notes/${AWS::StackName}/app
+      RetentionInDays: 30
+
+  # ---- BEGIN generated alarms: Generated by scripts/sync-alert-rules.js from backend/src/alerts/catalogue.js. Do not edit.
+  ConfigUnsafeFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "config.unsafe" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: ConfigUnsafe
+          MetricValue: '1'
+          DefaultValue: 0
+  ConfigUnsafeAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: ConfigUnsafeFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-config.unsafe
+      AlarmDescription: '[critical] App refused to start: unsafe configuration. Read the log line: it lists each problem (a credential in the environment, a missing secret name, a lab flag in production). Fix the unit or ConfigMap and restart.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: ConfigUnsafe
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsAlertsTopic]
+  SecretsLoadFatalFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "secrets.load.fatal" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: SecretsLoadFatal
+          MetricValue: '1'
+          DefaultValue: 0
+  SecretsLoadFatalAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: SecretsLoadFatalFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-secrets.load.fatal
+      AlarmDescription: '[critical] App could not load its credentials and exited. Check the role can reach Secrets Manager (VPC endpoint, IAM, KMS) and that the secret names resolve. The app is down until it can read them.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: SecretsLoadFatal
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsAlertsTopic]
+  SecretsFetchFailedFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "secrets.fetch.failed" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: SecretsFetchFailed
+          MetricValue: '1'
+          DefaultValue: 0
+  SecretsFetchFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: SecretsFetchFailedFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-secrets.fetch.failed
+      AlarmDescription: '[critical] A credential could not be read from Secrets Manager. The app has no cached value to fall back on. Check IAM, the VPC endpoint, KMS and the secret name in the log line.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: SecretsFetchFailed
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsAlertsTopic]
+  SecretsFetchStaleFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "secrets.fetch.stale" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: SecretsFetchStale
+          MetricValue: '1'
+          DefaultValue: 0
+  SecretsFetchStaleAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: SecretsFetchStaleFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-secrets.fetch.stale
+      AlarmDescription: '[warning] Serving a cached credential: Secrets Manager unreachable. The app keeps working on the last good value for up to SECRET_MAX_STALE_SECONDS. Find out why refreshes fail before that runs out.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: SecretsFetchStale
+      Statistic: Sum
+      Period: 600
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsChatTopic]
+      OKActions: [!Ref OpsChatTopic]
+  AgentForbiddenFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "agent.forbidden" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: AgentForbidden
+          MetricValue: '1'
+          DefaultValue: 0
+  AgentForbiddenAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: AgentForbiddenFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-agent.forbidden
+      AlarmDescription: '[critical] The local credentials agent refused the app. The agent answered 403: the app is not sending its SSRF token, or the token file is unreadable. Check the token file and group membership.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: AgentForbidden
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsAlertsTopic]
+  DbAuthRejectedFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "db.auth.rejected" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: DbAuthRejected
+          MetricValue: '1'
+          DefaultValue: 0
+  DbAuthRejectedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: DbAuthRejectedFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-db.auth.rejected
+      AlarmDescription: '[warning] Postgres rejected the cached password. Usually a rotation the app recovers from by itself (look for db.auth.recovered). Repeated rejections mean the secret and the database disagree.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: DbAuthRejected
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsChatTopic]
+      OKActions: [!Ref OpsChatTopic]
+  CacheAuthRejectedFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "cache.auth.rejected" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: CacheAuthRejected
+          MetricValue: '1'
+          DefaultValue: 0
+  CacheAuthRejectedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: CacheAuthRejectedFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-cache.auth.rejected
+      AlarmDescription: '[warning] Redis rejected the cached password. Usually a rotation the app recovers from by itself (look for cache.auth.recovered). Repeated rejections mean the secret and the Redis user disagree.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: CacheAuthRejected
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 3
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsChatTopic]
+      OKActions: [!Ref OpsChatTopic]
+  CacheRefreshFailedFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "cache.refresh.failed" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: CacheRefreshFailed
+          MetricValue: '1'
+          DefaultValue: 0
+  CacheRefreshFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: CacheRefreshFailedFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-cache.refresh.failed
+      AlarmDescription: '[critical] Redis credential refresh failed. Redis rejected the password and the app could not read a new one. Check Secrets Manager access and the rotation function.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: CacheRefreshFailed
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsAlertsTopic]
+      OKActions: [!Ref OpsAlertsTopic]
+  SecretsRevealEnabledFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "secrets.reveal.enabled" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: SecretsRevealEnabled
+          MetricValue: '1'
+          DefaultValue: 0
+  SecretsRevealEnabledAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: SecretsRevealEnabledFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-secrets.reveal.enabled
+      AlarmDescription: '[warning] Secret values are being written to the log (lab flag on). LOG_REVEAL_SECRETS=true is for labs. Turn it off and treat the values in this log as exposed.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: SecretsRevealEnabled
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsChatTopic]
+      OKActions: [!Ref OpsChatTopic]
+  RotationDemoFailedFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ $.event = "rotation.demo.failed" }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: RotationDemoFailed
+          MetricValue: '1'
+          DefaultValue: 0
+  RotationDemoFailedAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: RotationDemoFailedFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-rotation.demo.failed
+      AlarmDescription: '[warning] A demo rotation failed. Demo only. The log line names the step that failed.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: RotationDemoFailed
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsChatTopic]
+      OKActions: [!Ref OpsChatTopic]
+  AppErrorsBurstFilter:
+    Type: AWS::Logs::MetricFilter
+    Condition: MakeLogs
+    Properties:
+      LogGroupName: !Ref AppLogGroup
+      FilterPattern: '{ ($.level = "error") && ($.msg != "simulated:*") }'
+      MetricTransformations:
+        - MetricNamespace: !Sub SecureNotes/${AWS::StackName}
+          MetricName: AppErrorsBurst
+          MetricValue: '1'
+          DefaultValue: 0
+  AppErrorsBurstAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Condition: MakeLogs
+    DependsOn: AppErrorsBurstFilter
+    Properties:
+      AlarmName: !Sub ${AWS::StackName}-app.errors.burst
+      AlarmDescription: '[warning] Burst of errors in the app log. Look at the error lines in the log store for the same five minutes.'
+      Namespace: !Sub SecureNotes/${AWS::StackName}
+      MetricName: AppErrorsBurst
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 1
+      Threshold: 5
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      TreatMissingData: notBreaching
+      AlarmActions: [!Ref OpsChatTopic]
+      OKActions: [!Ref OpsChatTopic]
+  # ---- END generated alarms
 
   SecretReadAlertRule:
     Type: AWS::Events::Rule
@@ -826,6 +1288,10 @@ Resources:
             REDIS_HOST=${CacheHost}
             REDIS_PORT=${CachePort}
             REDIS_TLS=true
+            # Notifications (the app's own) and the log copy the CloudWatch agent ships.
+            SNS_TOPIC_ARN=${OpsAlertsTopic}
+            SNS_CHAT_TOPIC_ARN=${OpsChatTopic}
+            LOG_FILE=/var/log/secure-notes/app.jsonl
             ENV
             chown root:securenotes /etc/secure-notes/app.env
             chmod 640 /etc/secure-notes/app.env
@@ -837,6 +1303,29 @@ Resources:
             fi
             systemctl daemon-reload
             systemctl enable --now secure-notes
+
+            # Logs first, then alerts: the CloudWatch agent ships the app's redacted
+            # JSON log to CloudWatch Logs, where metric filters raise the alarms.
+            if [ "${EnableCloudWatchLogs}" = "true" ]; then
+              dnf install -y amazon-cloudwatch-agent logrotate
+              cat > /opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json <<'CWA'
+            {
+              "agent": { "run_as_user": "root" },
+              "logs": {
+                "logs_collected": {
+                  "files": {
+                    "collect_list": [
+                      { "file_path": "/var/log/secure-notes/app.jsonl", "log_group_name": "/secure-notes/STACK/app", "log_stream_name": "{instance_id}" }
+                    ]
+                  }
+                }
+              }
+            }
+            CWA
+              sed -i "s|/secure-notes/STACK/app|/secure-notes/${AWS::StackName}/app|" /opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json
+              printf '/var/log/secure-notes/app.jsonl {\n  daily\n  rotate 3\n  compress\n  missingok\n  copytruncate\n}\n' > /etc/logrotate.d/secure-notes
+              /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/secure-notes.json
+            fi
           - DbSecretArn: !GetAtt Database.MasterUserSecret.SecretArn
             DbHost: !GetAtt Database.Endpoint.Address
             DbPort: !GetAtt Database.Endpoint.Port
@@ -859,6 +1348,15 @@ Outputs:
     Value: !Ref RedisAppSecret
   KmsKeyArn:
     Value: !GetAtt SecretsKey.Arn
+  OpsAlertsTopicArn:
+    Description: Critical app alarms and the test alert (email, SMS, chat)
+    Value: !Ref OpsAlertsTopic
+  OpsChatTopicArn:
+    Description: Warnings and the app's notifications (chat; email if no webhook)
+    Value: !Ref OpsChatTopic
+  AppLogGroupName:
+    Condition: MakeLogs
+    Value: !Ref AppLogGroup
   SecretReadAlertTopicArn:
     Description: Subscribe here (email, chat, pager) to hear about unexpected secret reads
     Value: !Ref SecretReadAlertTopic

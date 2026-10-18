@@ -1,6 +1,6 @@
 # Learning path: from `.env` files to a centralized secrets manager
 
-Six short chapters, each building on the last. The principles apply to any language and
+Seven short chapters, each building on the last. The principles apply to any language and
 any secrets manager; **Secure Notes** (Node.js, Postgres, Redis, AWS) is the worked
 example throughout. About 30 minutes in total.
 
@@ -12,6 +12,7 @@ example throughout. About 30 minutes in total.
 | 4 | [Secure Notes, before and after](04-secure-notes-app.md) | The app's architecture with `.env` and with Secrets Manager, and the code an app must add |
 | 5 | [System design review](05-system-design.md) | What the AWS design gets right, what to improve, and the target architecture |
 | 6 | [Inside the app: request flows](06-request-flows.md) | Startup retrieval, rotation recovery and log masking, step by step |
+| 7 | [Alerts and audit](07-alerts-and-audit.md) | From a log line or a CloudTrail record to an email, an SMS and a chat post, locally and on AWS |
 
 ## Words you'll meet
 
@@ -29,6 +30,11 @@ example throughout. About 30 minutes in total.
 | **SSRF** | Server-side request forgery: tricking an app into fetching a URL on the attacker's behalf |
 | **Rotation** | Replacing a credential on a schedule; version labels `AWSCURRENT`, `AWSPENDING`, `AWSPREVIOUS` track the old and new |
 | **Break-glass role** | An emergency admin role, used rarely and audited |
+| **CloudTrail** | AWS's audit log: one record per API call, saying who did what, when and from where |
+| **EventBridge** | AWS's event router: a rule matches events (such as CloudTrail records) and sends them to a target |
+| **SNS** | Amazon Simple Notification Service: publish once to a topic, and every subscriber gets it by email, SMS or HTTPS |
+| **OpenTelemetry** | A CNCF standard for logs, metrics and traces, and the format the app ships its logs in |
+| **VictoriaLogs / vmalert / Alertmanager** | The local log store, the rule evaluator that queries it, and the router that sends alerts to SNS |
 
 **Then:** run it yourself with the [tutorial](../TUTORIAL.md), demo one feature at a time
 with the [demo pages](../../demo/README.md), or deploy it with the [guide](../GUIDE.md).

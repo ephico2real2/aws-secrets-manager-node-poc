@@ -56,16 +56,18 @@ services:
     environment:
       PORT: "4575"
       SNS_LOGGER_PUBLIC_URL: http://localhost:4575
-      SNS_LOGGER_TOPICS: secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes
-      # example.com and 555-01xx are reserved for examples. On the ops topic, email
-      # and SMS get critical alerts (and tests) only; chat gets everything.
+      SNS_LOGGER_TOPICS: secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes,secure-notes-ops-chat=Secure Notes
+      # example.com and 555-01xx are reserved for examples. Three topics, as on AWS:
+      # security alerts and critical ops alerts page (email, SMS, chat); warnings
+      # and the app's notifications go to chat only.
       SNS_LOGGER_SUBSCRIPTIONS: >-
         secure-notes-secret-read-alert:email:oncall@example.com;
         secure-notes-secret-read-alert:sms:+15555550100;
         secure-notes-secret-read-alert:https:https://chat.example.com/hooks/secure-notes;
-        secure-notes-ops-alerts:email:oncall@example.com {"severity":["critical","test"]};
-        secure-notes-ops-alerts:sms:+15555550100 {"severity":["critical","test"]};
-        secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes
+        secure-notes-ops-alerts:email:oncall@example.com;
+        secure-notes-ops-alerts:sms:+15555550100;
+        secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes;
+        secure-notes-ops-chat:https:https://chat.example.com/hooks/secure-notes
     ports:
       - "127.0.0.1:4575:4575" # loopback only
     healthcheck:
@@ -135,6 +137,7 @@ services:
       LOG_REVEAL_SECRETS: ${LOG_REVEAL_SECRETS:-false}
       # Notifications through SNS: the local stand-in here, Amazon SNS on AWS.
       SNS_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:secure-notes-ops-alerts
+      SNS_CHAT_TOPIC_ARN: arn:aws:sns:us-east-1:000000000000:secure-notes-ops-chat
       SNS_ENDPOINT: http://sns-logger:4575
       ALERTS_INBOX_URL: http://localhost:4575
     ports:

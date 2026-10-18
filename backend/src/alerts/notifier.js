@@ -69,6 +69,7 @@ export function composeMessage({ name, def, details = {}, app, environment, host
 export function createNotifier({ config, logger, redactor, client, now = () => Date.now() }) {
   const log = logger.child({ component: 'alerts' });
   const topicArn = config.alerts.topicArn;
+  const topicFor = (def) => (def.topic === 'chat' ? config.alerts.chatTopicArn ?? topicArn : topicArn);
   const last = new Map(); // dedup key -> time sent
   const stats = { sent: 0, suppressed: 0, failed: 0 };
 
@@ -112,11 +113,12 @@ export function createNotifier({ config, logger, redactor, client, now = () => D
     // Defence in depth: nothing that looks like a loaded secret leaves in a notification.
     const safe = Object.fromEntries(Object.entries(bodies).map(([k, v]) => [k, redactor.scrubString(v)]));
     const smsSegments = Math.max(1, Math.ceil(Buffer.byteLength(safe.sms) / 140));
+    const target = topicFor(def);
     const fields = {
       'messaging.system': 'aws.sns',
       'messaging.operation.type': 'send',
-      'messaging.destination.name': topicArn.split(':').pop(),
-      'aws.sns.topic.arn': topicArn,
+      'messaging.destination.name': target.split(':').pop(),
+      'aws.sns.topic.arn': target,
       'alert.name': name,
       'alert.severity': def.severity,
       'alert.id': alertId,
@@ -126,14 +128,14 @@ export function createNotifier({ config, logger, redactor, client, now = () => D
     };
     try {
       const input = {
-          TopicArn: topicArn,
+          TopicArn: target,
           Subject: subject,
           MessageStructure: 'json',
           Message: JSON.stringify(safe),
           MessageAttributes: {
             'AWS.SNS.SMS.SenderID': { DataType: 'String', StringValue: config.alerts.senderId },
             'AWS.SNS.SMS.SMSType': { DataType: 'String', StringValue: 'Transactional' },
-            severity: { DataType: 'String', StringValue: def.route ?? def.severity },
+            severity: { DataType: 'String', StringValue: def.severity },
             'alert.name': { DataType: 'String', StringValue: name },
           },
       };

@@ -33,17 +33,19 @@ spec:
             - name: SNS_LOGGER_PUBLIC_URL
               value: http://localhost:4575
             - name: SNS_LOGGER_TOPICS
-              value: secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes
-            # example.com and 555-01xx are reserved for examples. On the ops topic, email
-            # and SMS get critical alerts (and tests) only; chat gets everything.
+              value: secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes,secure-notes-ops-chat=Secure Notes
+            # example.com and 555-01xx are reserved for examples. Three topics, as on AWS:
+            # security alerts and critical ops alerts page (email, SMS, chat); warnings
+            # and the app's notifications go to chat only.
             - name: SNS_LOGGER_SUBSCRIPTIONS
               value: >-
                 secure-notes-secret-read-alert:email:oncall@example.com;
                 secure-notes-secret-read-alert:sms:+15555550100;
                 secure-notes-secret-read-alert:https:https://chat.example.com/hooks/secure-notes;
-                secure-notes-ops-alerts:email:oncall@example.com {"severity":["critical","test"]};
-                secure-notes-ops-alerts:sms:+15555550100 {"severity":["critical","test"]};
-                secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes
+                secure-notes-ops-alerts:email:oncall@example.com;
+                secure-notes-ops-alerts:sms:+15555550100;
+                secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes;
+                secure-notes-ops-chat:https:https://chat.example.com/hooks/secure-notes
           ports:
             - name: http
               containerPort: 4575

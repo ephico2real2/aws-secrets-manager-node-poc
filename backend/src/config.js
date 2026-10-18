@@ -99,11 +99,17 @@ export const config = Object.freeze({
     // Optional: also ship each (redacted) record to an OpenTelemetry Collector,
     // e.g. http://otel-collector:4318. stdout stays the primary log.
     otlpEndpoint: env.LOG_OTLP_ENDPOINT || undefined,
+    // Optional: also append each (redacted) record to this file, for a log agent
+    // (the CloudWatch agent on EC2). stdout stays the primary log.
+    file: env.LOG_FILE || undefined,
   }),
 
   // Notifications through Amazon SNS (alerts/notifier.js). Off without a topic.
   alerts: Object.freeze({
+    // The paging topic (email, SMS, chat) and the chat-only topic; without a chat
+    // topic, chat-only notifications go to the paging topic.
     topicArn: env.SNS_TOPIC_ARN || undefined,
+    chatTopicArn: env.SNS_CHAT_TOPIC_ARN || undefined,
     // ONLY for local development: the sns-logger container. Refused in production.
     endpoint: env.SNS_ENDPOINT || undefined,
     senderId: env.ALERTS_SENDER_ID ?? 'SECNOTES',

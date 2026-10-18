@@ -1,0 +1,44 @@
+# Alertmanager (local): alerts from vmalert -> the local SNS (sns-logger), as
+# Alertmanager would publish to Amazon SNS. Routing matches the AWS alarms:
+# critical -> the paging topic (email, SMS, chat), the rest -> the chat topic.
+route:
+  receiver: sns-chat
+  group_by: [alertname]
+  group_wait: 5s
+  group_interval: 1m
+  repeat_interval: 1h
+  routes:
+    - matchers: ['severity="critical"']
+      receiver: sns-alerts
+
+receivers:
+  - name: sns-alerts
+    sns_configs:
+      - &sns # the same settings for both receivers; only the topic differs
+        api_url: http://sns-logger:4575
+        sigv4:
+          region: us-east-1
+          # dummy key: the local SNS reads the key ID as "who is publishing"
+          access_key: local-alertmanager
+          secret_key: local-mock
+        subject: '[{{ .Status | toUpper }}] Secure Notes: {{ .CommonAnnotations.title }}'
+        message: |-
+          {{ range .Alerts -}}
+          You are receiving this because the alert "{{ .Labels.alertname }}" is {{ $.Status | toUpper }}.
+
+          Alert:       {{ .Labels.alertname }} ({{ .Labels.severity }})
+          Description: {{ .Annotations.title }}
+          Rule:        {{ .Annotations.rule }}
+          Since:       {{ .StartsAt.UTC.Format "2006-01-02T15:04:05Z" }}
+          Action:      {{ .Annotations.action }}
+          Runbook:     {{ .Annotations.runbook }}
+          Raised by:   vmalert on VictoriaLogs (local); on AWS, the CloudWatch alarm of the same name
+          {{ end }}
+        attributes:
+          severity: '{{ .CommonLabels.severity }}'
+        send_resolved: false
+        topic_arn: arn:aws:sns:us-east-1:000000000000:secure-notes-ops-alerts
+  - name: sns-chat
+    sns_configs:
+      - <<: *sns
+        topic_arn: arn:aws:sns:us-east-1:000000000000:secure-notes-ops-chat

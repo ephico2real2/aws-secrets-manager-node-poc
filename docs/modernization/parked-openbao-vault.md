@@ -13,6 +13,29 @@ Kubernetes. It keeps the same rules:
 - credentials refresh automatically on rotation or lease expiry;
 - the lab-only flag that reveals values still works, end to end.
 
+## One switch: `SECRETS_PROVIDER`
+
+The app chooses its secrets manager with a single setting:
+
+| `SECRETS_PROVIDER` | Talks to | How it authenticates | Notes |
+| --- | --- | --- | --- |
+| `aws` (default) | AWS Secrets Manager | IAM role (instance profile, IRSA) | `SECRETS_MODE` (`sdk` or `agent`) still chooses the SDK or the local agent |
+| `vault` | HashiCorp Vault | AppRole, Kubernetes or JWT auth → a Vault token | HTTP API with `fetch`; Redis database plugin available |
+| `openbao` | OpenBao | the same auth methods | the same HTTP API and fetcher as `vault`; Valkey plugin instead of Redis; namespaces available |
+
+`vault` and `openbao` share one fetcher, because OpenBao keeps Vault's API. The value
+switches only what really differs: token prefixes, which plugins exist, and feature
+checks such as namespaces.
+
+Everything else stays the same whichever provider is chosen:
+- config holds only the provider, an address and secret names;
+- the app refuses to start if a credential is in the environment;
+- the cache, rotation recovery, log masking and the lab-only reveal flag work as they do now.
+
+The app already reads secrets through one interface (`fetch(secretId)` in
+`backend/src/secrets/fetchers.js`), so adding a provider means a new fetcher plus its
+auth, not a redesign.
+
 ## Why a new repository
 
 The secrets manager changes most of the stack: the server itself, unsealing, auth methods,

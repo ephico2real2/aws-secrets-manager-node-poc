@@ -11,6 +11,7 @@ import { createHttpServer, createRouter } from './http.js';
 import { registerRoutes } from './routes.js';
 import { NOTES_SCHEMA } from './schema.js';
 import { createOtlpShipper } from './logship/otlp.js';
+import { createFileSink } from './logship/file.js';
 import { createNotifier } from './alerts/notifier.js';
 
 const version = (() => {
@@ -41,7 +42,7 @@ const logger = createLogger({
   revealSecrets: config.logging.revealSecrets && config.nodeEnv !== 'production',
   base: { app: 'secure-notes' },
   format: config.logging.format === 'pretty' ? 'pretty' : 'json',
-  sinks: shipper ? [shipper] : [],
+  sinks: [shipper, config.logging.file ? createFileSink(config.logging.file) : undefined].filter(Boolean),
 });
 
 // Exit after giving the log shipper a moment, so the line that explains the

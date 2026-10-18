@@ -46,5 +46,6 @@ configMapGenerator:
       - REDIS_SECRET_RESOURCE=notes-cache
       # Notifications through the local SNS (sns-logger).
       - SNS_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:secure-notes-ops-alerts
+      - SNS_CHAT_TOPIC_ARN=arn:aws:sns:us-east-1:000000000000:secure-notes-ops-chat
       - SNS_ENDPOINT=http://sns-logger:4575
       - ALERTS_INBOX_URL=http://localhost:4575

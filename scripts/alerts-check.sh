@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The alert paths, end to end, against a running local stack:
 #   - no unexpected-read alarm from the app, rotation or tooling reads;
-#   - the app's rotation notification reaches chat only (filter policy);
+#   - the app's rotation notification reaches chat only (the chat topic);
 #   - reading a secret as an intruder raises the stack's EventBridge rule,
 #     delivered by email, SMS and chat; reading the DB secret by name doesn't
 #     (the documented gap);
@@ -39,10 +39,11 @@ bad() { echo "  FAIL  $*"; fails=$((fails + 1)); }
 post() { curl -fsS -X POST -H 'Content-Type: application/json' -d "${2:-{\}}" "$BASE$1" >/dev/null || bad "POST $1 failed"; }
 READ_TOPIC=secure-notes-secret-read-alert
 OPS_TOPIC=secure-notes-ops-alerts
+CHAT_TOPIC=secure-notes-ops-chat
 
 if [ -z "$(deliveries $READ_TOPIC)" ]; then ok "no unexpected-read alert before the test: the app, rotation and tooling reads are all expected"
 else bad "an unexpected-read alert fired without an intruder: $(deliveries $READ_TOPIC)"; fi
-if wait_for $OPS_TOPIC "rotated credential" "https"; then ok "the smoke test's rotations sent a chat notification (info: not emailed or texted, by the subscriptions' filter policy)"
+if wait_for $CHAT_TOPIC "rotated credential" "https"; then ok "the smoke test's rotations sent a notification to the chat-only topic (it tells, it doesn't page)"
 else bad "no rotation notification on chat"; fi
 
 post /api/demo/unexpected-read '{"as":"user","target":"redis"}'

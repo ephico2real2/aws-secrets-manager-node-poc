@@ -1,0 +1,51 @@
+# Alerts, end to end: the detection lab on the dashboard, then what on-call
+# receives, in the local SNS console (sns-logger). Runs after
+# scripts/alerts-check.sh and scripts/pipeline-check.sh, so deliveries exist.
+# ${BASE} = the app, ${SNS_BASE} = sns-logger.
+viewport: {width: 1280, height: 900}
+
+pages:
+  # 10. The detection lab: an intruder read, matched by the stack's own rule.
+  - name: 10-detection-lab
+    url: ${BASE}/
+    fullPage: true
+    actions:
+      - click: Read Redis secret as IAM user mallory
+      - waitForText: alarm sent
+      - wait: 3000
+    expect:
+      text: [Detection lab, rule receives reads, alarm sent, user/mallory]
+
+  # 11. What the on-call engineer gets by email.
+  - name: 11-sns-email
+    url: ${SNS_BASE}/#email
+    fullPage: true
+    before: 2500
+    expect:
+      text: [Notification console, no-reply@sns.amazonaws.com, user/mallory, If you wish to stop receiving notifications]
+      absent: [oncall@example.com]
+
+  # 12. The same alerts as text messages, with how SNS splits them.
+  - name: 12-sns-sms
+    url: ${SNS_BASE}/#sms
+    fullPage: true
+    before: 2500
+    expect:
+      text: [Phone, GSM-7, "+1******0100"]
+      absent: ["+15555550100"]
+
+  # 13. Chat and webhooks: the app's notifications as Amazon Q Developer cards.
+  - name: 13-sns-chat
+    url: ${SNS_BASE}/#chat
+    fullPage: true
+    before: 2500
+    expect:
+      text: [Chat and webhooks, The app switched to a rotated credential, Test alert from Secure Notes]
+
+  # 14. Logs first, then alerts: the log store and the rules behind them.
+  - name: 14-sns-pipeline
+    url: ${SNS_BASE}/#pipeline
+    fullPage: true
+    before: 6000
+    expect:
+      text: [Pipeline, receiving, secure-notes]

@@ -12,6 +12,12 @@ WorkingDirectory=/opt/secure-notes/backend
 EnvironmentFile=/etc/secure-notes/app.env
 Environment=HOST=127.0.0.1 PORT=3000
 ExecStart=/usr/bin/node-22 src/server.js
+# journald stays the primary log (journalctl -u secure-notes). The app also
+# appends the same redacted JSON lines to /var/log/secure-notes/app.jsonl
+# (LOG_FILE in app.env) for the CloudWatch agent; LogsDirectory makes that one
+# directory writable under ProtectSystem=strict.
+LogsDirectory=secure-notes
+LogsDirectoryMode=0750
 Restart=on-failure
 RestartSec=5
 # Exit code 78 = unsafe configuration; don't hot-loop on it.
