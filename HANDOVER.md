@@ -2,8 +2,9 @@
 
 **Read this file first, then follow it.** It holds everything a new AI agent (Claude Code or
 any other) needs to pick the work up where it stopped. The last session ended on
-2026-10-18. The Podman work is in commits `74ce332` to `d35bcd4`; the last green run is
-39174954533 (every job, including `compose (podman)` and the chat-route check).
+2026-10-18; the last code change is commit `4cf522a`, with every CI job green (run
+39175989647, including `compose (podman)` and the chat-route check). That session ran the lab
+on the owner's MacBook on Podman (section 11), closed #114, #118 and #123, and parked #119.
 
 Paste this into a new session to start:
 
@@ -15,10 +16,11 @@ Paste this into a new session to start:
 To rebuild the lab on a MacBook instead, paste:
 
 > Read `HANDOVER.md` in this repo and follow section 11, "Recreate the lab on a MacBook".
-> Run the bootstrap and the preflight first and show me the preflight table. Then bring up
-> the target I name (Docker Compose, kind, or OpenShift Local), run its check script, and
-> give me the URLs. Stop and ask before changing Docker Desktop's settings or installing
-> anything that needs my password.
+> Use Podman (`scripts/bootstrap/macos.sh --podman`, then `. scripts/podman.env`); don't
+> start Docker Desktop. Show me the preflight table first. Then bring up the target I name
+> (Docker Compose, kind, or Compose with the log pipeline), run its check script, and give
+> me the URLs. Stop and ask before resizing the Podman machine or installing anything that
+> needs my password.
 
 ---
 
@@ -62,7 +64,13 @@ The story moves through versions:
   then build. The plan behind E8–E15 is `docs/modernization/plan-e8-e15.md`.
 - **Every piece of work is on the backlog and in GitHub issues.** Titles start with `APP:`
   (modernizing the app) or `TUTORIAL:` (building the tutorial), with the matching label.
+  The order is `data.py`, then `issues.py`, then `render.py` (it needs the issue numbers).
   See section 6.
+- **Tick a criterion only when it is proven where it says.** A criterion that says "in CI"
+  stays open until that CI run is green; tick it in the next change set, with the run's ID.
+- **On the owner's MacBook, use Podman, not Docker Desktop.** The owner chose Podman
+  Desktop because Docker Desktop is too heavy. Docker Desktop is installed but stays
+  stopped: never start or uninstall it unasked. Docker's CLI clients are fine (section 11).
 - **Prove claims in CI, then show the proof.** Docs quote real CI output and screenshots from
   the `ci-captures` branch, never invented output. Push one change set at a time and wait
   for its CI run to finish before pushing the next.
@@ -83,6 +91,7 @@ gh api "repos/ephico2real2/aws-secrets-manager-node-poc/issues?state=open&per_pa
 node --test dev/aws-mock/test/*.test.js  # mock tests (EventBridge matcher, SNS, CloudTrail)
 node scripts/sync-alert-rules.js --check && python3 scripts/sync-event-pattern.py --check   # on a Mac: .tmp/venv/bin/python3 (section 9)
 node scripts/docs-check.js               # links (and Mermaid if Playwright is set up)
+. scripts/podman.env                     # on the owner's Mac: the docker CLI and kind at Podman (section 11)
 docker compose up --build -d             # http://localhost:3000 (app) and :4575 (notification console)
 scripts/compose-check.sh                 # end-to-end, alert paths and the credential scan
 ```
@@ -103,13 +112,13 @@ scripts/compose-check.sh                 # end-to-end, alert paths and the crede
 | `infra/cloudformation.yaml` | The EC2 stack: VPC endpoint, KMS keys, RDS with a managed secret, ElastiCache with an RBAC user and a rotation function, alert topics, CloudWatch agent, **generated** metric filters and alarms, and `SecretReadAlertRule` |
 | `infra/github-actions-bootstrap.yaml` | OIDC role for the manual `aws.yaml` workflow |
 | `versions/v0-env-file/` | The "before" app and `leak.sh` |
-| `scripts/` | `bootstrap/macos.sh` and `bootstrap/linux.sh` (set up a machine), `preflight.sh` (check it), `kind-up.sh` / `kind-down.sh`, `openshift-build.sh`, `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh`, `credential-scan.sh` (searches for the real values), `kind-up.sh`, `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
+| `scripts/` | `bootstrap/macos.sh` and `bootstrap/linux.sh` (set up a machine), `preflight.sh` (check it), `podman.env` (source it: the docker CLI and kind at Podman), `kind-up.sh` / `kind-down.sh`, `openshift-build.sh`, `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh` (the log pipeline, and a warning that goes to chat only), `credential-scan.sh` (searches for the real values), `capture-local.sh` (CI's checked walk, on your machine), `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
 | `docs/learn/` | Learning path, chapters 1–7 (chapter 7 is alerts and audit) |
 | `docs/TUTORIAL.md`, `docs/GUIDE.md`, `docs/TEST-CASES.md` | The walkthrough, the deploy guide (Parts A, B, C; C7b checks alerts on AWS), and the catalogue of automated tests (IDs S, R, L, D, C, F, A, P, K, N…) |
 | `docs/reference/` | `alerts.md` (generated table), `secret-naming.md`, `security-controls.md`, `deploy-quickref.md`, `ci.md` |
 | `docs/modernization/` | Source review, ADR-001, `backlog.md` (generated), `plan-e8-e15.md` (with an "as built" note), `parked-openbao-vault.md` |
 | `docs/releases/` | Release notes used by the milestone workflow |
-| `demo/` | Test cases 1–18, one page each, with CI screenshots and output |
+| `demo/` | Test cases 1–18, one page each, with CI screenshots and output (10 and 14 also show the MacBook run on Podman, labelled) |
 | `.github/workflows/` | `ci.yaml` (every push), `aws.yaml` (manual, real AWS), `milestone.yaml` (manual: tag and release) |
 
 ## 5. Generated files: edit the source, then regenerate
@@ -139,21 +148,24 @@ Open stories at handover:
 | --- | --- | --- |
 | #91 | **S12.5 Prove it on AWS**: a denied read raises the secret-read alert; a test log event trips an alarm; TestEventPattern fixtures match the mock; a batch read's text names the secret | an AWS account; run `aws.yaml`. This also closes #34, #86, #87, #89, #90 |
 | #115 | S12.6 Close the by-name gap for the RDS-managed secret (match `detail.resources.ARN` if CloudTrail carries it) | AWS first, to confirm the record shape |
-| #114 | S10.5 The pipeline check also proves the chat route and a pattern rule: **done**, CI run 39174954533 (`compose (sdk)`); demo test case 16 | — |
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
-| #118 | S5.2 Bootstrap a MacBook: **done** 2026-10-18 on Podman (Compose and kind, section 11.3); on Docker Desktop only the bootstrap, the preflight and `docker compose up` ran, no check | — |
-| #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | the owner's Mac with CRC (section 11.4). **Waiting:** CRC was deleted on that Mac on 2026-10-13; the owner restores it later. Don't recreate it unasked |
+| #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | **Parked** (label `parked`): CRC was deleted on the owner's Mac on 2026-10-13, and the owner restores it later. Don't recreate it unasked (section 11.4) |
 | #102–#111 | E15 **moved** to [`openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc) (epics B0–B8 there); closed here | — |
+
+Closed on 2026-10-18, with their evidence: #118 (S5.2, the MacBook lab on Podman), #114
+(S10.5, a warning goes to chat only: CI run 39174954533) and #123 (S5.4, `capture-local.sh`).
+#86, #87, #89, #90 and #34 close with #91.
 
 ## 7. How CI works (pattern from the owner's cilium-implementation-poc)
 
 `ci.yaml` jobs:
 - `checks`: unit tests, sync checks, shellcheck, kubeconform, cfn-lint.
 - `build`: images built once, SBOM and grype gate.
-- `compose (sdk)`: runs with the observability overlay, the alerts walk and `pipeline-check`.
+- `compose (sdk)`: runs with the observability overlay, the alerts walk and `pipeline-check` (a critical alert pages; the `app.errors.burst` warning goes to chat only).
 - `compose (agent)`.
+- `compose (podman)`: the base stack on rootless Podman through the docker CLI (`scripts/podman.env`), then `compose-check.sh`. Not a gate for `images`.
 - `kind`: runs `scripts/bootstrap/linux.sh` and `kind-up.sh` (strict preflight), deploys under Pod Security restricted, reaches the app and the console on the mapped host ports (no port-forward), and exports kind's own logs on failure.
 - `mirror`.
 - `env-file-demo`, `v0-leak`.
@@ -191,9 +203,10 @@ Then close #95.
 - **Homebrew's Python refuses `pip install --user`** (PEP 668), and Homebrew has no PyYAML formula. `scripts/bootstrap/macos.sh` puts PyYAML in `.tmp/venv` at `PYYAML_VERSION`; the preflight checks it.
 - **A VM's memory reads low inside it.** A 4 GiB Podman machine reports 3887 MiB, so a whole-GiB floor said "3 GiB". The preflight compares MiB, allowing 10%.
 - **The docker CLI does not find Podman by itself.** `DOCKER_HOST` must point at the machine's API socket, and kind needs `KIND_EXPERIMENTAL_PROVIDER=podman`; the preflight says so when either is missing, and `. scripts/podman.env` sets both.
+- **The refresh route allows one manual refresh per secret every 2 s** (`routes.js`); faster calls get a 429 and log nothing. `pipeline-check.sh` paces its forced refreshes for that.
+- **A check must be seen to fail.** The chat-route check was run once with the burst routed to the paging receiver: both lines said `FAIL`. Do the same for any new check.
 - **The sandbox's network is limited.** If `npm install` can't reach the registry locally, CI resolves the lockfile (the `checks` job uploads it as an artifact). Tag pushes and some GitHub APIs (GraphQL, releases) are blocked in the cloud sandbox; use REST through `gh api`.
 - **sns-logger only accepts signed requests that carry no `Origin`.** A hand-made `curl` POST needs an `Authorization: AWS4-HMAC-SHA256 Credential=<key>/…` header. The access key ID is the caller's identity in the mock (`local-app`, `local-seed`, `local-intruder-user`, `local-intruder-role`, `local-events`, `local-alertmanager`; unsigned is `local-tooling`).
-
 - **kind's NodePort traffic is subject to NetworkPolicy.** kindnet enforces policies, and traffic from a host port arrives from the node, not from a pod. So the console needs its own allow rule (`overlays/kind/console-networkpolicy.yaml`). OpenShift's router needs one too (`router-networkpolicy.yaml`, using the `policy-group.network.openshift.io/ingress` namespace label).
 - **The published images are amd64 only.** OpenShift Local on an Apple-silicon Mac runs arm64, so it builds the images on the cluster (`scripts/openshift-build.sh`). kind on a Mac is fine: `images-build.sh` builds locally for the Mac's CPU, and the node image is multi-arch.
 - **Buildah enforces short-name rules,** so the Dockerfiles name `docker.io/library/node:22-alpine` in full.
@@ -210,32 +223,42 @@ Then close #95.
 ## 11. Recreate the lab on a MacBook
 
 Use this when the owner asks to run the lab on their Mac (Apple silicon or Intel). Every
-command runs from the repo root. Ask before anything that needs their password, and before
-changing Docker Desktop's settings.
+command runs from the repo root. Ask before anything that needs their password.
+
+**The owner's Mac runs the lab on Podman Desktop** (machine `podman-machine-default`: 4 CPUs,
+4 GiB, rootless), not Docker Desktop. Docker Desktop is installed but stays stopped; don't start
+it. Every command below works unchanged once `. scripts/podman.env` has run in that terminal.
+Resizing the machine is fine when a lab needs it, but 4 GiB was enough for every lab. When the
+work is done, stop the lab, and `podman machine stop` frees the memory.
 
 ### 11.1 Get the code and the tools
 
 ```bash
 git clone https://github.com/ephico2real2/aws-secrets-manager-node-poc.git
 cd aws-secrets-manager-node-poc
-scripts/bootstrap/macos.sh                # Docker Desktop; add --openshift for the oc CLI
-scripts/bootstrap/macos.sh --podman       # Podman Desktop instead: a smaller VM (11.3)
+scripts/bootstrap/macos.sh --podman       # the owner's Mac: Podman Desktop
+. scripts/podman.env                      # in every new terminal
+# scripts/bootstrap/macos.sh              # another Mac with Docker Desktop; add --openshift for the oc CLI
 ```
 
 `macos.sh` needs Homebrew (<https://brew.sh>; its installer asks for the password, so the
 owner runs it). It installs what's missing:
 - the formulae `bash`, `jq`, `node`, `kind` and `kubernetes-cli` (plus `openshift-cli` with `--openshift`);
-- the Docker Desktop cask.
+- with `--podman`: the `podman` formula and the Podman Desktop cask, a 4 GiB machine if none
+  exists, and Homebrew's `docker` and `docker-compose` clients only if no `docker` CLI is on the `PATH`;
+- without it: the Docker Desktop cask;
+- PyYAML in `.tmp/venv`, for `scripts/sync-event-pattern.py`.
 
-Then it starts Docker Desktop and prints the preflight tables. It changes no settings.
+Then it starts the engine and prints the preflight tables. It changes no settings.
 
 Fix every `REQUIRED-FAIL` row before going on. The common ones on a new Mac:
 
 | Row | Fix |
 | --- | --- |
 | `bash (env bash)` 3.2 | `brew install bash`, then open a new Terminal, so `/opt/homebrew/bin` comes before `/bin` |
-| `docker` not answering | `open -a Docker`, and accept its terms on the first launch |
-| `memory for the lab` (warn) | 4 GiB for every lab (measured: 1.5 GiB used with kind, 1.0 GiB with the log pipeline). Docker Desktop → Settings → Resources → Memory; Podman: `podman machine stop && podman machine set --memory 6144 && podman machine start` |
+| `docker` not answering | Podman: `podman machine start`, then `. scripts/podman.env` (the row prints the socket). Docker Desktop: `open -a Docker` |
+| `kind provider` (warn) | `. scripts/podman.env` (it sets `KIND_EXPERIMENTAL_PROVIDER=podman`) |
+| `memory for the lab` (warn) | 4 GiB for every lab (measured: 1.5 GiB used with kind, 1.0 GiB with the log pipeline). Podman: `podman machine stop && podman machine set --memory 4096 && podman machine start`; Docker Desktop: Settings → Resources → Memory |
 | `port 3000` / `4575` in use | Another lab is running: `docker compose down` or `scripts/kind-down.sh` |
 
 ### 11.2 Docker Compose (the quickest lab)
@@ -247,6 +270,7 @@ scripts/compose-check.sh                  # ends with "All checks passed" and th
 # http://localhost:3000 (dashboard) · http://localhost:4575 (notification console)
 docker compose -f docker-compose.yml -f docker-compose.observability.yml up --build -d   # optional log pipeline
 docker compose down -v                    # stop and wipe
+scripts/capture-local.sh compose          # optional: screenshots, each page checked like CI's (.tmp/captures/)
 ```
 
 ### 11.3 kind
@@ -262,14 +286,8 @@ scripts/kind-down.sh
 ```
 
 To run kind beside Compose, use `KIND_APP_PORT=3100 KIND_CONSOLE_PORT=4675 scripts/kind-up.sh`.
-**On Podman Desktop** (the owner's choice: a smaller VM than Docker Desktop), point the docker
-CLI and kind at Podman first, in every terminal (`scripts/podman.env`); then the commands above and those of 11.2 are
-unchanged:
-
-```bash
-scripts/bootstrap/macos.sh --podman
-. scripts/podman.env                      # DOCKER_HOST at Podman's socket, KIND_EXPERIMENTAL_PROVIDER=podman
-```
+**On Podman,** `. scripts/podman.env` sets `DOCKER_HOST` to the machine's API socket and
+`KIND_EXPERIMENTAL_PROVIDER=podman`; the commands above and those of 11.2 are then unchanged.
 
 Proven on 2026-10-18 on the owner's MacBook (Apple silicon, Podman 6.1.2, rootless, 4 CPUs,
 4 GiB, Docker Desktop stopped): `compose-check.sh` and `k8s-check.sh` both passed. The machine
@@ -282,6 +300,9 @@ Without Docker Desktop, the bootstrap installs Homebrew's `docker` and `docker-c
 Desktop's CLI off the `PATH`): `compose-check.sh` passed.
 
 ### 11.4 OpenShift Local (CRC)
+
+**Parked (#119).** CRC was deleted on the owner's Mac on 2026-10-13; the owner restores it
+later. Don't run `crc setup` or `crc start`, or download a bundle, unless the owner asks.
 
 The owner downloads CRC with their Red Hat account (console.redhat.com/openshift/create/local),
 then:
