@@ -1,0 +1,195 @@
+postgres-1  | The files belonging to this database system will be owned by user "postgres".
+postgres-1  | This user must also own the server process.
+postgres-1  | 
+postgres-1  | The database cluster will be initialized with locale "en_US.utf8".
+postgres-1  | The default database encoding has accordingly been set to "UTF8".
+postgres-1  | The default text search configuration will be set to "english".
+postgres-1  | 
+postgres-1  | Data page checksums are disabled.
+postgres-1  | 
+postgres-1  | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1  | creating subdirectories ... ok
+postgres-1  | selecting dynamic shared memory implementation ... posix
+postgres-1  | selecting default max_connections ... 100
+postgres-1  | selecting default shared_buffers ... 128MB
+postgres-1  | selecting default time zone ... Etc/UTC
+postgres-1  | creating configuration files ... ok
+postgres-1  | running bootstrap script ... ok
+postgres-1  | performing post-bootstrap initialization ... ok
+postgres-1  | syncing data to disk ... ok
+postgres-1  | 
+postgres-1  | 
+postgres-1  | initdb: warning: enabling "trust" authentication for local connections
+postgres-1  | Success. You can now start the database server using:
+postgres-1  | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+postgres-1  | 
+postgres-1  |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1  | 
+postgres-1  | waiting for server to start....2026-10-18 00:12:19.499 UTC [47] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1  | 2026-10-18 00:12:19.500 UTC [47] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2026-10-18 00:12:19.502 UTC [50] LOG:  database system was shut down at 2026-10-18 00:12:19 UTC
+postgres-1  | 2026-10-18 00:12:19.505 UTC [47] LOG:  database system is ready to accept connections
+postgres-1  |  done
+postgres-1  | server started
+postgres-1  | 2026-10-18 00:12:19.643 UTC [58] LOG:  statement: CREATE DATABASE "notes" ;
+postgres-1  | CREATE DATABASE
+postgres-1  | 
+postgres-1  | 
+postgres-1  | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+postgres-1  | 
+postgres-1  | 2026-10-18 00:12:19.684 UTC [47] LOG:  received fast shutdown request
+postgres-1  | waiting for server to shut down....2026-10-18 00:12:19.684 UTC [47] LOG:  aborting any active transactions
+postgres-1  | 2026-10-18 00:12:19.686 UTC [47] LOG:  background worker "logical replication launcher" (PID 53) exited with exit code 1
+postgres-1  | 2026-10-18 00:12:19.686 UTC [48] LOG:  shutting down
+postgres-1  | 2026-10-18 00:12:19.687 UTC [48] LOG:  checkpoint starting: shutdown immediate
+postgres-1  | 2026-10-18 00:12:19.701 UTC [48] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.011 s, sync=0.003 s, total=0.015 s; sync files=301, longest=0.002 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E8, redo lsn=0/191F0E8
+postgres-1  | 2026-10-18 00:12:19.708 UTC [47] LOG:  database system is shut down
+postgres-1  |  done
+postgres-1  | server stopped
+postgres-1  | 
+postgres-1  | PostgreSQL init process complete; ready for start up.
+postgres-1  | 
+postgres-1  | 2026-10-18 00:12:19.805 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1  | 2026-10-18 00:12:19.805 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1  | 2026-10-18 00:12:19.805 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1  | 2026-10-18 00:12:19.806 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1  | 2026-10-18 00:12:19.808 UTC [63] LOG:  database system was shut down at 2026-10-18 00:12:19 UTC
+postgres-1  | 2026-10-18 00:12:19.812 UTC [1] LOG:  database system is ready to accept connections
+postgres-1  | 2026-10-18 00:12:21.765 UTC [73] LOG:  statement: ALTER ROLE notes_app WITH LOGIN PASSWORD 'SCRAM-SHA-256$4096:+VvgJ9OfnPDmefDMsGDHng==$MxscRMMesxRmxiBM8Wm3k61NUjZjUwFSHBqraS7aTfE=:fGzwYZ3UefGsUPXi94a2pWvcTEIpVm4OCzyWVrKs1fY='
+postgres-1  | 2026-10-18 00:12:21.769 UTC [73] LOG:  statement: 
+postgres-1  | 	  CREATE TABLE IF NOT EXISTS notes (
+postgres-1  | 	    id         bigserial PRIMARY KEY,
+postgres-1  | 	    body       text NOT NULL CHECK (length(body) BETWEEN 1 AND 280),
+postgres-1  | 	    created_at timestamptz NOT NULL DEFAULT now()
+postgres-1  | 	  )
+seed-1      | [seed] created 4 secrets
+seed-1      | [seed] postgres: role, table, grants done; bootstrap password replaced
+seed-1      | [seed] redis: ACL user created (notes:* keys only); bootstrap password replaced
+app-1       | {"time":"2026-10-18T00:12:22.405Z","level":"info","app":"secure-notes","component":"secrets","secretId":"secure-notes/local/redis","versionId":"94f94dfa-38c1-4b9e-9a1e-cab1aad8d52b","reason":"cold-start","forced":false,"changed":false,"ms":50,"msg":"secret loaded"}
+app-1       | {"time":"2026-10-18T00:12:22.408Z","level":"info","app":"secure-notes","component":"secrets","secretId":"secure-notes/local/db","versionId":"9f3ff885-84ee-43de-b9bb-03fe424da2b4","reason":"cold-start","forced":false,"changed":false,"ms":56,"msg":"secret loaded"}
+app-1       | {"time":"2026-10-18T00:12:22.418Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1       | {"time":"2026-10-18T00:12:22.439Z","level":"info","app":"secure-notes","host":"0.0.0.0","port":3000,"secretsMode":"sdk","demoMode":true,"msg":"secure-notes listening"}
+app-1       | {"time":"2026-10-18T00:12:46.984Z","level":"info","app":"secure-notes","component":"rotator","alias":"db","secretId":"secure-notes/local/db","newVersionId":"4f4d04ab-ba16-4a03-a447-c477d4e0b9ef","msg":"demo rotation complete"}
+app-1       | {"time":"2026-10-18T00:12:47.074Z","level":"warn","app":"secure-notes","component":"db","err":{"type":"error","message":"terminating connection due to administrator command","code":"57P01","stack":"error: terminating connection due to administrator command\n    at parseErrorMessage (/app/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/app/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/app/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/app/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:519:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)"},"msg":"idle database connection closed"}
+aws-mock-1  | [aws-mock] Secrets Manager + STS mock on http://0.0.0.0:4566
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret -> ResourceNotFoundException
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:CreateSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:CreateSecret secure-notes/local/db-admin
+aws-mock-1  | [aws-mock] secretsmanager:CreateSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:CreateSecret secure-notes/local/redis-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] sts:GetCallerIdentity
+aws-mock-1  | [aws-mock] sts:GetCallerIdentity
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:PutSecretValue secure-notes/local/db
+app-1       | {"time":"2026-10-18T00:12:47.089Z","level":"warn","app":"secure-notes","component":"db","code":"28P01","msg":"database rejected cached credential; refreshing from Secrets Manager"}
+app-1       | {"time":"2026-10-18T00:12:47.092Z","level":"info","app":"secure-notes","component":"secrets","secretId":"secure-notes/local/db","versionId":"4f4d04ab-ba16-4a03-a447-c477d4e0b9ef","reason":"db-auth-failure","forced":true,"changed":true,"ms":3,"msg":"secret refreshed: new version"}
+app-1       | {"time":"2026-10-18T00:12:47.282Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1       | {"time":"2026-10-18T00:12:54.148Z","level":"info","app":"secure-notes","component":"rotator","alias":"redis","secretId":"secure-notes/local/redis","newVersionId":"59a7bd7d-0c0d-4a10-ad6a-4f19805da0b1","msg":"demo rotation complete"}
+app-1       | {"time":"2026-10-18T00:12:54.257Z","level":"warn","app":"secure-notes","component":"db","err":{"type":"error","message":"terminating connection due to administrator command","code":"57P01","stack":"error: terminating connection due to administrator command\n    at parseErrorMessage (/app/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/app/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/app/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/app/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:519:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)"},"msg":"idle database connection closed"}
+app-1       | {"time":"2026-10-18T00:12:54.464Z","level":"warn","app":"secure-notes","component":"redis","msg":"redis rejected cached credential; refreshing from Secrets Manager"}
+app-1       | {"time":"2026-10-18T00:12:54.467Z","level":"info","app":"secure-notes","component":"secrets","secretId":"secure-notes/local/redis","versionId":"59a7bd7d-0c0d-4a10-ad6a-4f19805da0b1","reason":"redis-auth-failure","forced":true,"changed":true,"ms":3,"msg":"secret refreshed: new version"}
+postgres-1  | 2026-10-18 00:12:21.774 UTC [73] LOG:  statement: REVOKE ALL ON notes FROM notes_app
+postgres-1  | 2026-10-18 00:12:21.774 UTC [73] LOG:  statement: GRANT SELECT, INSERT ON notes TO notes_app
+postgres-1  | 2026-10-18 00:12:21.775 UTC [73] LOG:  statement: GRANT USAGE ON SEQUENCE notes_id_seq TO notes_app
+postgres-1  | 2026-10-18 00:12:21.775 UTC [73] LOG:  statement: REVOKE CREATE ON SCHEMA public FROM PUBLIC
+postgres-1  | 2026-10-18 00:12:21.779 UTC [73] LOG:  statement: ALTER ROLE "postgres" WITH PASSWORD 'SCRAM-SHA-256$4096:QD2ni1NaFUuFHeUac7dX1w==$5hnxeHvngqX+bfTYNPrfQUX3dFhzR1ao71cHMfjDNwM=:6F+dVPsFBlN+jZcx3YDXlMX/A7z7DtRBmkAWLN5JbtQ='
+postgres-1  | 2026-10-18 00:12:46.967 UTC [160] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:HQ9c8ux8BwOeEUTBYaaUqQ==$koD5eVcewO3CpKVcN5+mJ0P2dkBNilJckb/Rmz1+NkI=:q5UK3sED21YR5lBzOiJvXVM/GCwk2tBdKo8sBPMV9nU='
+postgres-1  | 2026-10-18 00:12:47.073 UTC [74] FATAL:  terminating connection due to administrator command
+postgres-1  | 2026-10-18 00:12:47.088 UTC [163] FATAL:  password authentication failed for user "notes_app"
+postgres-1  | 2026-10-18 00:12:47.088 UTC [163] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+postgres-1  | 2026-10-18 00:12:54.257 UTC [164] FATAL:  terminating connection due to administrator command
+postgres-1  | 2026-10-18 00:13:13.787 UTC [260] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:XqZKRndNHawJfdPFuftqoQ==$qxuPOqJmpYbBUaISbgbyzCapERAq/0XcwjNOLfhd3+8=:xMnwehUzbqXYFeO1kdkSkWYZf6KHWzj4wSGzdHxGs7w='
+postgres-1  | 2026-10-18 00:13:13.875 UTC [195] FATAL:  terminating connection due to administrator command
+postgres-1  | 2026-10-18 00:13:13.889 UTC [263] FATAL:  password authentication failed for user "notes_app"
+postgres-1  | 2026-10-18 00:13:13.889 UTC [263] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+redis-1     | 1:C 18 Oct 2026 00:12:18.866 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+redis-1     | 1:C 18 Oct 2026 00:12:18.866 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+redis-1     | 1:C 18 Oct 2026 00:12:18.866 * Redis version=7.4.11, bits=64, commit=00000000, modified=0, pid=1, just started
+redis-1     | 1:C 18 Oct 2026 00:12:18.866 * Configuration loaded
+redis-1     | 1:M 18 Oct 2026 00:12:18.866 * monotonic clock: POSIX clock_gettime
+redis-1     | 1:M 18 Oct 2026 00:12:18.867 * Running mode=standalone, port=6379.
+redis-1     | 1:M 18 Oct 2026 00:12:18.867 * Server initialized
+redis-1     | 1:M 18 Oct 2026 00:12:18.867 * Ready to accept connections tcp
+app-1       | {"time":"2026-10-18T00:12:54.868Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1       | {"time":"2026-10-18T00:13:01.806Z","level":"error","app":"secure-notes","component":"api","err":{"type":"Error","message":"connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes","stack":"Error: connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes\n    at Object.handler (file:///app/backend/src/routes.js:129:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Server.<anonymous> (file:///app/backend/src/http.js:140:22)"},"msg":"simulated: library error containing a connection string"}
+app-1       | {"time":"2026-10-18T00:13:01.806Z","level":"warn","app":"secure-notes","component":"api","user":"notes_app","dbPassword":"[REDACTED]","msg":"simulated: developer logs the credential"}
+app-1       | {"time":"2026-10-18T00:13:01.806Z","level":"info","app":"secure-notes","component":"api","msg":"simulated: password inlined into a message: [REDACTED]"}
+app-1       | {"time":"2026-10-18T00:13:13.814Z","level":"info","app":"secure-notes","component":"rotator","alias":"db","secretId":"secure-notes/local/db","newVersionId":"ea0c9914-0194-4974-8ffe-d8e1a3505fb0","msg":"demo rotation complete"}
+app-1       | {"time":"2026-10-18T00:13:13.849Z","level":"info","app":"secure-notes","component":"rotator","alias":"redis","secretId":"secure-notes/local/redis","newVersionId":"589c17e9-2f83-49a9-b536-ce839145e673","msg":"demo rotation complete"}
+app-1       | {"time":"2026-10-18T00:13:13.876Z","level":"warn","app":"secure-notes","component":"db","err":{"type":"error","message":"terminating connection due to administrator command","code":"57P01","stack":"error: terminating connection due to administrator command\n    at parseErrorMessage (/app/backend/node_modules/pg-protocol/dist/parser.js:306:11)\n    at Parser.handlePacket (/app/backend/node_modules/pg-protocol/dist/parser.js:143:27)\n    at Parser.parse (/app/backend/node_modules/pg-protocol/dist/parser.js:37:38)\n    at Socket.<anonymous> (/app/backend/node_modules/pg-protocol/dist/index.js:12:42)\n    at Socket.emit (node:events:519:28)\n    at addChunk (node:internal/streams/readable:561:12)\n    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)\n    at Readable.push (node:internal/streams/readable:392:5)\n    at TCP.onStreamRead (node:internal/stream_base_commons:189:23)"},"msg":"idle database connection closed"}
+app-1       | {"time":"2026-10-18T00:13:13.889Z","level":"warn","app":"secure-notes","component":"db","code":"28P01","msg":"database rejected cached credential; refreshing from Secrets Manager"}
+app-1       | {"time":"2026-10-18T00:13:13.894Z","level":"info","app":"secure-notes","component":"secrets","secretId":"secure-notes/local/db","versionId":"ea0c9914-0194-4974-8ffe-d8e1a3505fb0","reason":"db-auth-failure","forced":true,"changed":true,"ms":4,"msg":"secret refreshed: new version"}
+app-1       | {"time":"2026-10-18T00:13:14.081Z","level":"warn","app":"secure-notes","component":"redis","msg":"redis rejected cached credential; refreshing from Secrets Manager"}
+app-1       | {"time":"2026-10-18T00:13:14.083Z","level":"info","app":"secure-notes","component":"secrets","secretId":"secure-notes/local/redis","versionId":"589c17e9-2f83-49a9-b536-ce839145e673","reason":"redis-auth-failure","forced":true,"changed":true,"ms":2,"msg":"secret refreshed: new version"}
+app-1       | {"time":"2026-10-18T00:13:14.485Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1       | {"time":"2026-10-18T00:13:14.797Z","level":"error","app":"secure-notes","component":"api","err":{"type":"Error","message":"connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes","stack":"Error: connect ECONNREFUSED postgres://notes_app:[REDACTED]@postgres:5432/notes\n    at Object.handler (file:///app/backend/src/routes.js:129:17)\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)\n    at async Server.<anonymous> (file:///app/backend/src/http.js:140:22)"},"msg":"simulated: library error containing a connection string"}
+app-1       | {"time":"2026-10-18T00:13:14.798Z","level":"warn","app":"secure-notes","component":"api","user":"notes_app","dbPassword":"[REDACTED]","msg":"simulated: developer logs the credential"}
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] sts:GetCallerIdentity
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:PutSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+app-1       | {"time":"2026-10-18T00:13:14.798Z","level":"info","app":"secure-notes","component":"api","msg":"simulated: password inlined into a message: [REDACTED]"}
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+seed-1      | [seed] done. Every credential now lives only in Secrets Manager.
+aws-mock-1  | [aws-mock] sts:GetCallerIdentity
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] sts:GetCallerIdentity
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:PutSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1  | [aws-mock] secretsmanager:PutSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+aws-mock-1  | [aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+aws-mock-1  | [aws-mock] sts:GetCallerIdentity
