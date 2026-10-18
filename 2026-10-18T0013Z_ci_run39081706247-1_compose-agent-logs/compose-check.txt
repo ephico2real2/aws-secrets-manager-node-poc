@@ -1,0 +1,27 @@
+== waiting for http://localhost:3000/api/health
+  ready after ~2 s
+SERVICE    IMAGE                              STATE
+agent      secure-notes-aws-mock:dev          running
+app        secure-notes-app:dev               running
+aws-mock   secure-notes-aws-mock:dev          running
+postgres   docker.io/library/postgres:16      running
+redis      docker.io/library/redis:7-alpine   running
+== the seed job burned the bootstrap passwords
+  ok    Redis rejects the bootstrap password
+== secrets mode: agent
+  ok    the agent served 4 secret fetch(es) to the app
+  ok    the agent token is visible only to the agent and the app
+  ok    the agent rejects a request without the SSRF token (403)
+== end-to-end smoke test
+Smoke test against http://localhost:3000
+  mode: agent (local mock)
+  ok    health: postgres and redis reachable
+  ok    notes: write to postgres, read through redis  (postgres -> redis)
+  ok    rotate db secret (createSecret -> setSecret -> testSecret -> finishSecret)  (new version 16a4298f)
+  ok    rotate redis secret (createSecret -> setSecret -> testSecret -> finishSecret)  (new version 09f03ae5)
+  ok    drop connections, then app recovers with the rotated credentials  (recovered: db, redis)
+  ok    secrets dashboard shows the new versions in cache
+  ok    leak test: no attempt exposes the password  (6 attempts, 0 leaks)
+  ok    security checks run  (13 checks, 0 fail)
+
+All checks passed
