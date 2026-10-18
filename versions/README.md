@@ -16,5 +16,6 @@ The tags are created by the `milestone` workflow (Actions → milestone → Run 
 with release notes from [`docs/releases/`](../docs/releases). If a tag isn't there yet, it
 hasn't been released.
 
-The next step in the story is parked: the same app on OpenBao and HashiCorp Vault, in a
-sibling repository ([plan](../docs/modernization/parked-openbao-vault.md)).
+The next step in the story continues in a sibling repository,
+[`openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc): the same app on OpenBao
+and HashiCorp Vault, with this repo's AWS path kept.

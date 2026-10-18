@@ -1,8 +1,12 @@
 # Parked: Secure Notes on OpenBao and HashiCorp Vault
 
-[← Initiative](README.md) · [Backlog: E15](backlog.md#e15--parked-secure-notes-on-openbao-and-hashicorp-vault-new-repo) · [Plan E8–E15](plan-e8-e15.md)
+[← Initiative](README.md) · [Backlog: E15](backlog.md#e15--moved-secure-notes-on-openbao-and-hashicorp-vault--openbao-node-poc) · [Plan E8–E15](plan-e8-e15.md)
 
-**Status:** parked. Planned, not scheduled. Nothing here is built yet.
+**Status: moved.** Since 2026-10-18 this work lives in its own repository,
+[`ephico2real2/openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc). It was
+seeded from this repo with the AWS path kept, and continues there as epics B0–B8
+([initiative](https://github.com/ephico2real2/openbao-node-poc/blob/main/docs/modernization/README.md)).
+The plan below is kept as it was written; the new repo's plan supersedes it.
 
 **Goal:** show that the Secure Notes design is not tied to AWS. The same app runs on
 **OpenBao** (about 90% of the tutorial) and **HashiCorp Vault**, on Docker Compose and

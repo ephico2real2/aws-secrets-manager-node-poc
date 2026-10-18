@@ -400,7 +400,7 @@ EPICS += [
        ["`scripts/backlog/` holds the data, the page renderer and the issue writer."]),
    ]),
   ]),
- dict(id="E15", track="app", parked=True, title="PARKED: Secure Notes on OpenBao and HashiCorp Vault (new repo)",
+ dict(id="E15", track="app", parked=True, title="MOVED: Secure Notes on OpenBao and HashiCorp Vault → openbao-node-poc",
   outcome="A sibling repo shows the same app on OpenBao (primary) and Vault, on Compose and Kubernetes, with SDK/HTTP retrieval and External Secrets Operator, no env vars, auto-refresh and the reveal flag.",
   docs=[d("docs/modernization/parked-openbao-vault.md", "parked plan")], children=[
    F("F15.1", "Decide and set up", [
@@ -526,3 +526,17 @@ for _it in _all_items():
         _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [(0, _it["criteria"][-1][1])]
         _it["evidence"] = ([d("scripts/bootstrap/macos.sh"), d("scripts/bootstrap/linux.sh")] if _it["id"] == "S5.2"
                            else [d("deploy/k8s/overlays/openshift/console-route.yaml"), d("scripts/openshift-build.sh")])
+
+# ---- E15 moved to its own repo, 2026-10-18 (it continues there as epics B0–B8) ----
+NB = "https://github.com/ephico2real2/openbao-node-poc/issues/"
+_MOVED = {"S15.1": (7, "B1 · ADR-002"), "S15.2": (3, "B0 · the repo, seeded with the AWS path kept; steps/ folders and tags"),
+          "S15.0": (8, "B2 · SECRETS_PROVIDER=aws|openbao|vault"), "S15.3": (12, "B3 · OpenBao KV on Compose"),
+          "S15.4": (15, "B4 · dynamic credentials and leases"), "S15.5": (18, "B5 · Kubernetes, ESO, OpenShift"),
+          "S15.6": (21, "B6 · the Vault variant")}
+for _it in _all_items():
+    if _it["id"] in _MOVED:
+        n, what = _MOVED[_it["id"]]
+        _it["status"] = "done"
+        _it["criteria"] = [(1, f"Moved to ephico2real2/openbao-node-poc, where it continues as [#{n}]({NB}{n}) ({what}).")]
+        _it["evidence"] = [f"[openbao-node-poc#{n}]({NB}{n})", d("docs/modernization/parked-openbao-vault.md", "plan (moved)")]
+

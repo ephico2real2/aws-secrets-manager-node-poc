@@ -44,7 +44,7 @@ The story moves through versions:
 | v0 | `versions/v0-env-file/` | The original `.env` app. It works, and `leak.sh` finds the passwords in 8 of 9 places |
 | v1 | repo root, tag `v1-secrets-manager` (not yet created) | Secrets Manager at runtime, rotation with no restart, masked debug logs, a lab-only reveal flag |
 | v2 | repo root, current `main`, tag `v2-alerts` (not yet created) | Logs first, then alerts: structured logs, SNS notifications, a local SNS console, the unexpected-read alarm simulated end to end |
-| (parked) | a new sibling repo | The same app on OpenBao and HashiCorp Vault (epic E15) |
+| next | [`openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc) | The same app on OpenBao and HashiCorp Vault, AWS kept (E15, moved) |
 
 ## 2. Working rules (the owner's instructions; they override defaults)
 
@@ -144,7 +144,7 @@ Open stories at handover:
 | #95 | S13.2 Milestone tags: **the owner runs** `milestone.yaml` (this sandbox can't push tags) | see section 8 |
 | #118 | S5.2 Run the bootstrap and the kind lab end to end on a real MacBook | the owner's Mac (section 11) |
 | #119 | S5.3 Run OpenShift Local end to end: Routes, `openshift-build.sh`, `k8s-check.sh` | the owner's Mac with CRC (section 11.4) |
-| #102–#111 | **E15 parked**: OpenBao/Vault sibling repo, `SECRETS_PROVIDER=aws\|vault\|openbao` | the owner decides: a new repo (recommended in the plan) or the switch added here first |
+| #102–#111 | E15 **moved** to [`openbao-node-poc`](https://github.com/ephico2real2/openbao-node-poc) (epics B0–B8 there); closed here | — |
 
 ## 7. How CI works (pattern from the owner's cilium-implementation-poc)
 

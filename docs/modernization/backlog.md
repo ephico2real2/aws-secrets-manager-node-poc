@@ -664,54 +664,52 @@ Evidence: [scripts/backlog](../../scripts/backlog/README.md)
 
 ## Parked — planned, not scheduled
 
-### E15 — PARKED: Secure Notes on OpenBao and HashiCorp Vault (new repo)
+### E15 — MOVED: Secure Notes on OpenBao and HashiCorp Vault → openbao-node-poc
 
-[#102](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/102) · 🔜 · **Outcome:** A sibling repo shows the same app on OpenBao (primary) and Vault, on Compose and Kubernetes, with SDK/HTTP retrieval and External Secrets Operator, no env vars, auto-refresh and the reveal flag. Docs: [parked plan](parked-openbao-vault.md)
+[#102](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/102) · ✅ · **Outcome:** A sibling repo shows the same app on OpenBao (primary) and Vault, on Compose and Kubernetes, with SDK/HTTP retrieval and External Secrets Operator, no env vars, auto-refresh and the reveal flag. Docs: [parked plan](parked-openbao-vault.md)
 
-#### F15.1 · Decide and set up · 🔜 · [#103](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/103)
+#### F15.1 · Decide and set up · ✅ · [#103](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/103)
 
-**S15.1 · ADR-002: OpenBao first, Vault second** · S · 🔜 · [#104](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/104)
+**S15.1 · ADR-002: OpenBao first, Vault second** · S · ✅ · [#104](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/104)
 *As an architect, I want the choice recorded with accurate licensing and feature facts, so that the team doesn't rely on myths.*
-- [ ] MPL-2.0 vs BSL 1.1; what OpenBao added (namespaces, standby reads, control groups) and lacks (replication, Sentinel, Transform).
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#7](https://github.com/ephico2real2/openbao-node-poc/issues/7) (B1 · ADR-002).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#7](https://github.com/ephico2real2/openbao-node-poc/issues/7), [plan (moved)](parked-openbao-vault.md)
 
-**S15.2 · New repo with version folders v0–v4** · S · 🔜 · [#105](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/105)
+**S15.2 · New repo with version folders v0–v4** · S · ✅ · [#105](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/105)
 *As a learner, I want each step in its own folder, so that I can follow the app as it changes.*
-- [ ] v0-env-file, v1-openbao-kv, v2-openbao-dynamic, v3-k8s, v4-vault.
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#3](https://github.com/ephico2real2/openbao-node-poc/issues/3) (B0 · the repo, seeded with the AWS path kept; steps/ folders and tags).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#3](https://github.com/ephico2real2/openbao-node-poc/issues/3), [plan (moved)](parked-openbao-vault.md)
 
-#### F15.2 · Retrieval and refresh · 🔜 · [#106](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/106)
+#### F15.2 · Retrieval and refresh · ✅ · [#106](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/106)
 
-**S15.0 · One switch: SECRETS_PROVIDER=aws|vault|openbao** · M · 🔜 · [#111](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/111)
+**S15.0 · One switch: SECRETS_PROVIDER=aws|vault|openbao** · M · ✅ · [#111](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/111)
 *As an operator, I want to choose the secrets manager with one setting, so that the same app runs on AWS Secrets Manager, HashiCorp Vault or OpenBao.*
-- [ ] `aws` (default) keeps today's behaviour, with SECRETS_MODE=sdk|agent unchanged.
-- [ ] `vault` and `openbao` share one HTTP fetcher; the value switches only real differences (token prefixes, plugins, namespaces).
-- [ ] Config holds the provider, an address and secret names only; the no-credentials-in-env guard, cache, rotation recovery, masking and reveal flag work with every provider.
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#8](https://github.com/ephico2real2/openbao-node-poc/issues/8) (B2 · SECRETS_PROVIDER=aws|openbao|vault).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#8](https://github.com/ephico2real2/openbao-node-poc/issues/8), [plan (moved)](parked-openbao-vault.md)
 
-**S15.3 · OpenBao in Compose with KV v2 and AppRole; HTTP client with token renewal** · M · 🔜 · [#107](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/107)
+**S15.3 · OpenBao in Compose with KV v2 and AppRole; HTTP client with token renewal** · M · ✅ · [#107](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/107)
 *As a developer, I want the app to read from OpenBao over its HTTP API, so that no client library or env var is needed.*
-- [ ] Static seal and self-init for a hands-off demo; reveal flag kept.
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#12](https://github.com/ephico2real2/openbao-node-poc/issues/12) (B3 · OpenBao KV on Compose).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#12](https://github.com/ephico2real2/openbao-node-poc/issues/12), [plan (moved)](parked-openbao-vault.md)
 
-**S15.4 · Dynamic PostgreSQL credentials with lease renewal** · M · 🔜 · [#108](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/108)
+**S15.4 · Dynamic PostgreSQL credentials with lease renewal** · M · ✅ · [#108](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/108)
 *As a DBA, I want per-instance database users that expire, so that a leaked credential is short-lived.*
-- [ ] Lease renewal and re-issue; Valkey replaces Redis (OpenBao has no Redis plugin).
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#15](https://github.com/ephico2real2/openbao-node-poc/issues/15) (B4 · dynamic credentials and leases).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#15](https://github.com/ephico2real2/openbao-node-poc/issues/15), [plan (moved)](parked-openbao-vault.md)
 
-**S15.5 · Kubernetes: Helm and External Secrets Operator, no env vars** · L · 🔜 · [#109](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/109)
+**S15.5 · Kubernetes: Helm and External Secrets Operator, no env vars** · L · ✅ · [#109](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/109)
 *As a platform engineer, I want secrets delivered by ESO as a mounted volume the app watches, so that rotation needs no restart and nothing is in the environment.*
-- [ ] Watch the `..data` symlink swap; no `subPath`, no `envFrom`; VaultDynamicSecret generator.
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#18](https://github.com/ephico2real2/openbao-node-poc/issues/18) (B5 · Kubernetes, ESO, OpenShift).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#18](https://github.com/ephico2real2/openbao-node-poc/issues/18), [plan (moved)](parked-openbao-vault.md)
 
-**S15.6 · HashiCorp Vault variant** · M · 🔜 · [#110](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/110)
+**S15.6 · HashiCorp Vault variant** · M · ✅ · [#110](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/110)
 *As a Vault user, I want the same app on Vault, so that both products are covered.*
-- [ ] Vault 2.x dev/server mode; Redis database plugin.
+- [x] Moved to ephico2real2/openbao-node-poc, where it continues as [#21](https://github.com/ephico2real2/openbao-node-poc/issues/21) (B6 · the Vault variant).
 
-Evidence: [parked plan](parked-openbao-vault.md)
+Evidence: [openbao-node-poc#21](https://github.com/ephico2real2/openbao-node-poc/issues/21), [plan (moved)](parked-openbao-vault.md)
