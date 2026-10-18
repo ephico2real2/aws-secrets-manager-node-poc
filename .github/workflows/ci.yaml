@@ -419,6 +419,38 @@ jobs:
           rm -rf output/supply-chain  # the images artifact brings the SBOMs along; they are published by the build job
           scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_mirror-logs"
 
+  env-file-demo:
+    # The problem this project solves, shown live: credentials passed in a .env
+    # file are readable by anyone who can reach the container. Then the same
+    # lookups on Secure Notes, which is given secret IDs only. Podman, as on a
+    # RHEL/OpenShift host. Output → ci-captures, quoted in docs/learn/02.
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # publishes the output to ci-captures
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: images
+
+      - name: Load the app image into Podman
+        run: gunzip -c images.tar.gz | podman load && podman images
+
+      - name: Run the demo
+        run: |
+          set -o pipefail
+          mkdir -p output
+          ENGINE=podman scripts/env-file-demo.sh 2>&1 | tee output/env-file-demo.txt
+          grep -q 'DB_PASSWORD=Example-Only-Pa55w0rd' output/env-file-demo.txt   # part 1 must expose the example value
+          { echo "## Credentials in a .env file are readable by anyone with access"; echo; echo '```'; cat output/env-file-demo.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish the output
+        if: always()
+        run: rm -rf output/supply-chain; scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_ci_run${{ github.run_id }}-${{ github.run_attempt }}_env-file-demo"
+
   images:
     # Publish exactly the images that just passed every job — no rebuild.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
