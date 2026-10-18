@@ -1,0 +1,83 @@
+[aws-mock] Secrets Manager + STS mock on http://0.0.0.0:4566
+[aws-mock] secretsmanager:GetSecretValue -> ResourceNotFoundException
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:GetSecretValue -> ResourceNotFoundException
+[aws-mock] secretsmanager:DescribeSecret -> ResourceNotFoundException
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:CreateSecret secure-notes/local/db
+[aws-mock] secretsmanager:CreateSecret secure-notes/local/db-admin
+[aws-mock] secretsmanager:CreateSecret secure-notes/local/redis
+[aws-mock] secretsmanager:CreateSecret secure-notes/local/redis-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] sts:GetCallerIdentity
+[aws-mock] sts:GetCallerIdentity
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:PutSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] sts:GetCallerIdentity
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:PutSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] sts:GetCallerIdentity
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] sts:GetCallerIdentity
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:PutSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetRandomPassword
+[aws-mock] secretsmanager:PutSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+[aws-mock] secretsmanager:UpdateSecretVersionStage secure-notes/local/redis
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis-admin
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/db
+[aws-mock] secretsmanager:GetSecretValue secure-notes/local/redis
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/db
+[aws-mock] secretsmanager:DescribeSecret secure-notes/local/redis
+[aws-mock] sts:GetCallerIdentity
