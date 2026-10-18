@@ -10,13 +10,15 @@
 
 ```bash
 docker compose down -v
-docker compose -f docker-compose.yml -f docker-compose.agent.yml up --build
-COMPOSE_FILE=docker-compose.yml:docker-compose.agent.yml scripts/compose-check.sh
+export COMPOSE_FILE=docker-compose.yml:docker-compose.agent.yml   # every compose command now uses both files
+docker compose up --build -d
+scripts/compose-check.sh          # wait for the app, the agent checks, smoke test, credential scan
+unset COMPOSE_FILE
 ```
 
 ## What you should see
 
-`mode: agent`, the `Workload Credentials Provider` badge, and two extra posture checks passing: the retrieval channel and **Agent SSRF token protected**.
+`mode: agent`, the `Workload Credentials Provider` badge, **Secret retrieval channel** now `pass`, and one extra posture check: **Agent SSRF token protected**.
 
 ![The dashboard in agent mode](images/agent-01-dashboard.png)
 
@@ -45,4 +47,6 @@ The app's debug log records where each token came from, masked:
 
 ![The debug log in agent mode](images/agent-06-debug-log.png)
 
-The credential scan runs in this mode too and finds nothing.
+The credential scan runs in this mode too (as part of `compose-check.sh`, with `COMPOSE_FILE` set so it includes the agent container) and finds nothing.
+
+When you're done: `COMPOSE_FILE=docker-compose.yml:docker-compose.agent.yml docker compose down -v`.

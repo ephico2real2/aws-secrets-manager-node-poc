@@ -11,6 +11,8 @@
 1. In **Rotation lab**, click **Rotate Postgres secret**. The four steps of an AWS rotation function run: `createSecret` (new password, stage `AWSPENDING`), `setSecret` (applied to Postgres as a SCRAM verifier), `testSecret`, `finishSecret` (`AWSCURRENT` moves).
 2. The Postgres card turns amber, **cache behind**: Secrets Manager has a new version, the app still holds the old one.
 3. Click **Drop connections**. The app's next login uses the old password.
+   (Don't use **Refresh now** here: it re-reads the secret before anything fails,
+   so you'd see `new-version` but not the rejection and recovery.)
 
 ## What you should see
 
@@ -24,4 +26,6 @@ In **Credential timeline**, within the same second: `auth-failed` (Postgres reje
 02-rotation-and-recovery: found "createSecret", "setSecret", "testSecret", "finishSecret", "Reconnected to Postgres with the rotated credential" — expectations met
 ```
 
-In the app's debug log, the login after the rotation shows the new fingerprint, `old -> new` (see [test case 5](test-case-05-debug-log.md)).
+In the app's debug log, the `secret consumed` line written when the app re-read the
+secret shows the fingerprint change as `old -> new`, and the next `postgres connecting with`
+line carries the new one (see [test case 5](test-case-05-debug-log.md)).

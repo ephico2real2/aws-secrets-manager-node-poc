@@ -1,6 +1,6 @@
 # Tutorial — see every feature work, and prove it yourself
 
-About 20 minutes, on your laptop, with Docker only. You will watch the app load
+About 20 minutes, on your laptop. You need Docker with Compose v2, `jq`, and for the check scripts Node.js 22 and `curl`; step 9 also needs kind and `kubectl`. You will watch the app load
 its credentials, rotate them from the dashboard, try to leak them, read the
 app's own log (with every password masked), then search the running containers
 for the real passwords and find nothing. Every screenshot below is taken by CI
@@ -16,7 +16,8 @@ see [GUIDE.md](GUIDE.md).
 ```bash
 git clone https://github.com/ephico2real2/aws-secrets-manager-node-poc.git
 cd aws-secrets-manager-node-poc
-docker compose up --build
+docker compose up --build -d
+docker compose logs -f app        # in a second terminal: follow the app's log
 ```
 
 Wait for `secure-notes listening` in the log, then open <http://localhost:3000>.
@@ -31,7 +32,7 @@ What you're looking at:
   name, version and a *fingerprint* (an HMAC under a per-process key: it changes
   when the value changes, and reveals nothing about it). Never the value.
 - **Credential timeline**: what happened to the credentials, in plain words.
-- **Security posture**: twelve checks the app runs on itself, such as no keys in
+- **Security posture**: thirteen checks the app runs on itself, such as no keys in
   the environment, not running as root, core dumps off.
 - **Application log** (bottom of the page): the app's log, as written, after
   redaction.
@@ -83,7 +84,7 @@ The same lines are in the container's log. From a second terminal:
 
 ```bash
 docker compose logs app | grep '"secret consumed"' | tail -1 | sed 's/^[^{]*//' | jq '{secretId, versionId, source, fingerprint, keys}'
-docker compose logs app | grep 'connecting with'  | tail -1 | sed 's/^[^{]*//' | jq '{secretId, fingerprint, host, port, using}'
+docker compose logs app | grep -E 'connecting with|authenticating with' | tail -2 | sed 's/^[^{]*//' | jq '{msg, secretId, fingerprint, host, port, using}'
 ```
 
 How each value is shown:
@@ -146,7 +147,8 @@ calling Secrets Manager itself. To try it here:
 
 ```bash
 docker compose down -v
-docker compose -f docker-compose.yml -f docker-compose.agent.yml up --build
+export COMPOSE_FILE=docker-compose.yml:docker-compose.agent.yml   # every compose command now uses both files
+docker compose up --build -d
 ```
 
 The dashboard shows `mode: agent` and **Workload Credentials Provider**, and
@@ -157,8 +159,13 @@ masked:
 docker compose logs app | grep 'agent request' | tail -1 | sed 's/^[^{]*//' | jq '{secretId, tokenFile, ssrfTokenMasked}'
 ```
 
-Run the scan the same way; `COMPOSE_FILE=docker-compose.yml:docker-compose.agent.yml scripts/compose-check.sh`
-also proves the agent rejects a request without its token.
+With `COMPOSE_FILE` still set, `scripts/compose-check.sh` runs the scan (agent container
+included) and also proves the agent rejects a request without its token. Then go back to
+the normal stack for step 8:
+
+```bash
+docker compose down -v && unset COMPOSE_FILE && docker compose up -d
+```
 
 ## 8. In a lab only: reveal the real values
 
@@ -170,6 +177,9 @@ makes the debug credential lines print the real values next to the masked ones.
 LOG_REVEAL_SECRETS=true docker compose up -d --no-deps app
 docker compose logs app | grep 'values revealed' | tail -1 | sed 's/^[^{]*//' | jq '{msg, keys, warning}'
 ```
+
+If you're following `docker compose logs -f app`, the real passwords scroll past there
+too: that is what the flag does, and why it is for a lab only.
 
 It is impossible to miss while it's on:
 

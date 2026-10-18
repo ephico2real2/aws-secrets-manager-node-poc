@@ -8,12 +8,18 @@
 
 ## Steps
 
+With the normal stack from test case 1 running (`docker compose up -d`):
+
 ```bash
 LOG_REVEAL_SECRETS=true docker compose up -d --no-deps app
 docker compose logs app | grep 'values revealed' | tail -1 | sed 's/^[^{]*//' | jq '{msg, keys, warning}'
 EXPECT_REVEALED=1 scripts/credential-scan.sh compose
 docker compose up -d --no-deps app        # turn it off again
 ```
+
+If you are following `docker compose logs -f app` in another terminal, the real
+passwords will scroll past there too: that is the point of the flag, and why it is
+for a lab only.
 
 ## What you should see
 

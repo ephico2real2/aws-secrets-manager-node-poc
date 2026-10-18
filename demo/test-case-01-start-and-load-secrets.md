@@ -8,7 +8,7 @@
 
 ## Steps
 
-1. `docker compose up --build`, wait for `secure-notes listening`.
+1. `docker compose up --build -d`, then wait until `docker compose logs app` shows `secure-notes listening`.
 2. Open <http://localhost:3000>.
 
 ## What you should see
@@ -30,7 +30,9 @@ The browser walk checks the page shows what it must:
 01-dashboard: found "Secure Notes", "Secrets in memory", "Postgres credential", "Redis credential", "dummy keys, for the mock only" — expectations met
 ```
 
-The end-to-end smoke test, run against the same stack:
+The end-to-end smoke test, run against the same stack. It runs through test cases 1–4
+automatically (including rotations and the leak test), which is why it shows new
+versions; run it yourself at the end with `scripts/compose-check.sh`:
 
 ```
 Smoke test against http://localhost:3000

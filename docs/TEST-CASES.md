@@ -50,7 +50,7 @@ never printed; each place is reported as `clean` or `FOUND n`.
 | D2 | Each load of a secret is logged with its ID, version, source and every key | "secret consumed" test | key list `username, password, host, port, dbname, engine`; no line contains the password | unit |
 | D3 | Each login shows which secret key feeds which client setting | "a client login line" test | `user<-username`, `password<-password`, masked | unit |
 | D4 | At `info` level there is no credential detail at all | "info level" test | no "secret consumed" line | unit |
-| D5 | Agent mode logs where the SSRF token came from, masked | "agent mode" test | `tokenFile` + `ssrfTokenMasked` `******** (44 chars, …)`; the token never appears | unit |
+| D5 | Agent mode logs where the SSRF token came from, masked | "agent mode" test | `tokenFile` + `ssrfTokenMasked` `******** (N chars, fp=…)` (43 for a real agent token); the token never appears | unit |
 | D6 | The running app writes those lines | the scan's debug section | ≥ 1 "secret consumed" line and masked password descriptions | compose, kind |
 | D7 | The dashboard's Application log shows them | walk page `06-debug-log` | the panel shows `secret consumed`, `password=******** (`, `connecting with`; not `values revealed` | walk |
 

@@ -14,11 +14,14 @@ scripts/mirror-images.sh registry.example.com/team/secure-notes
 KUBECTL=oc scripts/k8s-deploy.sh deploy/k8s/overlays/mirror
 ```
 
-`MIRROR_TOOL=oc` uses `oc image mirror` instead of skopeo; `BASE_OVERLAY=kind` mirrors for the kind overlay.
+Your run copies the published images (`ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app` and `/aws-mock` at `latest`) plus `postgres:16` and `redis:7-alpine` from Docker Hub. `MIRROR_TOOL=oc` uses `oc image mirror` instead of skopeo.
+
+- **OpenShift** (default `BASE_OVERLAY=openshift`): create the project first, `oc new-project secure-notes`.
+- **kind / any Kubernetes**: `BASE_OVERLAY=kind scripts/mirror-images.sh …`, then `scripts/k8s-deploy.sh deploy/k8s/overlays/mirror` with plain `kubectl` (no `KUBECTL=oc`).
 
 ## Evidence from the run
 
-CI mirrors into a throwaway registry on the runner. The script copies, writes the overlay, and checks every image in it comes from the mirror:
+CI mirrors into a throwaway registry on the runner, copying the images it just built straight from Docker (`SRC_APP=docker-daemon:…`), so the sources below differ from yours. The script copies, writes the overlay, and checks every image in it comes from the mirror:
 
 ```
 == mirroring with skopeo to localhost:5001/secure-notes

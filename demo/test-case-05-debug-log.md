@@ -15,7 +15,7 @@ Or from a terminal:
 
 ```bash
 docker compose logs app | grep '"secret consumed"' | tail -1 | sed 's/^[^{]*//' | jq '{secretId, versionId, source, fingerprint, keys}'
-docker compose logs app | grep 'connecting with' | tail -1 | sed 's/^[^{]*//' | jq '{secretId, fingerprint, host, port, using}'
+docker compose logs app | grep -E 'connecting with|authenticating with' | tail -2 | sed 's/^[^{]*//' | jq '{msg, secretId, fingerprint, host, port, using}'
 ```
 
 ## What you should see
@@ -28,7 +28,10 @@ docker compose logs app | grep 'connecting with' | tail -1 | sed 's/^[^{]*//' | 
 | `username`, `dbname` | `no*****pp`, `n****` | partly masked |
 | `host`, `port`, `engine` | in full | not secret; what you need to debug a connection |
 
-## Evidence from the run (the app's real log)
+## Evidence from the run (excerpts of the app's real log)
+
+Fields trimmed to the interesting ones. These come from the app's last restart in
+CI (after test case 7 turned the reveal flag off again), so they show a cold start.
 
 A secret loaded at startup:
 

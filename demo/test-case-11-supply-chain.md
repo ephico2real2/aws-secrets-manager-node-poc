@@ -14,7 +14,12 @@ docker compose build && scripts/scan-images.sh        # SBOMs and reports in out
 cosign verify ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app:latest \
   --certificate-identity https://github.com/ephico2real2/aws-secrets-manager-node-poc/.github/workflows/ci.yaml@refs/heads/main \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com
+cosign verify-attestation --type cyclonedx ghcr.io/ephico2real2/aws-secrets-manager-node-poc/app:latest \
+  --certificate-identity https://github.com/ephico2real2/aws-secrets-manager-node-poc/.github/workflows/ci.yaml@refs/heads/main \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com > /dev/null && echo "SBOM attestation verified"
 ```
+
+`scan-images.sh` downloads Linux x86-64 builds of syft and grype (checksums verified), so run it on Linux or in CI; `cosign` you install yourself. Both images share the same `node:22` base, which is where most of the findings are, so their counts are similar.
 
 ## Evidence from the run
 

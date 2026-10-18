@@ -14,7 +14,7 @@ scripts/credential-scan.sh compose      # or: scripts/credential-scan.sh k8s
 
 ## How it works
 
-1. It reads every password from the Secrets Manager stand-in: all secrets, current and previous versions (6 values here: the app and admin passwords for Postgres and Redis, before and after rotation).
+1. It reads every password from the Secrets Manager stand-in: all secrets, current and previous versions (6 values here: the app and admin passwords for Postgres and Redis, before and after the rotations of test cases 2 and 3; without those you'll see 4).
 2. It keeps them in a mode-600 temp file that is deleted on exit, passes them into containers only on stdin (never as arguments), and **never prints them**.
 3. It searches each place below for those exact strings and reports `clean` or `FOUND n`.
 

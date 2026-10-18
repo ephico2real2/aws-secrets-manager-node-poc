@@ -7,8 +7,15 @@ outputs come from the CI captures on the
 [`ci-captures`](https://github.com/ephico2real2/aws-secrets-manager-node-poc/tree/ci-captures)
 branch, so they show the app as it actually ran.
 
-Start with test case 1; the rest can be done in any order. Each one needs only
-Docker (test case 10 also needs kind, test case 12 also needs `skopeo`).
+Do them **in order**: test case 6 searches for the passwords that test cases 2–4
+created and leaked into the logs, and test cases 9 and 10 change which stack is
+running. Counts such as versions, file numbers and fingerprints will differ on
+your machine; the shape of the output is what matters.
+
+**You need:** Docker with Compose v2, `jq`, and for the check scripts Node.js 22
+and `curl` on your machine. Test case 10 also needs [kind](https://kind.sigs.k8s.io)
+and `kubectl`; test case 11 `cosign` (and Linux on x86-64 for the scan script);
+test case 12 `skopeo` (or `oc`) and a registry you can push to.
 
 | # | Test case | What you'll see | Catalogue IDs |
 | --- | --- | --- | --- |
@@ -34,7 +41,8 @@ every automated test. For the same features as one continuous walk-through, see
 ```bash
 git clone https://github.com/ephico2real2/aws-secrets-manager-node-poc.git
 cd aws-secrets-manager-node-poc
-docker compose up --build        # then open http://localhost:3000
+docker compose up --build -d     # then open http://localhost:3000
+docker compose logs -f app       # optional: follow the log in a second terminal
 ```
 
 When you're done: `docker compose down -v`.

@@ -9,6 +9,7 @@
 ## Steps
 
 ```bash
+docker compose down -v            # free port 3000 from the earlier test cases
 scripts/kind-up.sh && scripts/images-build.sh
 scripts/k8s-deploy.sh deploy/k8s/overlays/kind
 kubectl -n secure-notes port-forward svc/secure-notes 3000:80 &
@@ -49,6 +50,10 @@ scripts/k8s-check.sh
   ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:VCEjy
   ok    every ALTER ROLE in the log carries a SCRAM verifier
 ```
+
+`AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in that list are the dummy `local-mock`
+values the stand-in needs (the SDK signs requests even though the stand-in ignores the
+signature); on EKS/ROSA the `aws` overlay uses an IAM role instead and sets neither.
 
 Then the credential scan across the cluster:
 
