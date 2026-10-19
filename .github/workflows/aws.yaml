@@ -262,6 +262,19 @@ jobs:
             --max-results 20 --query 'Events[].[EventTime,Username]' --output text | tee output/cloudtrail-getsecretvalue.txt
           echo "(CloudTrail can take up to 15 minutes to show events.)" >> output/cloudtrail-getsecretvalue.txt
 
+      # After the other tests, so a missing tag can't stop them from collecting their evidence.
+      - name: Every resource of the stack is tagged (infra/tags.json)
+        if: always() && env.INSTANCE != ''
+        run: |
+          mkdir -p output
+          # keep the exit code: the findings go to the summary before the step fails on them
+          rc=0
+          python3 scripts/aws-tags.py check "$STACK" --environment "$SECRETS_ENV" --deployed-by github-actions \
+            --fix-rds-secret > output/tags-check.txt || rc=$?
+          cat output/tags-check.txt
+          { echo "## Every resource is tagged"; echo; echo '```'; cat output/tags-check.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
       - name: Publish the logs next to the captures
         if: always()
         run: scripts/ci-publish.sh output "$(date -u +%Y-%m-%dT%H%MZ)_aws_run${{ github.run_id }}-${{ github.run_attempt }}_${STACK}-logs"
@@ -287,6 +300,12 @@ jobs:
           aws secretsmanager delete-secret --secret-id "/elasticache/$SECRETS_ENV/$STACK/app" --force-delete-without-recovery >/dev/null 2>&1 || true
           aws s3 rm "s3://$BUCKET/secure-notes/$STACK/" --recursive --quiet || true
           echo "## Torn down: $STACK, its final snapshot, its Redis secret and its artifacts" >> "$GITHUB_STEP_SUMMARY"
+          # Proof: nothing tagged Stack=$STACK is left but the KMS keys in their 7 days (and a kept trail bucket).
+          rc=0
+          python3 scripts/aws-tags.py leftovers "$STACK" > leftovers.txt || rc=$?
+          cat leftovers.txt
+          { echo; echo '```'; cat leftovers.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
 
       - name: Still running
         if: always() && inputs.keep_stack

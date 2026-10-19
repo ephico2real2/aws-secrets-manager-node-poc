@@ -1,7 +1,8 @@
 # Plan: every AWS resource tagged, and a teardown that proves it removed them
 
-Status: **approved** by the owner on 2026-10-18, with the decisions at the end. Steps 1–3 are
-built (backlog S5.5); steps 4–5 are next (S5.6) and can only be proven on the owner's AWS account.
+Status: **approved** by the owner on 2026-10-18, with the decisions at the end. All six steps
+are built: 1–3 are proven on every push (backlog S5.5); 4–5 (`scripts/aws-tags.py`, S5.6) are
+unit-tested on canned AWS answers and are proven only by a run on the owner's AWS account.
 
 ## Why
 
@@ -86,3 +87,9 @@ One set, defined once in `infra/tags.json` and read by the workflow, the checks 
 - AWS does not document whether the secret RDS makes for the database copies the database's
   tags. Step 4 checks it on the first run, and the deploy role may tag that secret
   (`secretsmanager:TagResource` on `rds!*`, our tag keys only).
+- The Resource Groups Tagging API's `GetResources` "does not currently support IAM users and
+  roles" (its API reference). The check reads IAM roles' tags with `iam list-role-tags` instead
+  (`iam:ListRoleTags` on our roles); the leftover search can't see roles, which CloudFormation
+  deletes with the stack.
+- Only tagged resources can be found after teardown, which is why everything is tagged when it
+  is created.

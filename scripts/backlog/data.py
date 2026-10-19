@@ -474,6 +474,7 @@ _E["E5"]["children"].append(
       "As the owner of the AWS account, I want each run to prove its resources are tagged and then gone, so that a stack never leaves anything behind that costs money.",
       ["After deploy, the workflow finds every taggable resource of the stack, and those AWS makes for it (root volume, network interface, the RDS-managed secret), and fails if one lacks a tag.",
        "After teardown, the workflow searches for `Stack=<name>` and fails on anything but the KMS keys pending deletion (and the trail bucket, kept on purpose when `CreateTrail=true`).",
+       "`scripts/aws-tags.py` (check, leftovers) decides right on canned AWS answers: 12 unit tests in CI's `checks` job.",
        "Proven by a run of the `aws (Part C)` workflow on the owner's account."], aws=True,
       evidence=[d("docs/modernization/plan-tags-and-teardown.md", "plan")]),
   ], docs=[d("docs/modernization/plan-tags-and-teardown.md", "plan"), d("docs/GUIDE.md", "GUIDE C4, C10, C11")]))
@@ -565,8 +566,10 @@ for _it in _all_items():
             (1, "`scripts/podman.env` sets both variables, in bash or zsh, on macOS."),
             (1, "CI job `compose (podman)` runs Part A on rootless Podman on Linux: docker CLI 28.0.4 to Podman 4.9.3, `compose-check.sh` passed (run 39173929084).")]
         _it["evidence"] += [d("demo/test-case-10-kubernetes.md", "test case 10: the lab on Podman"), d("docs/GUIDE.md", "GUIDE B1: Podman instead of Docker")]
-    if _it["id"] == "S5.5":   # all but the last criterion proven locally (the check seen to fail three ways); the last waits for CI
-        _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [(0, _it["criteria"][-1][1])]
+    if _it["id"] == "S5.5":   # proven: locally (the check seen to fail three ways) and in CI run 39178809631
+        _it["status"] = "done"
+        _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [(1, _it["criteria"][-1][1] + " Green in run 39178809631, with cfn-lint clean on both templates.")]
+        _it["evidence"] = _it["evidence"] + ["CI run 39178809631, job `checks`"]
     if _it["id"] == "S5.4":   # both measured on the owner's MacBook, 2026-10-18
         _it["criteria"] = [(1, t) for _, t in _it["criteria"]]
     # Parked by the owner on 2026-10-18: CRC was deleted on their Mac on 2026-10-13 and is restored later.

@@ -15,7 +15,7 @@ docs (links, Mermaid)
 
 | Job | What it proves |
 | --- | --- |
-| `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; the AWS mock's tests (EventBridge rule, CloudTrail, SNS); the local rule and the generated alert rules match their sources; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (the OpenShift Route is skipped: it has no public schema); `cfn-lint` on both CloudFormation templates; actionlint on every workflow; the Redis rotation function's tests, and that the copy in the template matches it. |
+| `checks` | Unit tests with the real `pg`, `ioredis` and AWS SDK; the AWS mock's tests (EventBridge rule, CloudTrail, SNS); the local rule and the generated alert rules match their sources; every AWS resource is tagged from `infra/tags.json` (`tags-check.py`), and the AWS tag checks decide right on canned answers; every JS file parses; shellcheck; every Kustomize overlay renders and matches its schemas (the OpenShift Route is skipped: it has no public schema); `cfn-lint` on both CloudFormation templates; actionlint on every workflow; the Redis rotation function's tests, and that the copy in the template matches it. |
 | `build` | `docker compose build`, once; a CycloneDX SBOM per image (syft) and a vulnerability scan (grype) that fails on any CRITICAL vulnerability with a fix; the images are saved and handed to every later job. |
 | `compose (sdk)`, `compose (agent)` | Path A on the runner, once per secrets mode: the dashboard walk, the bootstrap passwords burned, the end-to-end smoke test, every alert path (`alerts-check.sh`). The sdk leg also runs the log pipeline (`pipeline-check.sh`) and photographs the notification console. In agent mode also: the agent served the app's fetches, its SSRF token is visible only to the agent and the app, and it rejects a request without the token. |
 | `compose (podman)` | Path A on rootless Podman instead of Docker: the docker CLI talks to Podman's API socket (`scripts/podman.env`), as on a MacBook with Podman Desktop; the bootstrap burned, the smoke test and the credential scan (`compose-check.sh`). Not a gate for `images`. |
@@ -25,7 +25,7 @@ docs (links, Mermaid)
 | `env-file-demo` | Runs `scripts/env-file-demo.sh` with Podman: a `.env` password is readable through `exec`, `/proc` and `inspect`, while the Secure Notes container holds secret IDs only ([chapter 2](../learn/02-the-env-file-problem.md)). |
 | `docs` | Every relative link in the Markdown resolves and every Mermaid diagram renders. |
 | `v0-leak` | `versions/v0-env-file` (the original `.env` app) still leaks: `leak.sh` finds its passwords in at least 8 of 9 places. |
-| `aws (Part C)` | Separate, manual workflow ([deploy reference](deploy-quickref.md#part-c-from-github-actions-manual)): Part C on real AWS, then teardown. Linted on every push. |
+| `aws (Part C)` | Separate, manual workflow ([deploy reference](deploy-quickref.md#part-c-from-github-actions-manual)): Part C on real AWS, its integration tests (the instance, both rotations, the dashboard walk, CloudTrail, every resource tagged), then teardown and a search for anything left (P7, P8). Linted on every push. |
 
 The dashboard walk (`scripts/capture/`, adapted from
 [cilium-implementation-poc](https://github.com/ephico2real2/cilium-implementation-poc))

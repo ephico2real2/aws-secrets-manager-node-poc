@@ -148,7 +148,7 @@ Open stories at handover:
 | Issue | Story | Needs |
 | --- | --- | --- |
 | #91 | **S12.5 Prove it on AWS**: a denied read raises the secret-read alert; a test log event trips an alarm; TestEventPattern fixtures match the mock; a batch read's text names the secret | an AWS account; run `aws.yaml`. This also closes #34, #86, #87, #89, #90 |
-| S5.6 | **On AWS: tags checked after deploy, nothing tagged left after teardown** (plan: `docs/modernization/plan-tags-and-teardown.md`, steps 4–5) | build next; proven only by an `aws.yaml` run |
+| #126 | S5.6 **On AWS: tags checked after deploy, nothing tagged left after teardown**: built (`scripts/aws-tags.py`, 12 unit tests); tests P7, P8 | an `aws.yaml` run, after the bootstrap is deployed again (section 8) |
 | #115 | S12.6 Close the by-name gap for the RDS-managed secret (match `detail.resources.ARN` if CloudTrail carries it) | AWS first, to confirm the record shape |
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |

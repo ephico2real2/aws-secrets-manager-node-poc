@@ -249,6 +249,11 @@ Resources:
                   - ec2:DescribeNetworkInterfaces
                   - kms:DescribeKey
                 Resource: '*'
+              # The tagging API does not index IAM roles: their tags are read directly.
+              - Sid: ReadOurRolesTags
+                Effect: Allow
+                Action: iam:ListRoleTags
+                Resource: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:role/${StackPrefix}*
               # RDS creates the database's secret itself, outside the template: the workflow
               # tags it, and may add only our tag keys.
               - Sid: TagTheRdsMadeSecret

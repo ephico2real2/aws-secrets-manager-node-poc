@@ -117,6 +117,10 @@ never printed; each place is reported as `clean` or `FOUND n`.
 | P2 | Pod Security `restricted` enforced | namespace label | `enforce=restricted` (or the SCC on OpenShift) | kind |
 | P3 | IMDSv1 refused on EC2 | token-less metadata request | HTTP 401 | aws |
 | P4 | The real dashboard on EC2 hides demo panels | walk `aws.yaml` | no Rotation lab, leak test, log panel | aws |
+| P5 | Every AWS resource type is reviewed, and tagged from one file | `scripts/tags-check.py`: both templates and the `aws` workflow against `infra/tags.json` | 0 problems; seen to fail on an unreviewed type, a wrong value, a missing tag | checks |
+| P6 | The AWS tag checks decide right | `scripts/test/test_aws_tags.py`: `aws-tags.py` on canned AWS answers (a missing tag, an unlisted resource, an IAM role read directly, the RDS secret fixed, the tagging API's lag, a leftover) | 12 pass | checks |
+| P7 | On AWS: every resource of the stack carries the tags, and so do the root volume, the network interface and the RDS-managed secret | `scripts/aws-tags.py check` after the tests | 0 problems | aws, **not yet run** (story S5.6) |
+| P8 | On AWS: nothing of the stack is left after teardown | `scripts/aws-tags.py leftovers`: everything tagged `Stack=<name>` | only the KMS keys pending deletion (and a kept trail bucket) | aws, **not yet run** (story S5.6) |
 
 ## 9. Supply chain and images
 

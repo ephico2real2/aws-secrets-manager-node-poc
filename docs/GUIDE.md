@@ -770,7 +770,7 @@ No AWS keys are stored in GitHub. The job runs in a protected GitHub environment
 
 **Each run:** **Actions → aws (Part C) → Run workflow**, then approve it. Leave **keep\_stack** off unless you want the stack to stay up afterwards.
 
-**Check:** the run is green, and its summary shows the instance evidence, three screenshots of the real dashboard, and a line saying the stack was torn down.
+**Check:** the run is green, and its summary shows the instance evidence, three screenshots of the real dashboard, the tag check (every resource carries the 7 tags of `infra/tags.json`), a line saying the stack was torn down, and the search for anything left behind (only the two KMS keys, in their 7 days).
 
 If the environment isn't set up yet, the run stops at its first step and names the missing variables, so starting it early does no harm.
 

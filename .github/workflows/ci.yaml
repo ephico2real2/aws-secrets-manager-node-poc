@@ -86,6 +86,9 @@ jobs:
       - name: Every AWS resource is tagged from infra/tags.json (both templates and the aws workflow)
         run: python3 scripts/tags-check.py
 
+      - name: The AWS tag checks decide right (aws-tags.py on canned AWS answers)
+        run: python3 -m unittest discover -s scripts/test -v
+
       - name: Every JavaScript file parses
         run: git ls-files '*.js' | xargs -n1 node --check
 
