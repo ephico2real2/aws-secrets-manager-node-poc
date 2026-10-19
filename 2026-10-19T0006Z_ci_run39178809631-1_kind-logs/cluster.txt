@@ -1,0 +1,450 @@
+NAME                              READY   STATUS      RESTARTS   AGE   IP            NODE                         NOMINATED NODE   READINESS GATES
+pod/aws-mock-889697b56-gmk7l      1/1     Running     0          95s   10.244.0.8    secure-notes-control-plane   <none>           <none>
+pod/postgres-76bdffdcf-bq498      1/1     Running     0          95s   10.244.0.9    secure-notes-control-plane   <none>           <none>
+pod/redis-65c6ffd4cc-rjkhl        1/1     Running     0          95s   10.244.0.10   secure-notes-control-plane   <none>           <none>
+pod/secure-notes-645b7544-kxr5f   1/1     Running     0          95s   10.244.0.5    secure-notes-control-plane   <none>           <none>
+pod/seed-fcpgm                    0/1     Completed   0          95s   10.244.0.7    secure-notes-control-plane   <none>           <none>
+pod/sns-logger-76966f689c-xdz72   1/1     Running     0          95s   10.244.0.6    secure-notes-control-plane   <none>           <none>
+
+NAME                   TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)          AGE   SELECTOR
+service/aws-mock       ClusterIP   10.96.71.196    <none>        4566/TCP         95s   app.kubernetes.io/name=aws-mock
+service/postgres       ClusterIP   10.96.113.213   <none>        5432/TCP         95s   app.kubernetes.io/name=postgres
+service/redis          ClusterIP   10.96.163.132   <none>        6379/TCP         95s   app.kubernetes.io/name=redis
+service/secure-notes   NodePort    10.96.252.112   <none>        80:30080/TCP     95s   app.kubernetes.io/name=secure-notes
+service/sns-logger     NodePort    10.96.35.180    <none>        4575:30575/TCP   95s   app.kubernetes.io/name=sns-logger
+
+NAME                           READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES                             SELECTOR
+deployment.apps/aws-mock       1/1     1            1           95s   aws-mock     secure-notes-aws-mock:dev          app.kubernetes.io/name=aws-mock
+deployment.apps/postgres       1/1     1            1           95s   postgres     docker.io/library/postgres:16      app.kubernetes.io/name=postgres
+deployment.apps/redis          1/1     1            1           95s   redis        docker.io/library/redis:7-alpine   app.kubernetes.io/name=redis
+deployment.apps/secure-notes   1/1     1            1           95s   app          secure-notes-app:dev               app.kubernetes.io/name=secure-notes
+deployment.apps/sns-logger     1/1     1            1           95s   sns-logger   secure-notes-aws-mock:dev          app.kubernetes.io/name=sns-logger
+
+NAME                                    DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES                             SELECTOR
+replicaset.apps/aws-mock-889697b56      1         1         1       95s   aws-mock     secure-notes-aws-mock:dev          app.kubernetes.io/name=aws-mock,pod-template-hash=889697b56
+replicaset.apps/postgres-76bdffdcf      1         1         1       95s   postgres     docker.io/library/postgres:16      app.kubernetes.io/name=postgres,pod-template-hash=76bdffdcf
+replicaset.apps/redis-65c6ffd4cc        1         1         1       95s   redis        docker.io/library/redis:7-alpine   app.kubernetes.io/name=redis,pod-template-hash=65c6ffd4cc
+replicaset.apps/secure-notes-645b7544   1         1         1       95s   app          secure-notes-app:dev               app.kubernetes.io/name=secure-notes,pod-template-hash=645b7544
+replicaset.apps/sns-logger-76966f689c   1         1         1       95s   sns-logger   secure-notes-aws-mock:dev          app.kubernetes.io/name=sns-logger,pod-template-hash=76966f689c
+
+NAME             STATUS     COMPLETIONS   DURATION   AGE   CONTAINERS   IMAGES                 SELECTOR
+job.batch/seed   Complete   1/1           8s         95s   seed         secure-notes-app:dev   batch.kubernetes.io/controller-uid=cf30e728-d4ef-48b1-80ee-aa0c253b50e6
+
+NAME                                                        POD-SELECTOR                                          AGE
+networkpolicy.networking.k8s.io/app-to-local-mock           app.kubernetes.io/name=secure-notes                   95s
+networkpolicy.networking.k8s.io/aws-mock-to-sns             app.kubernetes.io/name=aws-mock                       95s
+networkpolicy.networking.k8s.io/backing-services-from-app   app.kubernetes.io/name in (aws-mock,postgres,redis)   95s
+networkpolicy.networking.k8s.io/default-deny                <none>                                                95s
+networkpolicy.networking.k8s.io/secure-notes                app.kubernetes.io/name=secure-notes                   95s
+networkpolicy.networking.k8s.io/seed                        app.kubernetes.io/name=secure-notes-seed              95s
+networkpolicy.networking.k8s.io/sns-logger                  app.kubernetes.io/name=sns-logger                     95s
+networkpolicy.networking.k8s.io/sns-logger-console          app.kubernetes.io/name=sns-logger                     95s
+
+NAME                                TYPE     DATA   AGE
+secret/local-bootstrap-f9hmh2c6g8   Opaque   2      95s
+
+NAME                                       DATA   AGE
+configmap/kube-root-ca.crt                 1      95s
+configmap/secure-notes-config-kfgcb5ff6d   17     95s
+
+LAST SEEN   TYPE      REASON              OBJECT                             MESSAGE
+96s         Normal    Created             pod/seed-fcpgm                     Container created
+96s         Normal    ScalingReplicaSet   deployment/postgres                Scaled up replica set postgres-76bdffdcf from 0 to 1
+96s         Normal    ScalingReplicaSet   deployment/sns-logger              Scaled up replica set sns-logger-76966f689c from 0 to 1
+96s         Normal    SuccessfulCreate    replicaset/sns-logger-76966f689c   Created pod: sns-logger-76966f689c-xdz72
+96s         Warning   Unhealthy           pod/sns-logger-76966f689c-xdz72    Readiness probe failed: Get "http://10.244.0.6:4575/health": dial tcp 10.244.0.6:4575: connect: connection refused
+96s         Normal    SuccessfulCreate    replicaset/aws-mock-889697b56      Created pod: aws-mock-889697b56-gmk7l
+96s         Normal    ScalingReplicaSet   deployment/aws-mock                Scaled up replica set aws-mock-889697b56 from 0 to 1
+96s         Normal    Scheduled           pod/postgres-76bdffdcf-bq498       Successfully assigned secure-notes/postgres-76bdffdcf-bq498 to secure-notes-control-plane
+96s         Normal    Started             pod/sns-logger-76966f689c-xdz72    Container started
+96s         Normal    Created             pod/sns-logger-76966f689c-xdz72    Container created
+96s         Normal    Pulled              pod/sns-logger-76966f689c-xdz72    Container image "secure-notes-aws-mock:dev" already present on machine and can be accessed by the pod
+96s         Normal    Pulled              pod/secure-notes-645b7544-kxr5f    Container image "secure-notes-app:dev" already present on machine and can be accessed by the pod
+96s         Normal    SuccessfulCreate    replicaset/postgres-76bdffdcf      Created pod: postgres-76bdffdcf-bq498
+96s         Normal    SuccessfulCreate    replicaset/secure-notes-645b7544   Created pod: secure-notes-645b7544-kxr5f
+96s         Normal    Scheduled           pod/redis-65c6ffd4cc-rjkhl         Successfully assigned secure-notes/redis-65c6ffd4cc-rjkhl to secure-notes-control-plane
+96s         Normal    Scheduled           pod/sns-logger-76966f689c-xdz72    Successfully assigned secure-notes/sns-logger-76966f689c-xdz72 to secure-notes-control-plane
+96s         Normal    SuccessfulCreate    job/seed                           Created pod: seed-fcpgm
+96s         Normal    Scheduled           pod/aws-mock-889697b56-gmk7l       Successfully assigned secure-notes/aws-mock-889697b56-gmk7l to secure-notes-control-plane
+96s         Normal    Pulled              pod/seed-fcpgm                     Container image "secure-notes-app:dev" already present on machine and can be accessed by the pod
+96s         Normal    SuccessfulCreate    replicaset/redis-65c6ffd4cc        Created pod: redis-65c6ffd4cc-rjkhl
+96s         Normal    Scheduled           pod/seed-fcpgm                     Successfully assigned secure-notes/seed-fcpgm to secure-notes-control-plane
+96s         Normal    Scheduled           pod/secure-notes-645b7544-kxr5f    Successfully assigned secure-notes/secure-notes-645b7544-kxr5f to secure-notes-control-plane
+96s         Normal    ScalingReplicaSet   deployment/redis                   Scaled up replica set redis-65c6ffd4cc from 0 to 1
+96s         Normal    Created             pod/secure-notes-645b7544-kxr5f    Container created
+96s         Normal    Started             pod/secure-notes-645b7544-kxr5f    Container started
+96s         Normal    ScalingReplicaSet   deployment/secure-notes            Scaled up replica set secure-notes-645b7544 from 0 to 1
+95s         Warning   Unhealthy           pod/postgres-76bdffdcf-bq498       Readiness probe failed: 127.0.0.1:5432 - no response
+95s         Normal    Created             pod/postgres-76bdffdcf-bq498       Container created
+95s         Normal    Pulled              pod/aws-mock-889697b56-gmk7l       Container image "secure-notes-aws-mock:dev" already present on machine and can be accessed by the pod
+95s         Warning   Unhealthy           pod/redis-65c6ffd4cc-rjkhl         Readiness probe failed: dial tcp 10.244.0.10:6379: connect: connection refused
+95s         Normal    Started             pod/redis-65c6ffd4cc-rjkhl         Container started
+95s         Normal    Started             pod/seed-fcpgm                     Container started
+95s         Normal    Created             pod/redis-65c6ffd4cc-rjkhl         Container created
+95s         Normal    Created             pod/aws-mock-889697b56-gmk7l       Container created
+95s         Normal    Pulled              pod/redis-65c6ffd4cc-rjkhl         Container image "docker.io/library/redis:7-alpine" already present on machine and can be accessed by the pod
+95s         Normal    Started             pod/postgres-76bdffdcf-bq498       Container started
+95s         Normal    Started             pod/aws-mock-889697b56-gmk7l       Container started
+95s         Normal    Pulled              pod/postgres-76bdffdcf-bq498       Container image "docker.io/library/postgres:16" already present on machine and can be accessed by the pod
+95s         Warning   Unhealthy           pod/aws-mock-889697b56-gmk7l       Readiness probe failed: Get "http://10.244.0.8:4566/health": dial tcp 10.244.0.8:4566: connect: connection refused
+94s         Warning   Unhealthy           pod/secure-notes-645b7544-kxr5f    Readiness probe failed: Get "http://10.244.0.5:3000/api/health": dial tcp 10.244.0.5:3000: connect: connection refused
+88s         Normal    Completed           job/seed                           Job completed
+
+Name:             aws-mock-889697b56-gmk7l
+Namespace:        secure-notes
+Priority:         0
+Service Account:  default
+Node:             secure-notes-control-plane/172.18.0.2
+Start Time:       Mon, 19 Oct 2026 00:04:31 +0000
+Labels:           app.kubernetes.io/name=aws-mock
+                  pod-template-hash=889697b56
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.0.8
+IPs:
+  IP:           10.244.0.8
+Controlled By:  ReplicaSet/aws-mock-889697b56
+Containers:
+  aws-mock:
+    Container ID:   containerd://8c818ab8ad03b218c348a558705bf335a27a5902ae3fab380d4fa5278fa4996d
+    Image:          secure-notes-aws-mock:dev
+    Image ID:       sha256:0f85ad7c2d27dec30232997130f690174f31bca906d00d7ef75bd741befc0f4f
+    Port:           4566/TCP (http)
+    Host Port:      0/TCP (http)
+    State:          Running
+      Started:      Mon, 19 Oct 2026 00:04:32 +0000
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      memory:  128Mi
+    Requests:
+      cpu:      10m
+      memory:   48Mi
+    Readiness:  http-get http://:http/health delay=0s timeout=1s period=3s successThreshold=1 failureThreshold=3
+    Environment:
+      MOCK_STATE_FILE:    /data/state.json
+      MOCK_SNS_ENDPOINT:  http://sns-logger:4575
+    Mounts:
+      /data from data (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  data:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   <unset>
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             postgres-76bdffdcf-bq498
+Namespace:        secure-notes
+Priority:         0
+Service Account:  default
+Node:             secure-notes-control-plane/172.18.0.2
+Start Time:       Mon, 19 Oct 2026 00:04:31 +0000
+Labels:           app.kubernetes.io/name=postgres
+                  pod-template-hash=76bdffdcf
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.0.9
+IPs:
+  IP:           10.244.0.9
+Controlled By:  ReplicaSet/postgres-76bdffdcf
+Containers:
+  postgres:
+    Container ID:  containerd://b118b6ea7312ffccf58ca67183e5cbf84dcd6fdf139d0a7eb860ca5ba39de42d
+    Image:         docker.io/library/postgres:16
+    Image ID:      sha256:275447c94b11b151decd1f29877965301d5a77032037c46de93d990f739f00a9
+    Port:          5432/TCP (postgres)
+    Host Port:     0/TCP (postgres)
+    Args:
+      -c
+      log_statement=ddl
+    State:          Running
+      Started:      Mon, 19 Oct 2026 00:04:32 +0000
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      memory:  512Mi
+    Requests:
+      cpu:      50m
+      memory:   128Mi
+    Readiness:  exec [pg_isready -h 127.0.0.1 -U postgres -d notes] delay=0s timeout=1s period=3s successThreshold=1 failureThreshold=3
+    Environment:
+      POSTGRES_DB:           notes
+      POSTGRES_PASSWORD:     <set to the key 'pg-password' in secret 'local-bootstrap-f9hmh2c6g8'>  Optional: false
+      POSTGRES_INITDB_ARGS:  --auth-host=scram-sha-256
+      PGDATA:                /var/lib/postgresql/data/pgdata
+    Mounts:
+      /tmp from tmp (rw)
+      /var/lib/postgresql/data from data (rw)
+      /var/run/postgresql from run (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  data:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  run:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  <unset>
+  tmp:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   <unset>
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             redis-65c6ffd4cc-rjkhl
+Namespace:        secure-notes
+Priority:         0
+Service Account:  default
+Node:             secure-notes-control-plane/172.18.0.2
+Start Time:       Mon, 19 Oct 2026 00:04:31 +0000
+Labels:           app.kubernetes.io/name=redis
+                  pod-template-hash=65c6ffd4cc
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.0.10
+IPs:
+  IP:           10.244.0.10
+Controlled By:  ReplicaSet/redis-65c6ffd4cc
+Containers:
+  redis:
+    Container ID:  containerd://4fcb043255b9bfabea35d3fef5db3ad1b0a9f2665f7f971bcb135ef77712d596
+    Image:         docker.io/library/redis:7-alpine
+    Image ID:      sha256:f84b0c4678011602b9b98c227a4dcd5468bf8b088b02fdd4165cb7758bad8058
+    Port:          6379/TCP (redis)
+    Host Port:     0/TCP (redis)
+    Command:
+      /bin/sh
+      -c
+    Args:
+      set -eu
+      ACL=/data/users.acl
+      if [ ! -s "$ACL" ]; then
+        echo "user default on >${REDIS_BOOTSTRAP_PASSWORD} ~* &* +@all" > "$ACL"
+        chmod 600 "$ACL"
+      fi
+      exec redis-server --aclfile "$ACL" --dir /data --appendonly no --save ""
+      
+    State:          Running
+      Started:      Mon, 19 Oct 2026 00:04:32 +0000
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      memory:  128Mi
+    Requests:
+      cpu:      20m
+      memory:   32Mi
+    Readiness:  tcp-socket :redis delay=0s timeout=1s period=3s successThreshold=1 failureThreshold=3
+    Environment:
+      REDIS_BOOTSTRAP_PASSWORD:  <set to the key 'redis-password' in secret 'local-bootstrap-f9hmh2c6g8'>  Optional: false
+    Mounts:
+      /data from data (rw)
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:
+  data:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   <unset>
+QoS Class:       Burstable
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             secure-notes-645b7544-kxr5f
+Namespace:        secure-notes
+Priority:         0
+Service Account:  secure-notes
+Node:             secure-notes-control-plane/172.18.0.2
+Start Time:       Mon, 19 Oct 2026 00:04:31 +0000
+Labels:           app.kubernetes.io/name=secure-notes
+                  pod-template-hash=645b7544
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.0.5
+IPs:
+  IP:           10.244.0.5
+Controlled By:  ReplicaSet/secure-notes-645b7544
+Containers:
+  app:
+    Container ID:   containerd://c542213218c85b6ac680b4147ed4a04aeabd0e52bba96c9db5521d2f6fc0abfb
+    Image:          secure-notes-app:dev
+    Image ID:       docker.io/library/import-2026-10-19@sha256:64c55e5d4453acb86b517da17c467d81a51492917b29071aedea2896d543a7a7
+    Port:           3000/TCP (http)
+    Host Port:      0/TCP (http)
+    State:          Running
+      Started:      Mon, 19 Oct 2026 00:04:31 +0000
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      memory:  256Mi
+    Requests:
+      cpu:      50m
+      memory:   96Mi
+    Liveness:   http-get http://:http/api/livez delay=10s timeout=1s period=15s successThreshold=1 failureThreshold=3
+    Readiness:  http-get http://:http/api/health delay=0s timeout=5s period=10s successThreshold=1 failureThreshold=3
+    Environment Variables from:
+      secure-notes-config-kfgcb5ff6d  ConfigMap  Optional: false
+    Environment:                      <none>
+    Mounts:                           <none>
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:                      <none>
+QoS Class:                    Burstable
+Node-Selectors:               <none>
+Tolerations:                  node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             seed-fcpgm
+Namespace:        secure-notes
+Priority:         0
+Service Account:  default
+Node:             secure-notes-control-plane/172.18.0.2
+Start Time:       Mon, 19 Oct 2026 00:04:31 +0000
+Labels:           app.kubernetes.io/name=secure-notes-seed
+                  batch.kubernetes.io/controller-uid=cf30e728-d4ef-48b1-80ee-aa0c253b50e6
+                  batch.kubernetes.io/job-name=seed
+                  controller-uid=cf30e728-d4ef-48b1-80ee-aa0c253b50e6
+                  job-name=seed
+Annotations:      <none>
+Status:           Succeeded
+SeccompProfile:   RuntimeDefault
+IP:               10.244.0.7
+IPs:
+  IP:           10.244.0.7
+Controlled By:  Job/seed
+Containers:
+  seed:
+    Container ID:  containerd://2ecd1df16e2f508bdc12418e5ac71efeee042920f5f28ad7e5913587243b79e1
+    Image:         secure-notes-app:dev
+    Image ID:      docker.io/library/import-2026-10-19@sha256:64c55e5d4453acb86b517da17c467d81a51492917b29071aedea2896d543a7a7
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      node
+      scripts/seed-local.js
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Mon, 19 Oct 2026 00:04:32 +0000
+      Finished:     Mon, 19 Oct 2026 00:04:36 +0000
+    Ready:          False
+    Restart Count:  0
+    Limits:
+      memory:  192Mi
+    Requests:
+      cpu:     20m
+      memory:  64Mi
+    Environment Variables from:
+      secure-notes-config-kfgcb5ff6d  ConfigMap  Optional: false
+    Environment:
+      AWS_ACCESS_KEY_ID:         local-seed
+      SEED_PG_HOST:              postgres
+      SEED_REDIS_HOST:           redis
+      PG_BOOTSTRAP_PASSWORD:     <set to the key 'pg-password' in secret 'local-bootstrap-f9hmh2c6g8'>     Optional: false
+      REDIS_BOOTSTRAP_PASSWORD:  <set to the key 'redis-password' in secret 'local-bootstrap-f9hmh2c6g8'>  Optional: false
+    Mounts:                      <none>
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   False 
+  Initialized                 True 
+  Ready                       False 
+  ContainersReady             False 
+  PodScheduled                True 
+Volumes:                      <none>
+QoS Class:                    Burstable
+Node-Selectors:               <none>
+Tolerations:                  node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+
+
+Name:             sns-logger-76966f689c-xdz72
+Namespace:        secure-notes
+Priority:         0
+Service Account:  default
+Node:             secure-notes-control-plane/172.18.0.2
+Start Time:       Mon, 19 Oct 2026 00:04:31 +0000
+Labels:           app.kubernetes.io/name=sns-logger
+                  pod-template-hash=76966f689c
+Annotations:      <none>
+Status:           Running
+SeccompProfile:   RuntimeDefault
+IP:               10.244.0.6
+IPs:
+  IP:           10.244.0.6
+Controlled By:  ReplicaSet/sns-logger-76966f689c
+Containers:
+  sns-logger:
+    Container ID:  containerd://57eae01980eaffd4e017d8b41045528c39118caf90a0d51bbbd8c0ac3b5c5bdf
+    Image:         secure-notes-aws-mock:dev
+    Image ID:      sha256:0f85ad7c2d27dec30232997130f690174f31bca906d00d7ef75bd741befc0f4f
+    Port:          4575/TCP (http)
+    Host Port:     0/TCP (http)
+    Command:
+      node
+      sns-logger/server.js
+    State:          Running
+      Started:      Mon, 19 Oct 2026 00:04:31 +0000
+    Ready:          True
+    Restart Count:  0
+    Limits:
+      memory:  128Mi
+    Requests:
+      cpu:      10m
+      memory:   48Mi
+    Readiness:  http-get http://:http/health delay=0s timeout=1s period=3s successThreshold=1 failureThreshold=3
+    Environment:
+      PORT:                      4575
+      SNS_LOGGER_PUBLIC_URL:     http://localhost:4575
+      SNS_LOGGER_TOPICS:         secure-notes-secret-read-alert=Secure Notes security,secure-notes-ops-alerts=Secure Notes,secure-notes-ops-chat=Secure Notes
+      SNS_LOGGER_SUBSCRIPTIONS:  secure-notes-secret-read-alert:email:oncall@example.com; secure-notes-secret-read-alert:sms:+15555550100; secure-notes-secret-read-alert:https:https://chat.example.com/hooks/secure-notes; secure-notes-ops-alerts:email:oncall@example.com; secure-notes-ops-alerts:sms:+15555550100; secure-notes-ops-alerts:https:https://chat.example.com/hooks/secure-notes; secure-notes-ops-chat:https:https://chat.example.com/hooks/secure-notes
+    Mounts:                      <none>
+Conditions:
+  Type                        Status
+  PodReadyToStartContainers   True 
+  Initialized                 True 
+  Ready                       True 
+  ContainersReady             True 
+  PodScheduled                True 
+Volumes:                      <none>
+QoS Class:                    Burstable
+Node-Selectors:               <none>
+Tolerations:                  node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                              node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
