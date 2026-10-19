@@ -570,6 +570,8 @@ for _it in _all_items():
         _it["status"] = "done"
         _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [(1, _it["criteria"][-1][1] + " Green in run 39178809631, with cfn-lint clean on both templates.")]
         _it["evidence"] = _it["evidence"] + ["CI run 39178809631, job `checks`"]
+    if _it["id"] == "S5.6":   # the unit tests are proven (run 39179859513); the rest needs the owner's AWS account
+        _it["criteria"] = [(1 if "unit tests" in t else c, t + (" Green in run 39179859513." if "unit tests" in t else "")) for c, t in _it["criteria"]]
     if _it["id"] == "S5.4":   # both measured on the owner's MacBook, 2026-10-18
         _it["criteria"] = [(1, t) for _, t in _it["criteria"]]
     # Parked by the owner on 2026-10-18: CRC was deleted on their Mac on 2026-10-13 and is restored later.

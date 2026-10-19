@@ -307,7 +307,7 @@ Evidence: [infra/tags.json](../../infra/tags.json), [scripts/tags-check.py](../.
 *As the owner of the AWS account, I want each run to prove its resources are tagged and then gone, so that a stack never leaves anything behind that costs money.*
 - [ ] After deploy, the workflow finds every taggable resource of the stack, and those AWS makes for it (root volume, network interface, the RDS-managed secret), and fails if one lacks a tag.
 - [ ] After teardown, the workflow searches for `Stack=<name>` and fails on anything but the KMS keys pending deletion (and the trail bucket, kept on purpose when `CreateTrail=true`).
-- [ ] `scripts/aws-tags.py` (check, leftovers) decides right on canned AWS answers: 12 unit tests in CI's `checks` job.
+- [x] `scripts/aws-tags.py` (check, leftovers) decides right on canned AWS answers: 12 unit tests in CI's `checks` job. Green in run 39179859513.
 - [ ] Proven by a run of the `aws (Part C)` workflow on the owner's account.
 
 Evidence: [plan](plan-tags-and-teardown.md)
