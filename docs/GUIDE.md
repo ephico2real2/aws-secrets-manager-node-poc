@@ -349,7 +349,15 @@ aws sts get-caller-identity
 
 You should see your 12-digit account number and an `Arn` that contains `assumed-role`.
 
-**No Identity Center in your account?** Ask your admin to turn it on. As a last resort, create a personal access key, keep it only on your laptop, and delete it when you finish this guide. Never copy it onto the server.
+**No Identity Center in your account?** Sign in with your console user instead (AWS CLI 2.32 or later; `brew install awscli` on a Mac):
+
+```bash
+aws login --profile secure-notes
+```
+
+A browser tab opens. Choose your console session or sign in, and answer the region question with `us-east-1`. The CLI then keeps temporary credentials for up to 12 hours, refreshing them on its own, and stores no access key. An IAM user needs the managed policy `SignInLocalDevelopmentAccess` for this. Use an admin user, not the account's root user. When a command later says the session expired, run `aws login --profile secure-notes` again; `aws logout --profile secure-notes` ends it.
+
+If neither works, ask your admin to turn on Identity Center. As a last resort, create a personal access key, keep it only on your laptop, and delete it when you finish this guide. Never copy it onto the server.
 
 ### C2 — Pick your network
 
@@ -739,21 +747,42 @@ Once your AWS account is ready, the manual workflow `aws (Part C)` does C3 to C1
 
 No AWS keys are stored in GitHub. The job runs in a protected GitHub environment called `aws` and gets short-lived AWS credentials through GitHub's OIDC sign-in, the same idea as the EC2 instance role. Its role can deploy and rotate but cannot read any secret, so the run proves rotation without ever seeing a password.
 
-**One-time setup:**
+**One-time setup, in one command.** Signed in as an admin (C1), and with the `gh` CLI signed in to GitHub (`gh auth login`), run from the repository:
+
+```bash
+python3 scripts/aws-bootstrap.py --profile secure-notes --plan   # prints what it would do, changes nothing
+python3 scripts/aws-bootstrap.py --profile secure-notes          # asks once, then does it
+```
+
+It does steps 1 to 3 below for you:
+
+- finds the network (the default VPC, and two subnets in different zones, as in C2 option A);
+- detects whether the account already has GitHub's OIDC provider and the VPC a Secrets Manager endpoint;
+- deploys the bootstrap stack and reads its outputs;
+- creates the `aws` environment, with you as required reviewer and deployments from `main` only;
+- sets every variable of step 3 from those outputs.
+
+Nothing changes until you answer `y` to the plan it prints. Running it again updates the stack and the variables in place.
+
+For private subnets behind a NAT gateway (C2 option B), pass them: `--vpc-id vpc-… --app-subnet subnet-… --data-subnets subnet-a,subnet-b`. To receive the stack's alarms by email, add `--alert-email you@example.com`. The command prints the AWS reason for every failure, and `--help` lists the options.
+
+**One-time setup, by hand** (what the command does):
 
 1. Signed in as an admin (C1), create the GitHub sign-in, the deploy role and the artifact bucket:
 
    ```bash
-   aws cloudformation deploy --stack-name secure-notes-github \
+   aws cloudformation deploy --stack-name github-oidc-secure-notes \
      --template-file infra/github-actions-bootstrap.yaml \
      --capabilities CAPABILITY_NAMED_IAM
-   aws cloudformation describe-stacks --stack-name secure-notes-github \
+   aws cloudformation describe-stacks --stack-name github-oidc-secure-notes \
      --query 'Stacks[0].Outputs' --output table
    ```
 
    If your account already has GitHub's OIDC provider, add `--parameter-overrides CreateOidcProvider=false`.
 
-   **Set up before 2026-10-18?** Run the same command again. The updated template tags its own resources and lets the deploy role tag the stack (`cloudformation:TagResource`); without it, the next run stops with an access-denied error at "Deploy the stack".
+   The stack name deliberately does not start with `secure-notes`: the deploy role may change and delete any stack that does, so a run given this stack's name would replace the deploy role with the app's template. The template also refuses that explicitly (its `NeverTheBootstrapStack` statement denies the deploy role every change to this stack, whatever it is called). An existing bootstrap stack keeps its name: deploy the update under the name it already has, because a second stack would collide on the role names.
+
+   **Set up before 2026-10-18?** Deploy the template again under the stack name you used then (it was `secure-notes-github`), or run `scripts/aws-bootstrap.py --stack-name secure-notes-github`. The updated template tags its own resources and lets the deploy role tag the stack (`cloudformation:TagResource`); without it, the next run stops with an access-denied error at "Deploy the stack".
 2. On GitHub, open the repository's **Settings → Environments → New environment**, name it `aws`, and add yourself under **Required reviewers**. Every run will then wait for your approval.
 3. In that environment, add these **variables** (not secrets; none of them is sensitive):
 

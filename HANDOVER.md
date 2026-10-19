@@ -114,7 +114,7 @@ scripts/compose-check.sh                 # end-to-end, alert paths and the crede
 | `infra/github-actions-bootstrap.yaml` | OIDC role for the manual `aws.yaml` workflow |
 | `infra/tags.json` | The tags every AWS resource carries (`Project`, `Owner`, `Repository`, `ManagedBy`, plus `Stack`, `Environment`, `DeployedBy`) and the reviewed lists of taggable and untaggable resource types; `scripts/tags-check.py` holds both templates and the workflow to it |
 | `versions/v0-env-file/` | The "before" app and `leak.sh` |
-| `scripts/` | `bootstrap/macos.sh` and `bootstrap/linux.sh` (set up a machine), `preflight.sh` (check it), `podman.env` (source it: the docker CLI and kind at Podman), `kind-up.sh` / `kind-down.sh`, `openshift-build.sh`, `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh` (the log pipeline, and a warning that goes to chat only), `credential-scan.sh` (searches for the real values), `capture-local.sh` (CI's checked walk, on your machine), `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
+| `scripts/` | `bootstrap/macos.sh` and `bootstrap/linux.sh` (set up a machine), `preflight.sh` (check it), `podman.env` (source it: the docker CLI and kind at Podman), `kind-up.sh` / `kind-down.sh`, `openshift-build.sh`, `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh` (the log pipeline, and a warning that goes to chat only), `credential-scan.sh` (searches for the real values), `capture-local.sh` (CI's checked walk, on your machine), `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, `aws-bootstrap.py` (the AWS and GitHub setup for `aws.yaml`), `aws-tags.py` (the tag check and the leftover search), the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
 | `docs/learn/` | Learning path, chapters 1–7 (chapter 7 is alerts and audit) |
 | `docs/TUTORIAL.md`, `docs/GUIDE.md`, `docs/TEST-CASES.md` | The walkthrough, the deploy guide (Parts A, B, C; C7b checks alerts on AWS), and the catalogue of automated tests (IDs S, R, L, D, C, F, A, P, K, N…) |
 | `docs/reference/` | `alerts.md` (generated table), `secret-naming.md`, `security-controls.md`, `deploy-quickref.md`, `ci.md` |
@@ -149,7 +149,8 @@ Open stories at handover:
 | Issue | Story | Needs |
 | --- | --- | --- |
 | #91 | **S12.5 Prove it on AWS**: a denied read raises the secret-read alert; a test log event trips an alarm; TestEventPattern fixtures match the mock; a batch read's text names the secret | an AWS account; run `aws.yaml`. This also closes #34, #86, #87, #89, #90 |
-| #126 | S5.6 **On AWS: tags checked after deploy, nothing tagged left after teardown**: built (`scripts/aws-tags.py`, 12 unit tests); tests P7, P8 | an `aws.yaml` run, after the bootstrap is deployed again (section 8) |
+| #126 | S5.6 **On AWS: tags checked after deploy, nothing tagged left after teardown**: built (`scripts/aws-tags.py`, 12 unit tests); tests P7, P8 | an `aws.yaml` run, after the bootstrap is deployed (section 8) |
+| #128 | S5.7 **Bootstrap from a signed-in profile, outputs written to GitHub**: built (`scripts/aws-bootstrap.py`, 19 unit tests); the bootstrap stack is named outside the deploy role's prefix and denied to it | the owner runs it on their account (section 8) |
 | #115 | S12.6 Close the by-name gap for the RDS-managed secret (match `detail.resources.ARN` if CloudTrail carries it) | AWS first, to confirm the record shape |
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
@@ -182,9 +183,20 @@ branch.
 
 ## 8. Waiting on the owner
 
-**Before the next AWS run,** deploy the bootstrap stack again (GUIDE C11, step 1): since
-2026-10-18 the workflow tags the stack, which needs `cloudformation:TagResource` on the deploy
-role. Without it the run stops at "Deploy the stack" with access denied.
+**Before the first AWS run,** the owner sets up AWS and GitHub. On 2026-10-18 the repository had
+no GitHub environment yet, and the owner's Mac had the AWS CLI (2.38.1) but no profile. The owner
+signs in themselves (`aws login --profile secure-notes`, GUIDE C1); an agent never handles AWS
+credentials. Then:
+
+```bash
+python3 scripts/aws-bootstrap.py --profile secure-notes --plan   # read the plan
+python3 scripts/aws-bootstrap.py --profile secure-notes          # deploy, then write the variables to GitHub
+```
+
+It deploys the bootstrap as `github-oidc-secure-notes`, outside the deploy role's `secure-notes`
+prefix (GUIDE C11). A bootstrap deployed earlier keeps its name: rerun with
+`--stack-name secure-notes-github`, which also adds the deploy role's `cloudformation:TagResource`.
+Without that permission the run stops at "Deploy the stack" with access denied.
 
 Create the two milestone releases. Go to Actions → **milestone** → Run workflow:
 

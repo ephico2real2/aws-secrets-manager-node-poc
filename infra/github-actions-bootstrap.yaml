@@ -5,8 +5,9 @@ Description: >-
   this repository's "aws" environment can assume, a CloudFormation
   execution role, and the private artifact bucket.
 
-  Deploy once from your laptop (as an admin):
-    aws cloudformation deploy --stack-name secure-notes-github \
+  Deploy once from your laptop (as an admin), under a name outside StackPrefix
+  so the deploy role's stack permissions never cover this stack:
+    aws cloudformation deploy --stack-name github-oidc-secure-notes \
       --template-file infra/github-actions-bootstrap.yaml \
       --capabilities CAPABILITY_NAMED_IAM
 
@@ -172,6 +173,17 @@ Resources:
                   - cloudformation:TagResource
                   - cloudformation:UntagResource
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${StackPrefix}*/*
+              # A run given this stack's name as its stack_name would replace these
+              # roles with the app's template, or delete them: refused, whatever the name.
+              - Sid: NeverTheBootstrapStack
+                Effect: Deny
+                Action:
+                  - cloudformation:CreateChangeSet
+                  - cloudformation:ExecuteChangeSet
+                  - cloudformation:DeleteStack
+                  - cloudformation:TagResource
+                  - cloudformation:UntagResource
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${AWS::StackName}/*
               - Sid: CloudFormationReadOnly
                 Effect: Allow
                 Action:

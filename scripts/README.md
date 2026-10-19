@@ -26,6 +26,7 @@ macOS ships 3.2, and `bootstrap/macos.sh` installs a newer one.
 | [`k8s-deploy.sh`](k8s-deploy.sh) `<overlay>` | Render and apply an overlay, wait for the seed job and the app, and print the app's and the console's addresses. On OpenShift it points the console link at the Route |
 | [`openshift-build.sh`](openshift-build.sh) | OpenShift: build both images on the cluster from HEAD (BuildConfigs), then deploy `overlays/openshift-local` |
 | [`mirror-images.sh`](mirror-images.sh) `<registry/path>` | Copy all four images to your registry and write `overlays/mirror`, for clusters that can't pull from GHCR or Docker Hub |
+| [`aws-bootstrap.py`](aws-bootstrap.py) `--profile <p> [--plan]` | One-time setup for the `aws (Part C)` workflow: from your signed-in profile, deploys `infra/github-actions-bootstrap.yaml`, then creates the GitHub environment `aws` and sets its variables from the stack's outputs. Prints the plan and asks first |
 | [`package.sh`](package.sh) `<bucket>` | Zip the app and upload it to S3 for the CloudFormation stack |
 | [`aws-ssm-run.sh`](aws-ssm-run.sh) | Run a command on the EC2 instance through SSM (no SSH, no open port) |
 

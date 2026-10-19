@@ -312,6 +312,18 @@ Evidence: [infra/tags.json](../../infra/tags.json), [scripts/tags-check.py](../.
 
 Evidence: [plan](plan-tags-and-teardown.md)
 
+#### F5.8 · One command sets up AWS and GitHub for the aws workflow · 🔜 · [#127](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/127)
+
+**S5.7 · Bootstrap from a signed-in profile, outputs written to GitHub** · S · 🔜 · [#128](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/128)
+*As the owner of the AWS account, I want one command to deploy the bootstrap stack and copy its outputs into GitHub, so that the one-time setup has no console clicks and no value pasted by hand.*
+- [ ] `scripts/aws-bootstrap.py` uses the signed-in profile (`aws login` or `aws sso login`, no keys stored); it finds the network (the default VPC, two subnets in different zones, or checks the ones given), GitHub's OIDC provider and an existing Secrets Manager endpoint, prints the plan, and changes nothing until it is confirmed.
+- [ ] It deploys `infra/github-actions-bootstrap.yaml` with the stack tags of `infra/tags.json`, then creates the GitHub environment `aws` (the signed-in user as required reviewer, deployments from `main` only) and sets its variables from the stack's outputs.
+- [ ] The bootstrap stack is named outside the deploy role's `secure-notes` prefix, and the template denies the deploy role any change to it (`NeverTheBootstrapStack`).
+- [ ] `scripts/aws-bootstrap.py` decides right on canned AWS and GitHub answers: 19 unit tests in CI's `checks` job.
+- [ ] Run on the owner's account: the stack deploys, the variables are set, and the `aws (Part C)` workflow starts from them.
+
+Evidence: [scripts/aws-bootstrap.py](../../scripts/aws-bootstrap.py), [infra/github-actions-bootstrap.yaml](../../infra/github-actions-bootstrap.yaml)
+
 ### E6 — Verification and evidence
 
 [#45](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/45) · ✅ · **Outcome:** Every claim has an automated test that fails if it stops being true. Docs: [TEST-CASES](../TEST-CASES.md), [demo pages](../../demo/README.md)

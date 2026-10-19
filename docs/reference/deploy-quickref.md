@@ -149,10 +149,14 @@ included) unless you ask to keep it.
 
 It never runs on push and stores no AWS keys: the job runs in the GitHub environment
 `aws` and assumes a role through GitHub's OIDC token. That role can deploy and rotate,
-but cannot read any secret. One-time setup:
+but cannot read any secret. One-time setup, as an admin signed in with `aws login` or
+`aws sso login` and with `gh` signed in: `python3 scripts/aws-bootstrap.py --profile secure-notes`
+does steps 1 to 3 below and asks before it changes anything (`--plan` only prints the plan).
+By hand:
 
 1. As an admin, deploy the bootstrap stack:
-   `aws cloudformation deploy --stack-name secure-notes-github --template-file infra/github-actions-bootstrap.yaml --capabilities CAPABILITY_NAMED_IAM`
+   `aws cloudformation deploy --stack-name github-oidc-secure-notes --template-file infra/github-actions-bootstrap.yaml --capabilities CAPABILITY_NAMED_IAM`
+   (a name outside the `secure-notes` prefix, which the deploy role may change and delete)
 2. In the repository settings, create the environment `aws` and add yourself as a required reviewer.
 3. On that environment, set `AWS_REGION`, `AWS_DEPLOY_ROLE_ARN`, `AWS_CFN_EXEC_ROLE_ARN`,
    `AWS_ARTIFACT_BUCKET` (the bootstrap stack's outputs), `AWS_VPC_ID`, `AWS_APP_SUBNET_ID`
