@@ -1,0 +1,262 @@
+app-1  | {"time":"2026-10-19T00:37:13.186Z","level":"debug","app":"secure-notes","secretsMode":"sdk","secretIds":{"db":"/rds/dev/notes-db/app","redis":"/elasticache/dev/notes-cache/app"},"secretIdSources":{"db":"pattern","redis":"pattern","dbAdmin":"pattern","redisAdmin":"pattern"},"namingPattern":"/{service}/{env}/{resource}/{name}","endpoint":"http://aws-mock:4566","logLevel":"debug","msg":"credential sources: which secrets this process will consume"}
+app-1  | {"time":"2026-10-19T00:37:13.187Z","level":"info","app":"secure-notes","secretIds":{"db":"/rds/dev/notes-db/app","redis":"/elasticache/dev/notes-cache/app"},"sources":{"db":"pattern","redis":"pattern","dbAdmin":"pattern","redisAdmin":"pattern"},"environment":"dev","pattern":"/{service}/{env}/{resource}/{name}","msg":"secret IDs resolved"}
+app-1  | {"time":"2026-10-19T00:37:13.224Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","versionId":"0699f5f3-fbf8-4a5c-816b-8a666ca27cf5","reason":"cold-start","forced":false,"changed":false,"ms":31,"msg":"secret loaded"}
+app-1  | {"time":"2026-10-19T00:37:13.224Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/elasticache/dev/notes-cache/app","name":"/elasticache/dev/notes-cache/app","versionId":"0699f5f3-fbf8-4a5c-816b-8a666ca27cf5","stages":["AWSCURRENT"],"source":"sdk","reason":"cold-start","fingerprint":"b499108221c4","keys":["host=redis","port=6379","username=no*****pp","password=******** (32 chars, fp=09cb6469)"],"msg":"secret consumed"}
+app-1  | {"time":"2026-10-19T00:37:13.226Z","level":"info","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","versionId":"c10bbc6e-f220-4a09-94b5-a21c243a53f3","reason":"cold-start","forced":false,"changed":false,"ms":34,"msg":"secret loaded"}
+app-1  | {"time":"2026-10-19T00:37:13.226Z","level":"debug","app":"secure-notes","component":"secrets","secretId":"/rds/dev/notes-db/app","name":"/rds/dev/notes-db/app","versionId":"c10bbc6e-f220-4a09-94b5-a21c243a53f3","stages":["AWSCURRENT"],"source":"sdk","reason":"cold-start","fingerprint":"3ff054fa9a09","keys":["engine=postgres","host=postgres","port=5432","dbname=n****","username=no*****pp","password=******** (32 chars, fp=deb7001e)"],"msg":"secret consumed"}
+app-1  | {"time":"2026-10-19T00:37:13.227Z","level":"debug","app":"secure-notes","component":"redis","secretId":"/elasticache/dev/notes-cache/app","versionId":"0699f5f3-fbf8-4a5c-816b-8a666ca27cf5","fingerprint":"b499108221c4","host":"redis","port":6379,"tls":false,"why":"first connection","using":["username<-username=no*****pp","password<-password=******** (32 chars, fp=09cb6469)"],"msg":"redis authenticating with"}
+app-1  | {"time":"2026-10-19T00:37:13.235Z","level":"info","app":"secure-notes","component":"redis","msg":"redis connection ready"}
+app-1  | {"time":"2026-10-19T00:37:13.239Z","level":"debug","app":"secure-notes","component":"db","secretId":"/rds/dev/notes-db/app","versionId":"c10bbc6e-f220-4a09-94b5-a21c243a53f3","fingerprint":"3ff054fa9a09","host":"postgres","port":5432,"database":"notes","tls":false,"using":["user<-username=no*****pp","password<-password=******** (32 chars, fp=deb7001e)"],"msg":"postgres connecting with"}
+app-1  | {"time":"2026-10-19T00:37:13.252Z","level":"info","app":"secure-notes","host":"0.0.0.0","port":3000,"secretsMode":"sdk","demoMode":true,"msg":"secure-notes listening"}
+app-1  | {"time":"2026-10-19T00:37:15.036Z","level":"debug","app":"secure-notes","component":"http","method":"GET","path":"/api/health","status":200,"ms":1.7,"msg":"request"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.771Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-secret-read-alert","protocol":"email","endpoint":"on****@example.com","msg":"subscribed email to secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.773Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-secret-read-alert","protocol":"sms","endpoint":"+1******0100","msg":"subscribed sms to secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.773Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-secret-read-alert","protocol":"https","endpoint":"https://chat.example.com/…","msg":"subscribed https to secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.774Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-alerts","protocol":"email","endpoint":"on****@example.com","msg":"subscribed email to secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.774Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-alerts","protocol":"sms","endpoint":"+1******0100","msg":"subscribed sms to secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.774Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-alerts","protocol":"https","endpoint":"https://chat.example.com/…","msg":"subscribed https to secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.774Z","level":"info","app":"sns-logger","event":"sns.subscription.created","topic":"secure-notes-ops-chat","protocol":"https","endpoint":"https://chat.example.com/…","msg":"subscribed https to secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-19T00:32:36.784Z","level":"info","app":"sns-logger","topics":["secure-notes-secret-read-alert","secure-notes-ops-alerts","secure-notes-ops-chat"],"pipeline":true,"msg":"sns-logger: a local Amazon SNS on http://0.0.0.0:4575 (screen: http://localhost:4575)"}
+sns-logger-1  | {"time":"2026-10-19T00:33:02.493Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-chat","messageId":"5903c01f-2a33-43ad-9e70-071cd533682d","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): The app switched to a rotated credential","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-19T00:33:09.745Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-chat","messageId":"402a8ea8-f926-4ae3-a802-e017e41fa125","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): The app switched to a rotated credential","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-19T00:33:52.868Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"email","endpoint":"on****@example.com","topic":"secure-notes-secret-read-alert","messageId":"c1ffd03d-e3f5-4167-988e-2f69d3ba04d4","publishedBy":"events.amazonaws.com","subject":"AWS Notification Message","msg":"delivered email to on****@example.com from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:33:52.869Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"sms","endpoint":"+1******0100","topic":"secure-notes-secret-read-alert","messageId":"c1ffd03d-e3f5-4167-988e-2f69d3ba04d4","publishedBy":"events.amazonaws.com","segments":2,"encoding":"GSM-7","msg":"delivered sms to +1******0100 from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:33:52.869Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-secret-read-alert","messageId":"c1ffd03d-e3f5-4167-988e-2f69d3ba04d4","publishedBy":"events.amazonaws.com","msg":"delivered https to https://chat.example.com/… from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:33:55.978Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"email","endpoint":"on****@example.com","topic":"secure-notes-ops-alerts","messageId":"99d26a93-306b-49c0-a686-23ec946643b9","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): Test alert from Secure Notes","msg":"delivered email to on****@example.com from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:33:55.978Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"sms","endpoint":"+1******0100","topic":"secure-notes-ops-alerts","messageId":"99d26a93-306b-49c0-a686-23ec946643b9","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","segments":1,"encoding":"GSM-7","msg":"delivered sms to +1******0100 from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:33:55.978Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-alerts","messageId":"99d26a93-306b-49c0-a686-23ec946643b9","publishedBy":"arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local","subject":"[INFO] Secure Notes (dev): Test alert from Secure Notes","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:34:45.281Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"email","endpoint":"on****@example.com","topic":"secure-notes-ops-alerts","messageId":"78f80180-b9e6-4a6b-868a-eb2a9a0b64cb","publishedBy":"arn:aws:sts::000000000000:assumed-role/alertmanager/alertmanager","subject":"[FIRING] Secure Notes: A credential could not be read from Secrets Manager","msg":"delivered email to on****@example.com from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:34:45.281Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"sms","endpoint":"+1******0100","topic":"secure-notes-ops-alerts","messageId":"78f80180-b9e6-4a6b-868a-eb2a9a0b64cb","publishedBy":"arn:aws:sts::000000000000:assumed-role/alertmanager/alertmanager","segments":5,"encoding":"GSM-7","msg":"delivered sms to +1******0100 from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:34:45.281Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-alerts","messageId":"78f80180-b9e6-4a6b-868a-eb2a9a0b64cb","publishedBy":"arn:aws:sts::000000000000:assumed-role/alertmanager/alertmanager","subject":"[FIRING] Secure Notes: A credential could not be read from Secrets Manager","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-alerts"}
+sns-logger-1  | {"time":"2026-10-19T00:36:00.282Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-chat","messageId":"530051ac-6896-4aef-9fa0-cec9e20312b7","publishedBy":"arn:aws:sts::000000000000:assumed-role/alertmanager/alertmanager","subject":"[FIRING] Secure Notes: Burst of errors in the app log","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-chat"}
+sns-logger-1  | {"time":"2026-10-19T00:36:08.289Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"email","endpoint":"on****@example.com","topic":"secure-notes-secret-read-alert","messageId":"691dde13-3ccf-4475-a49b-982d4f88ea2e","publishedBy":"events.amazonaws.com","subject":"AWS Notification Message","msg":"delivered email to on****@example.com from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:36:08.289Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"sms","endpoint":"+1******0100","topic":"secure-notes-secret-read-alert","messageId":"691dde13-3ccf-4475-a49b-982d4f88ea2e","publishedBy":"events.amazonaws.com","segments":2,"encoding":"GSM-7","msg":"delivered sms to +1******0100 from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:36:08.289Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-secret-read-alert","messageId":"691dde13-3ccf-4475-a49b-982d4f88ea2e","publishedBy":"events.amazonaws.com","msg":"delivered https to https://chat.example.com/… from secure-notes-secret-read-alert"}
+sns-logger-1  | {"time":"2026-10-19T00:37:00.279Z","level":"info","app":"sns-logger","event":"sns.delivery.sent","protocol":"https","endpoint":"https://chat.example.com/…","topic":"secure-notes-ops-chat","messageId":"6d998d47-33d5-41e2-a339-b5726686f26e","publishedBy":"arn:aws:sts::000000000000:assumed-role/alertmanager/alertmanager","subject":"[FIRING] Secure Notes: Secret values are being written to the log (lab flag on)","msg":"delivered https to https://chat.example.com/… from secure-notes-ops-chat"}
+aws-mock-1    | [aws-mock] EventBridge rule SecretReadAlertRule loaded (State=ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS, sha256 8438b9c8198e)
+aws-mock-1    | [aws-mock] Secrets Manager + STS mock on http://0.0.0.0:4566
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret -> ResourceNotFoundException
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:CreateSecret /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetRandomPassword
+aws-mock-1    | [aws-mock] secretsmanager:PutSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:UpdateSecretVersionStage /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] eventbridge SecretReadAlertRule matched GetSecretValue /elasticache/dev/notes-cache/app by arn:aws:iam::000000000000:user/mallory: published to SNS
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:ListSecrets
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] loaded 4 secret(s) from /data/state.json
+aws-mock-1    | [aws-mock] EventBridge rule SecretReadAlertRule loaded (State=ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS, sha256 8438b9c8198e)
+aws-mock-1    | [aws-mock] Secrets Manager + STS mock on http://0.0.0.0:4566
+aws-mock-1    | [aws-mock] loaded 4 secret(s) from /data/state.json
+aws-mock-1    | [aws-mock] EventBridge rule SecretReadAlertRule loaded (State=ENABLED_WITH_ALL_CLOUDTRAIL_MANAGEMENT_EVENTS, sha256 8438b9c8198e)
+aws-mock-1    | [aws-mock] Secrets Manager + STS mock on http://0.0.0.0:4566
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] eventbridge SecretReadAlertRule matched GetSecretValue /elasticache/dev/notes-cache/app by arn:aws:iam::000000000000:user/mallory: published to SNS
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:ListSecrets
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/admin
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/admin
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] sts:GetCallerIdentity -> arn:aws:sts::000000000000:assumed-role/secure-notes-app/i-0local
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:DescribeSecret /rds/dev/notes-db/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /elasticache/dev/notes-cache/app
+aws-mock-1    | [aws-mock] secretsmanager:GetSecretValue /rds/dev/notes-db/app
+postgres-1    | The files belonging to this database system will be owned by user "postgres".
+postgres-1    | This user must also own the server process.
+postgres-1    | 
+postgres-1    | The database cluster will be initialized with locale "en_US.utf8".
+postgres-1    | The default database encoding has accordingly been set to "UTF8".
+postgres-1    | The default text search configuration will be set to "english".
+postgres-1    | 
+postgres-1    | Data page checksums are disabled.
+postgres-1    | 
+postgres-1    | fixing permissions on existing directory /var/lib/postgresql/data ... ok
+postgres-1    | creating subdirectories ... ok
+postgres-1    | selecting dynamic shared memory implementation ... posix
+postgres-1    | selecting default max_connections ... 100
+postgres-1    | selecting default shared_buffers ... 128MB
+postgres-1    | selecting default time zone ... Etc/UTC
+postgres-1    | creating configuration files ... ok
+postgres-1    | running bootstrap script ... ok
+postgres-1    | performing post-bootstrap initialization ... ok
+postgres-1    | syncing data to disk ... ok
+postgres-1    | 
+postgres-1    | 
+postgres-1    | Success. You can now start the database server using:
+postgres-1    | 
+postgres-1    |     pg_ctl -D /var/lib/postgresql/data -l logfile start
+postgres-1    | 
+postgres-1    | initdb: warning: enabling "trust" authentication for local connections
+postgres-1    | initdb: hint: You can change this by editing pg_hba.conf or using the option -A, or --auth-local and --auth-host, the next time you run initdb.
+redis-1       | 1:C 19 Oct 2026 00:32:36.689 # WARNING Memory overcommit must be enabled! Without it, a background save or replication may fail under low memory condition. Being disabled, it can also cause failures without low memory condition, see https://github.com/jemalloc/jemalloc/issues/1328. To fix this issue add 'vm.overcommit_memory = 1' to /etc/sysctl.conf and then reboot or run the command 'sysctl vm.overcommit_memory=1' for this to take effect.
+redis-1       | 1:C 19 Oct 2026 00:32:36.689 * oO0OoO0OoO0Oo Redis is starting oO0OoO0OoO0Oo
+redis-1       | 1:C 19 Oct 2026 00:32:36.689 * Redis version=7.4.11, bits=64, commit=00000000, modified=0, pid=1, just started
+redis-1       | 1:C 19 Oct 2026 00:32:36.689 * Configuration loaded
+redis-1       | 1:M 19 Oct 2026 00:32:36.689 * monotonic clock: POSIX clock_gettime
+redis-1       | 1:M 19 Oct 2026 00:32:36.690 * Running mode=standalone, port=6379.
+redis-1       | 1:M 19 Oct 2026 00:32:36.692 * Server initialized
+redis-1       | 1:M 19 Oct 2026 00:32:36.692 * Ready to accept connections tcp
+seed-1        | [seed] secret names (/{service}/{env}/{resource}/{name}): /rds/dev/notes-db/app, /elasticache/dev/notes-cache/app, /rds/dev/notes-db/admin, /elasticache/dev/notes-cache/admin
+seed-1        | [seed] created 4 secrets
+seed-1        | [seed] postgres: role, table, grants done; bootstrap password replaced
+seed-1        | [seed] redis: ACL user created (notes:* keys only); bootstrap password replaced
+seed-1        | [seed] done. Every credential now lives only in Secrets Manager.
+postgres-1    | waiting for server to start....2026-10-19 00:32:37.412 UTC [47] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1    | 2026-10-19 00:32:37.413 UTC [47] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1        | 2026-10-19 00:32:37.415 UTC [50] LOG:  database system was shut down at 2026-10-19 00:32:37 UTC
+postgres-1        | 2026-10-19 00:32:37.418 UTC [47] LOG:  database system is ready to accept connections
+postgres-1        |  done
+postgres-1        | server started
+postgres-1        | 2026-10-19 00:32:37.539 UTC [58] LOG:  statement: CREATE DATABASE "notes" ;
+postgres-1        | CREATE DATABASE
+postgres-1        | 
+postgres-1        | 
+postgres-1        | /usr/local/bin/docker-entrypoint.sh: ignoring /docker-entrypoint-initdb.d/*
+postgres-1        | 
+postgres-1        | waiting for server to shut down...2026-10-19 00:32:37.576 UTC [47] LOG:  received fast shutdown request
+postgres-1        | .2026-10-19 00:32:37.576 UTC [47] LOG:  aborting any active transactions
+postgres-1        | 2026-10-19 00:32:37.577 UTC [47] LOG:  background worker "logical replication launcher" (PID 53) exited with exit code 1
+postgres-1        | 2026-10-19 00:32:37.578 UTC [48] LOG:  shutting down
+postgres-1        | 2026-10-19 00:32:37.579 UTC [48] LOG:  checkpoint starting: shutdown immediate
+postgres-1        | 2026-10-19 00:32:37.655 UTC [48] LOG:  checkpoint complete: wrote 926 buffers (5.7%); 0 WAL file(s) added, 0 removed, 0 recycled; write=0.066 s, sync=0.010 s, total=0.077 s; sync files=301, longest=0.009 s, average=0.001 s; distance=4273 kB, estimate=4273 kB; lsn=0/191F0E8, redo lsn=0/191F0E8
+postgres-1        | 2026-10-19 00:32:37.661 UTC [47] LOG:  database system is shut down
+postgres-1        |  done
+postgres-1        | server stopped
+postgres-1        | 
+postgres-1        | PostgreSQL init process complete; ready for start up.
+postgres-1        | 
+postgres-1        | 2026-10-19 00:32:37.691 UTC [1] LOG:  starting PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+postgres-1        | 2026-10-19 00:32:37.691 UTC [1] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+postgres-1        | 2026-10-19 00:32:37.691 UTC [1] LOG:  listening on IPv6 address "::", port 5432
+postgres-1        | 2026-10-19 00:32:37.692 UTC [1] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+postgres-1        | 2026-10-19 00:32:37.694 UTC [63] LOG:  database system was shut down at 2026-10-19 00:32:37 UTC
+postgres-1        | 2026-10-19 00:32:37.698 UTC [1] LOG:  database system is ready to accept connections
+postgres-1        | 2026-10-19 00:32:39.518 UTC [74] LOG:  statement: ALTER ROLE notes_app WITH LOGIN PASSWORD 'SCRAM-SHA-256$4096:RJRBPazXhSYuF0Khe65wag==$yKwua2XYGSb9HVqsZBpy11uw6RNfJ/7av68tGqH6Tpk=:BanqCd1lNQ02lFIUWRful6HeIui10B7BNJqVuQXmYkI='
+postgres-1        | 2026-10-19 00:32:39.521 UTC [74] LOG:  statement: 
+postgres-1        | 	  CREATE TABLE IF NOT EXISTS notes (
+postgres-1        | 	    id         bigserial PRIMARY KEY,
+postgres-1        | 	    body       text NOT NULL CHECK (length(body) BETWEEN 1 AND 280),
+postgres-1        | 	    created_at timestamptz NOT NULL DEFAULT now()
+postgres-1        | 	  )
+postgres-1        | 2026-10-19 00:32:39.524 UTC [74] LOG:  statement: REVOKE ALL ON notes FROM notes_app
+postgres-1        | 2026-10-19 00:32:39.524 UTC [74] LOG:  statement: GRANT SELECT, INSERT ON notes TO notes_app
+postgres-1        | 2026-10-19 00:32:39.525 UTC [74] LOG:  statement: GRANT USAGE ON SEQUENCE notes_id_seq TO notes_app
+postgres-1        | 2026-10-19 00:32:39.525 UTC [74] LOG:  statement: REVOKE CREATE ON SCHEMA public FROM PUBLIC
+postgres-1        | 2026-10-19 00:32:39.527 UTC [74] LOG:  statement: ALTER ROLE "postgres" WITH PASSWORD 'SCRAM-SHA-256$4096:t01lw/zgmAF3tMB9JWbyXg==$50McPWqIA85+0Iq8QJiZEVCwNY0f7q5NQjxUrwgncfw=:GcXtooikMsR4b08x2EdGl6q7vqxelcNm7/H2RrBHFRs='
+postgres-1        | 2026-10-19 00:33:02.357 UTC [153] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:tzYhY87jwUP0XJjuwA7X5A==$H+l3DoAI55BZFJhAvBbD90EWN8eZ5jskInAgyczvD/4=:AxH4QNqjzu1h6n5gA/iWwKk5vS7/6faolUz5FeF8u6E='
+postgres-1        | 2026-10-19 00:33:02.465 UTC [75] FATAL:  terminating connection due to administrator command
+postgres-1        | 2026-10-19 00:33:02.476 UTC [156] FATAL:  password authentication failed for user "notes_app"
+postgres-1        | 2026-10-19 00:33:02.476 UTC [156] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+postgres-1        | 2026-10-19 00:33:09.532 UTC [157] FATAL:  terminating connection due to administrator command
+postgres-1        | 2026-10-19 00:33:51.450 UTC [337] FATAL:  password authentication failed for user "postgres"
+postgres-1        | 2026-10-19 00:33:51.450 UTC [337] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 119: "host    all             all             127.0.0.1/32            scram-sha-256"
+postgres-1        | 2026-10-19 00:33:51.557 UTC [338] LOG:  statement: ALTER ROLE "notes_app" WITH PASSWORD 'SCRAM-SHA-256$4096:uzp/hA4avIgNifaOXEcx0Q==$QzuxbeeTQ9SuBDQjGXb0+0h33sGyMXtqOkl5HNdMrCM=:9rdXHYucRv3OWjYGOxm7JLvOHMpAAvvR3xuELrcdhaw='
+postgres-1        | 2026-10-19 00:33:51.832 UTC [330] FATAL:  terminating connection due to administrator command
+postgres-1        | 2026-10-19 00:33:51.841 UTC [341] FATAL:  password authentication failed for user "notes_app"
+postgres-1        | 2026-10-19 00:33:51.841 UTC [341] DETAIL:  Connection matched file "/var/lib/postgresql/data/pg_hba.conf" line 128: "host all all all scram-sha-256"
+otel-collector-1  | 2026-10-19T00:32:36.875Z	warn	builders/builders.go:40	"otlphttp" alias is deprecated; use "otlp_http" instead	{"resource": {"service.instance.id": "046f043e-736d-4e1a-a6fe-9efd5f7c77f5", "service.name": "otelcol-contrib", "service.version": "0.163.1"}, "otelcol.component.id": "otlphttp/victorialogs", "otelcol.component.kind": "exporter", "otelcol.signal": "logs"}
