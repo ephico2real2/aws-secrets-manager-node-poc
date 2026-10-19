@@ -83,6 +83,9 @@ jobs:
           python3 -c 'import yaml' 2>/dev/null || pip install --user --break-system-packages "pyyaml==$PYYAML_VERSION" >/dev/null
           python3 scripts/sync-event-pattern.py --check
 
+      - name: Every AWS resource is tagged from infra/tags.json (both templates and the aws workflow)
+        run: python3 scripts/tags-check.py
+
       - name: Every JavaScript file parses
         run: git ls-files '*.js' | xargs -n1 node --check
 

@@ -126,13 +126,19 @@ jobs:
           if [ -n "${{ vars.AWS_EXISTING_SM_ENDPOINT_ID }}" ]; then
             extra=(CreateSecretsManagerEndpoint=false "ExistingSecretsManagerEndpointId=${{ vars.AWS_EXISTING_SM_ENDPOINT_ID }}")
           fi
+          # Stack tags: CloudFormation passes them to every resource that takes tags (infra/tags.json).
+          mapfile -t tags < <(jq -r '.tags | to_entries[] | "\(.key)=\(.value)"' infra/tags.json)
+          tags+=("Stack=$STACK" "Environment=$SECRETS_ENV" "DeployedBy=github-actions")
+          echo "stack tags: ${tags[*]}"
           if ! aws cloudformation deploy \
               --stack-name "$STACK" \
               --template-file infra/cloudformation.yaml \
               --role-arn "${{ vars.AWS_CFN_EXEC_ROLE_ARN }}" \
               --capabilities CAPABILITY_IAM \
               --no-fail-on-empty-changeset \
+              --tags "${tags[@]}" \
               --parameter-overrides \
+                DeployedBy=github-actions \
                 VpcId="${{ vars.AWS_VPC_ID }}" \
                 AppSubnetId="${{ vars.AWS_APP_SUBNET_ID }}" \
                 DataSubnetIds="${{ vars.AWS_DATA_SUBNET_IDS }}" \

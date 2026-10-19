@@ -433,6 +433,8 @@ aws cloudformation deploy \
   --stack-name $STACK \
   --template-file infra/cloudformation.yaml \
   --capabilities CAPABILITY_IAM \
+  --tags $(jq -r '.tags | to_entries[] | "\(.key)=\(.value)"' infra/tags.json) \
+    Stack=$STACK Environment=dev DeployedBy=cli \
   --parameter-overrides \
     VpcId=$VPC \
     AppSubnetId=$SUBNET_A \
@@ -444,6 +446,7 @@ What the pieces mean:
 
 - `--stack-name` is the name for this whole group of resources. Keep it short and lowercase, with letters, numbers and hyphens only, starting with a letter. The template uses it in ElastiCache user names, which reject anything else.
 - `--capabilities CAPABILITY_IAM` is you saying "yes, I know this creates an IAM role." CloudFormation refuses without it.
+- `--tags` labels the stack, and CloudFormation copies the labels to every resource that takes them: `Project`, `Owner`, `Repository` and `ManagedBy` from [`infra/tags.json`](../infra/tags.json), then `Stack`, `Environment` and `DeployedBy`. The few places stack tags don't reach (the server's disk and network interface, the database's final snapshot) are tagged by the template itself. Tags let you find, cost and delete everything this stack made.
 - `--parameter-overrides` fills in the template's blanks with the IDs from C2 and C3.
 
 **Found an existing endpoint in Step 3?** Add these two values on the last line, after `AppArtifactBucket=$BUCKET`:
@@ -711,7 +714,16 @@ Deleting the stack removes almost everything in about 15 minutes. Three small le
    aws s3 rb s3://$BUCKET --force
    ```
 
-The two KMS keys (one for the secrets, one for the alert topics) are scheduled for deletion automatically when the stack goes, and the app's CloudWatch log group is deleted with it; you don't need to do anything.
+The two KMS keys (one for the secrets, one for the alert topics) are scheduled for deletion automatically when the stack goes, and AWS deletes them 7 days later; the app's CloudWatch log group is deleted with the stack. You don't need to do anything.
+
+**Check nothing else is left.** Every resource carries the tag `Stack=<your stack name>`, so one search finds anything that survived:
+
+```bash
+aws resourcegroupstaggingapi get-resources --tag-filters Key=Stack,Values=$STACK \
+  --query 'ResourceTagMappingList[].ResourceARN' --output text
+```
+
+Expect only the two KMS keys (`…:key/…`) during their 7 days. Not yet run on a real AWS account.
 
 **Check:**
 
@@ -740,6 +752,8 @@ No AWS keys are stored in GitHub. The job runs in a protected GitHub environment
    ```
 
    If your account already has GitHub's OIDC provider, add `--parameter-overrides CreateOidcProvider=false`.
+
+   **Set up before 2026-10-18?** Run the same command again. The updated template tags its own resources and lets the deploy role tag the stack (`cloudformation:TagResource`); without it, the next run stops with an access-denied error at "Deploy the stack".
 2. On GitHub, open the repository's **Settings → Environments → New environment**, name it `aws`, and add yourself under **Required reviewers**. Every run will then wait for your approval.
 3. In that environment, add these **variables** (not secrets; none of them is sensitive):
 

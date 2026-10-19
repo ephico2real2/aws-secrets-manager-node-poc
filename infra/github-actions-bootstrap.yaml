@@ -31,6 +31,11 @@ Parameters:
     AllowedValues: ['true', 'false']
     Default: 'true'
     Description: Set to false if the account already has the token.actions.githubusercontent.com provider.
+  DeployedBy:
+    Type: String
+    AllowedValues: [console, cli]
+    Default: console
+    Description: Who deployed this stack, for its DeployedBy tag (infra/tags.json).
 
 Conditions:
   MakeProvider: !Equals [!Ref CreateOidcProvider, 'true']
@@ -42,6 +47,14 @@ Resources:
     Properties:
       Url: https://token.actions.githubusercontent.com
       ClientIdList: [sts.amazonaws.com]
+      Tags:
+        - { Key: Project, Value: secure-notes }
+        - { Key: Owner, Value: ephico2real2 }
+        - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Stack, Value: !Ref 'AWS::StackName' }
+        - { Key: Environment, Value: shared }
+        - { Key: DeployedBy, Value: !Ref DeployedBy }
 
   ArtifactBucket:
     Type: AWS::S3::Bucket
@@ -60,6 +73,14 @@ Resources:
           - Id: expire-old-builds
             Status: Enabled
             ExpirationInDays: 30
+      Tags:
+        - { Key: Project, Value: secure-notes }
+        - { Key: Owner, Value: ephico2real2 }
+        - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Stack, Value: !Ref 'AWS::StackName' }
+        - { Key: Environment, Value: shared }
+        - { Key: DeployedBy, Value: !Ref DeployedBy }
 
   ArtifactBucketPolicy:
     Type: AWS::S3::BucketPolicy
@@ -94,12 +115,28 @@ Resources:
             Action: sts:AssumeRole
       ManagedPolicyArns:
         - !Sub arn:${AWS::Partition}:iam::aws:policy/AdministratorAccess
+      Tags:
+        - { Key: Project, Value: secure-notes }
+        - { Key: Owner, Value: ephico2real2 }
+        - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Stack, Value: !Ref 'AWS::StackName' }
+        - { Key: Environment, Value: shared }
+        - { Key: DeployedBy, Value: !Ref DeployedBy }
 
   GitHubDeployRole:
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Sub '${StackPrefix}-github-deploy'
       MaxSessionDuration: 7200
+      Tags:
+        - { Key: Project, Value: secure-notes }
+        - { Key: Owner, Value: ephico2real2 }
+        - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+        - { Key: ManagedBy, Value: cloudformation }
+        - { Key: Stack, Value: !Ref 'AWS::StackName' }
+        - { Key: Environment, Value: shared }
+        - { Key: DeployedBy, Value: !Ref DeployedBy }
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -130,6 +167,10 @@ Resources:
                   - cloudformation:DescribeStackResources
                   - cloudformation:DeleteStack
                   - cloudformation:GetTemplate
+                  - cloudformation:ListStackResources
+                  # CreateChangeSet and ExecuteChangeSet with stack tags depend on these two
+                  - cloudformation:TagResource
+                  - cloudformation:UntagResource
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:*:${AWS::AccountId}:stack/${StackPrefix}*/*
               - Sid: CloudFormationReadOnly
                 Effect: Allow
@@ -202,7 +243,21 @@ Resources:
                   - rds:DescribeDBSnapshots
                   - elasticache:DescribeUsers
                   - cloudtrail:LookupEvents
+                  # the tag check after deploy and the leftover search after teardown
+                  - tag:GetResources
+                  - ec2:DescribeVolumes
+                  - ec2:DescribeNetworkInterfaces
+                  - kms:DescribeKey
                 Resource: '*'
+              # RDS creates the database's secret itself, outside the template: the workflow
+              # tags it, and may add only our tag keys.
+              - Sid: TagTheRdsMadeSecret
+                Effect: Allow
+                Action: secretsmanager:TagResource
+                Resource: !Sub arn:${AWS::Partition}:secretsmanager:*:${AWS::AccountId}:secret:rds!*
+                Condition:
+                  ForAllValues:StringEquals:
+                    aws:TagKeys: [Project, Owner, Repository, ManagedBy, Stack, Environment, DeployedBy]
               - Sid: DeleteFinalSnapshots
                 Effect: Allow
                 Action: rds:DeleteDBSnapshot

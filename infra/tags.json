@@ -1,0 +1,56 @@
+{
+  "about": "The tags every AWS resource of Secure Notes carries (docs/modernization/plan-tags-and-teardown.md). The workflow passes them to CloudFormation as stack tags; scripts/tags-check.py holds the templates to them on every push.",
+  "tags": {
+    "Project": "secure-notes",
+    "Owner": "ephico2real2",
+    "Repository": "ephico2real2/aws-secrets-manager-node-poc",
+    "ManagedBy": "cloudformation"
+  },
+  "perDeploy": {
+    "Stack": "the stack name",
+    "Environment": "the template's Environment parameter (dev, uat, qa, prod); shared for the bootstrap stack",
+    "DeployedBy": "github-actions, cli or console: the template's DeployedBy parameter"
+  },
+  "untaggableTypes": {
+    "about": "Resource types whose CloudFormation schema says taggable: false (cfn-lint 1.57.2's copy of the AWS resource schemas). Each is attached to a tagged parent, except AWS::EC2::LaunchTemplate: it takes no Tags property, so it tags itself, its volumes and its network interfaces through TagSpecifications, which the check requires. A type that takes tags is covered by the stack tags; a type on neither side fails the check, so a new one gets reviewed.",
+    "types": [
+      "AWS::Config::ConfigRule",
+      "AWS::EC2::LaunchTemplate",
+      "AWS::EC2::SecurityGroupEgress",
+      "AWS::IAM::InstanceProfile",
+      "AWS::KMS::Alias",
+      "AWS::Lambda::Permission",
+      "AWS::Logs::MetricFilter",
+      "AWS::S3::BucketPolicy",
+      "AWS::SNS::Subscription",
+      "AWS::SNS::TopicPolicy",
+      "AWS::SecretsManager::ResourcePolicy",
+      "AWS::SecretsManager::RotationSchedule"
+    ]
+  },
+  "taggableTypes": {
+    "about": "Resource types whose CloudFormation schema says taggable: true (same source). CloudFormation gives them the stack tags; the bootstrap template, deployed from the console, names its tags itself.",
+    "types": [
+      "AWS::CloudTrail::Trail",
+      "AWS::CloudWatch::Alarm",
+      "AWS::EC2::Instance",
+      "AWS::EC2::SecurityGroup",
+      "AWS::EC2::VPCEndpoint",
+      "AWS::ElastiCache::ReplicationGroup",
+      "AWS::ElastiCache::SubnetGroup",
+      "AWS::ElastiCache::User",
+      "AWS::ElastiCache::UserGroup",
+      "AWS::Events::Rule",
+      "AWS::IAM::OIDCProvider",
+      "AWS::IAM::Role",
+      "AWS::KMS::Key",
+      "AWS::Lambda::Function",
+      "AWS::Logs::LogGroup",
+      "AWS::RDS::DBInstance",
+      "AWS::RDS::DBSubnetGroup",
+      "AWS::S3::Bucket",
+      "AWS::SNS::Topic",
+      "AWS::SecretsManager::Secret"
+    ]
+  }
+}

@@ -291,6 +291,26 @@ Evidence: [scripts/capture-local.sh](../../scripts/capture-local.sh), [scripts/c
 
 Evidence: [deploy/k8s/overlays/openshift/console-route.yaml](../../deploy/k8s/overlays/openshift/console-route.yaml), [scripts/openshift-build.sh](../../scripts/openshift-build.sh)
 
+#### F5.7 · Every AWS resource tagged; a teardown that proves it removed them · 🔜 · [#124](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/124)
+
+**S5.5 · Tags from one file, on every resource the templates make** · S · 🔜 · [#125](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/125)
+*As the owner of the AWS account, I want every resource of a Secure Notes stack tagged the same way, so that I can find it, cost it and prove it is gone.*
+- [x] `infra/tags.json`: Project, Owner, Repository, ManagedBy, plus Stack, Environment and DeployedBy per deploy; the workflow and GUIDE C4 pass them as stack tags.
+- [x] Where stack tags don't reach, the template names them: the launch template, the root volume and the network interface (TagSpecifications), the final snapshot (CopyTagsToSnapshot); the bootstrap stack tags its own resources.
+- [x] KMS keys are deleted 7 days after the stack; the deploy role may tag stacks (`cloudformation:TagResource`) and read tags.
+- [x] `scripts/tags-check.py` fails on an unreviewed resource type, a missing or wrong tag, or a workflow that stops passing the tags (seen to fail three ways).
+- [ ] CI's `checks` job runs `scripts/tags-check.py` on every push.
+
+Evidence: [infra/tags.json](../../infra/tags.json), [scripts/tags-check.py](../../scripts/tags-check.py), [plan](plan-tags-and-teardown.md)
+
+**S5.6 · On AWS: the tags checked after deploy, and nothing tagged left after teardown** · M · 🔜 · [#126](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/126)
+*As the owner of the AWS account, I want each run to prove its resources are tagged and then gone, so that a stack never leaves anything behind that costs money.*
+- [ ] After deploy, the workflow finds every taggable resource of the stack, and those AWS makes for it (root volume, network interface, the RDS-managed secret), and fails if one lacks a tag.
+- [ ] After teardown, the workflow searches for `Stack=<name>` and fails on anything but the KMS keys pending deletion (and the trail bucket, kept on purpose when `CreateTrail=true`).
+- [ ] Proven by a run of the `aws (Part C)` workflow on the owner's account.
+
+Evidence: [plan](plan-tags-and-teardown.md)
+
 ### E6 — Verification and evidence
 
 [#45](https://github.com/ephico2real2/aws-secrets-manager-node-poc/issues/45) · ✅ · **Outcome:** Every claim has an automated test that fails if it stops being true. Docs: [TEST-CASES](../TEST-CASES.md), [demo pages](../../demo/README.md)

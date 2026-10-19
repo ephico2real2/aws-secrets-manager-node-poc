@@ -10,6 +10,7 @@ or the stack, and the checklist for running it for real.
 | Control | Where | Why |
 |---|---|---|
 | **No keys anywhere** | EC2 instance role; IRSA on EKS/ROSA | The SDK gets short-lived credentials from the platform. Nothing to steal from disk or env. |
+| **Every resource tagged** | `infra/tags.json`, both templates, the `aws (Part C)` workflow; `scripts/tags-check.py` on every push | `Project`, `Owner`, `Repository`, `ManagedBy`, `Stack`, `Environment` and `DeployedBy` on every resource that takes tags, so nothing of a stack can hide, go uncosted or outlive its teardown unnoticed ([plan](../modernization/plan-tags-and-teardown.md)). |
 | **IMDSv2 required, hop limit 1** | `infra/cloudformation.yaml` | Blocks the SSRF attack that reads role credentials from `169.254.169.254`. |
 | **Least-privilege IAM, bound to the VPC endpoint** | `AppRole`, `infra/iam-policy.example.json` | Read-only, two secret ARNs, only via `aws:SourceVpce`; `kms:Decrypt` only through Secrets Manager. |
 | **Secrets only in memory** | `backend/src/secrets/provider.js` | Never in files, env vars, CLI args, Kubernetes Secrets or ConfigMaps. |

@@ -459,6 +459,24 @@ _E["E5"]["children"].append(
        "`overlays/openshift-local` with `scripts/openshift-build.sh`: BuildConfigs build both images from HEAD for the cluster's CPU; image lookup resolves the short names.",
        "Run on OpenShift Local (CRC) end to end, including `k8s-check.sh` (the owner: CI has no OpenShift)."]),
   ], docs=[d("deploy/README.md", "deploy/"), d("docs/GUIDE.md", "GUIDE Part B")]))
+# ---- every AWS resource tagged, and a teardown that proves it (the owner's requirement, 2026-10-18) ----
+_E["E5"]["children"].append(
+  F("F5.7", "Every AWS resource tagged; a teardown that proves it removed them", [
+    S("S5.5", "Tags from one file, on every resource the templates make", "S",
+      "As the owner of the AWS account, I want every resource of a Secure Notes stack tagged the same way, so that I can find it, cost it and prove it is gone.",
+      ["`infra/tags.json`: Project, Owner, Repository, ManagedBy, plus Stack, Environment and DeployedBy per deploy; the workflow and GUIDE C4 pass them as stack tags.",
+       "Where stack tags don't reach, the template names them: the launch template, the root volume and the network interface (TagSpecifications), the final snapshot (CopyTagsToSnapshot); the bootstrap stack tags its own resources.",
+       "KMS keys are deleted 7 days after the stack; the deploy role may tag stacks (`cloudformation:TagResource`) and read tags.",
+       "`scripts/tags-check.py` fails on an unreviewed resource type, a missing or wrong tag, or a workflow that stops passing the tags (seen to fail three ways).",
+       "CI's `checks` job runs `scripts/tags-check.py` on every push."],
+      evidence=[d("infra/tags.json"), d("scripts/tags-check.py"), d("docs/modernization/plan-tags-and-teardown.md", "plan")]),
+    S("S5.6", "On AWS: the tags checked after deploy, and nothing tagged left after teardown", "M",
+      "As the owner of the AWS account, I want each run to prove its resources are tagged and then gone, so that a stack never leaves anything behind that costs money.",
+      ["After deploy, the workflow finds every taggable resource of the stack, and those AWS makes for it (root volume, network interface, the RDS-managed secret), and fails if one lacks a tag.",
+       "After teardown, the workflow searches for `Stack=<name>` and fails on anything but the KMS keys pending deletion (and the trail bucket, kept on purpose when `CreateTrail=true`).",
+       "Proven by a run of the `aws (Part C)` workflow on the owner's account."], aws=True,
+      evidence=[d("docs/modernization/plan-tags-and-teardown.md", "plan")]),
+  ], docs=[d("docs/modernization/plan-tags-and-teardown.md", "plan"), d("docs/GUIDE.md", "GUIDE C4, C10, C11")]))
 _E["E7"]["children"].append(
   F("F7.8", "Folder READMEs and a handover", [
     S("S7.7", "A README in every folder, and a docs index", "S",
@@ -547,6 +565,8 @@ for _it in _all_items():
             (1, "`scripts/podman.env` sets both variables, in bash or zsh, on macOS."),
             (1, "CI job `compose (podman)` runs Part A on rootless Podman on Linux: docker CLI 28.0.4 to Podman 4.9.3, `compose-check.sh` passed (run 39173929084).")]
         _it["evidence"] += [d("demo/test-case-10-kubernetes.md", "test case 10: the lab on Podman"), d("docs/GUIDE.md", "GUIDE B1: Podman instead of Docker")]
+    if _it["id"] == "S5.5":   # all but the last criterion proven locally (the check seen to fail three ways); the last waits for CI
+        _it["criteria"] = [(1, t) for _, t in _it["criteria"][:-1]] + [(0, _it["criteria"][-1][1])]
     if _it["id"] == "S5.4":   # both measured on the owner's MacBook, 2026-10-18
         _it["criteria"] = [(1, t) for _, t in _it["criteria"]]
     # Parked by the owner on 2026-10-18: CRC was deleted on their Mac on 2026-10-13 and is restored later.

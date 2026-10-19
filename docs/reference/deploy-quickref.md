@@ -110,6 +110,7 @@ aws cloudformation deploy \
   --stack-name secure-notes \
   --template-file infra/cloudformation.yaml \
   --capabilities CAPABILITY_IAM \
+  --tags $(jq -r '.tags | to_entries[] | "\(.key)=\(.value)"' infra/tags.json) Stack=secure-notes Environment=dev DeployedBy=cli \
   --parameter-overrides \
       VpcId=vpc-xxxx AppSubnetId=subnet-app \
       DataSubnetIds=subnet-a,subnet-b \

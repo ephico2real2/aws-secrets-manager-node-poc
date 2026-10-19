@@ -32,6 +32,13 @@ Parameters:
     Description: >-
       The {env} part of the secret naming convention: the Redis secret is named
       /elasticache/<Environment>/<stack name>/app (docs/reference/secret-naming.md).
+  DeployedBy:
+    Type: String
+    AllowedValues: [github-actions, cli, console]
+    Default: cli
+    Description: >-
+      Who deployed the stack, for its DeployedBy tag (infra/tags.json). The aws (Part C) workflow
+      passes github-actions; the guide's C4 passes cli.
   SecretAdminRoleArn:
     Type: String
     Default: ''
@@ -126,6 +133,7 @@ Resources:
     Properties:
       Description: Encrypts Secure Notes secrets, RDS storage and ElastiCache data
       EnableKeyRotation: true
+      PendingWindowInDays: 7 # after the stack is deleted; the minimum, for a test stack
       KeyPolicy:
         Version: '2012-10-17'
         Statement:
@@ -148,6 +156,7 @@ Resources:
     Properties:
       Description: Encrypts the Secure Notes alert topics
       EnableKeyRotation: true
+      PendingWindowInDays: 7 # after the stack is deleted; the minimum, for a test stack
       KeyPolicy:
         Version: '2012-10-17'
         Statement:
@@ -293,6 +302,7 @@ Resources:
       DBSubnetGroupName: !Ref DbSubnetGroup
       VPCSecurityGroups: [!Ref DbSecurityGroup]
       BackupRetentionPeriod: 1
+      CopyTagsToSnapshot: true # the final snapshot left on delete carries the stack tags too
       DeletionProtection: false # demo; turn on for real workloads
 
   # ---------------------------------------------------------- ElastiCache ----
@@ -1218,10 +1228,41 @@ Resources:
       Source: { Owner: AWS, SourceIdentifier: EC2_IMDSV2_CHECK }
 
   # ------------------------------------------------------------ instance ----
+  # Stack tags don't reach a launch template, nor the root volume and network interface the
+  # instance gets from it, so it names the tags itself (infra/tags.json; scripts/tags-check.py).
   AppLaunchTemplate:
     Type: AWS::EC2::LaunchTemplate
     Properties:
+      TagSpecifications:
+        - ResourceType: launch-template
+          Tags:
+            - { Key: Project, Value: secure-notes }
+            - { Key: Owner, Value: ephico2real2 }
+            - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+            - { Key: ManagedBy, Value: cloudformation }
+            - { Key: Stack, Value: !Ref 'AWS::StackName' }
+            - { Key: Environment, Value: !Ref Environment }
+            - { Key: DeployedBy, Value: !Ref DeployedBy }
       LaunchTemplateData:
+        TagSpecifications:
+          - ResourceType: volume
+            Tags:
+              - { Key: Project, Value: secure-notes }
+              - { Key: Owner, Value: ephico2real2 }
+              - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+              - { Key: ManagedBy, Value: cloudformation }
+              - { Key: Stack, Value: !Ref 'AWS::StackName' }
+              - { Key: Environment, Value: !Ref Environment }
+              - { Key: DeployedBy, Value: !Ref DeployedBy }
+          - ResourceType: network-interface
+            Tags:
+              - { Key: Project, Value: secure-notes }
+              - { Key: Owner, Value: ephico2real2 }
+              - { Key: Repository, Value: ephico2real2/aws-secrets-manager-node-poc }
+              - { Key: ManagedBy, Value: cloudformation }
+              - { Key: Stack, Value: !Ref 'AWS::StackName' }
+              - { Key: Environment, Value: !Ref Environment }
+              - { Key: DeployedBy, Value: !Ref DeployedBy }
         MetadataOptions:
           HttpTokens: required # IMDSv2 only: blocks SSRF theft of role credentials
           HttpPutResponseHopLimit: 1 # token cannot leave the host (e.g. into containers)

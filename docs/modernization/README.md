@@ -89,5 +89,6 @@ logs-first alerting: E8, then E9 and E11 in parallel, E10, and E12 on AWS
 2. [ADR-001](02-adr-001-secrets-manager-selection.md): which tool, and why
 3. [Backlog](backlog.md): the epics, features and stories
 4. [Plan E8–E15](plan-e8-e15.md): logs-first alerting, the detection lab, version folders
-5. [Parked: OpenBao and Vault](parked-openbao-vault.md)
-6. The [learning path](../learn/README.md): the story for the whole team
+5. [Plan: tags and teardown](plan-tags-and-teardown.md): every AWS resource tagged, and a run that proves it removed them
+6. [Parked: OpenBao and Vault](parked-openbao-vault.md)
+7. The [learning path](../learn/README.md): the story for the whole team

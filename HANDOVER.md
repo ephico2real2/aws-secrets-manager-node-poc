@@ -111,6 +111,7 @@ scripts/compose-check.sh                 # end-to-end, alert paths and the crede
 | `deploy/k8s/` | Kustomize: base, components, overlays `kind`, `openshift` (two Routes), `openshift-local` (images built on the cluster), `aws`, and `mirror` (generated) |
 | `infra/cloudformation.yaml` | The EC2 stack: VPC endpoint, KMS keys, RDS with a managed secret, ElastiCache with an RBAC user and a rotation function, alert topics, CloudWatch agent, **generated** metric filters and alarms, and `SecretReadAlertRule` |
 | `infra/github-actions-bootstrap.yaml` | OIDC role for the manual `aws.yaml` workflow |
+| `infra/tags.json` | The tags every AWS resource carries (`Project`, `Owner`, `Repository`, `ManagedBy`, plus `Stack`, `Environment`, `DeployedBy`) and the reviewed lists of taggable and untaggable resource types; `scripts/tags-check.py` holds both templates and the workflow to it |
 | `versions/v0-env-file/` | The "before" app and `leak.sh` |
 | `scripts/` | `bootstrap/macos.sh` and `bootstrap/linux.sh` (set up a machine), `preflight.sh` (check it), `podman.env` (source it: the docker CLI and kind at Podman), `kind-up.sh` / `kind-down.sh`, `openshift-build.sh`, `compose-check.sh`, `k8s-check.sh`, `alerts-check.sh`, `pipeline-check.sh` (the log pipeline, and a warning that goes to chat only), `credential-scan.sh` (searches for the real values), `capture-local.sh` (CI's checked walk, on your machine), `k8s-deploy.sh`, `images-build.sh`, `mirror-images.sh`, `scan-images.sh`, `package.sh`, the `sync-*` generators, `capture/` (Playwright walks with text assertions), `backlog/` (issues and backlog generator), `versions.env` (all pins) |
 | `docs/learn/` | Learning path, chapters 1–7 (chapter 7 is alerts and audit) |
@@ -147,6 +148,7 @@ Open stories at handover:
 | Issue | Story | Needs |
 | --- | --- | --- |
 | #91 | **S12.5 Prove it on AWS**: a denied read raises the secret-read alert; a test log event trips an alarm; TestEventPattern fixtures match the mock; a batch read's text names the secret | an AWS account; run `aws.yaml`. This also closes #34, #86, #87, #89, #90 |
+| S5.6 | **On AWS: tags checked after deploy, nothing tagged left after teardown** (plan: `docs/modernization/plan-tags-and-teardown.md`, steps 4–5) | build next; proven only by an `aws.yaml` run |
 | #115 | S12.6 Close the by-name gap for the RDS-managed secret (match `detail.resources.ARN` if CloudTrail carries it) | AWS first, to confirm the record shape |
 | #30, #31 | S4.1, S4.1b Resource policies on the secrets | AWS verification |
 | #32, #37, #38 | S4.4 least-privilege DB user; S4.5 IAM auth spike; S4.6 replica secrets and egress | design and AWS |
@@ -178,6 +180,10 @@ screenshots and logs to the **`ci-captures`** branch, one folder per run and job
 branch.
 
 ## 8. Waiting on the owner
+
+**Before the next AWS run,** deploy the bootstrap stack again (GUIDE C11, step 1): since
+2026-10-18 the workflow tags the stack, which needs `cloudformation:TagResource` on the deploy
+role. Without it the run stops at "Deploy the stack" with access denied.
 
 Create the two milestone releases. Go to Actions → **milestone** → Run workflow:
 
