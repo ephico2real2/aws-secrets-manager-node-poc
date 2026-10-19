@@ -2,10 +2,11 @@
 
 **Read this file first, then follow it.** It holds everything a new AI agent (Claude Code or
 any other) needs to pick the work up where it stopped. The last session ended on
-2026-10-18; the last code change is commit `1b29593`, with every CI job green (run
-39179859513). That session ran the lab on the owner's MacBook on Podman (section 11), closed
-#114, #118, #123 and #125, parked #119, and tagged every AWS resource (#124: S5.6, #126, waits
-for an AWS run).
+2026-10-18; the last code change is commit `8df9a05`, with every CI job green (run
+39192729239). That session ran the lab on the owner's MacBook on Podman (section 11), closed
+#114, #118, #123 and #125, parked #119, tagged every AWS resource (#124: S5.6, #126, waits
+for an AWS run), and made the AWS and GitHub setup one command (#127: S5.7, #128, waits for
+the owner to run it, section 8).
 
 Paste this into a new session to start:
 

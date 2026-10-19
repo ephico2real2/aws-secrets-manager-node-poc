@@ -319,7 +319,7 @@ Evidence: [plan](plan-tags-and-teardown.md)
 - [ ] `scripts/aws-bootstrap.py` uses the signed-in profile (`aws login` or `aws sso login`, no keys stored); it finds the network (the default VPC, two subnets in different zones, or checks the ones given), GitHub's OIDC provider and an existing Secrets Manager endpoint, prints the plan, and changes nothing until it is confirmed.
 - [ ] It deploys `infra/github-actions-bootstrap.yaml` with the stack tags of `infra/tags.json`, then creates the GitHub environment `aws` (the signed-in user as required reviewer, deployments from `main` only) and sets its variables from the stack's outputs.
 - [ ] The bootstrap stack is named outside the deploy role's `secure-notes` prefix, and the template denies the deploy role any change to it (`NeverTheBootstrapStack`).
-- [ ] `scripts/aws-bootstrap.py` decides right on canned AWS and GitHub answers: 19 unit tests in CI's `checks` job.
+- [x] `scripts/aws-bootstrap.py` decides right on canned AWS and GitHub answers: 19 unit tests in CI's `checks` job. Green in run 39192729239.
 - [ ] Run on the owner's account: the stack deploys, the variables are set, and the `aws (Part C)` workflow starts from them.
 
 Evidence: [scripts/aws-bootstrap.py](../../scripts/aws-bootstrap.py), [infra/github-actions-bootstrap.yaml](../../infra/github-actions-bootstrap.yaml)
